@@ -1,12 +1,30 @@
 package main
+
 import (
- "fmt"
- "net/http"
+	"log"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
-func handler(writer http.ResponseWriter, request *http.Request) {
- fmt.Fprintf(writer, "Hello World, %s!", request.URL.Path[1:])
+
+type Game struct{}
+
+func (g *Game) Update() error {
+	return nil
 }
+
+func (g *Game) Draw(screen *ebiten.Image) {
+	ebitenutil.DebugPrint(screen, "uhhh")
+}
+
+func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
+	return 320, 240
+}
+
 func main() {
- http.HandleFunc("/", handler)
- http.ListenAndServe(":8080", nil)
+	ebiten.SetWindowSize(640, 480)
+	ebiten.SetWindowTitle("命との約束")
+	if err := ebiten.RunGame(&Game{}); err != nil {
+		log.Fatal(err)
+	}
 }
