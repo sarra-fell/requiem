@@ -992,7 +992,7 @@ function initializeScene(sceneName){
     } else if (sceneName === "adventure"){
         scene.buttons = adventureButtons;
         scene.tileSize = 32;
-        showDevInfo = false;
+        //showDevInfo = false;
 
         // Player location is the location used for logic, graphic location is the location to draw them at
         scene.playerLocation = scene.playerGraphicLocation = [128*2,208*2];
