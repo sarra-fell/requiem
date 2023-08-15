@@ -120,7 +120,7 @@ function processLevelData(data) {
     level0.gridHeight = collisionLayerData.__cHei;
     for (let i in entityLayerData.entityInstances){
         const e = entityLayerData.entityInstances[i];
-        level0.entities.push({id: e.__identifier, px: e.px});
+        level0.entities.push({id: e.__identifier, px: e.px, src: [32,0]});
     }
     for (let i in dirtLayerData.gridTiles){
         const t = dirtLayerData.gridTiles[i];
@@ -209,6 +209,7 @@ var characterFaces = {witch: witchfaces, andro: androfaces};
 var characterBitrates = {gloria: 64 ,andro: 32, witch: 32};*/
 
 var characterSpritesheets={},characterFaces={},characterBitrates={};
+const faceBitrate = 96;
 
 // Constants to indicate tile type
 const WATER = 0;
@@ -407,12 +408,7 @@ let tatakauButtons = [loveButton,backToHomeButton];
 let adventureButtons = [loveButton,backToHomeButton];
 
 /*
-    User input (mouse + keyboard)
-
-    Text input solution #1 is to implement it myself with just canvas. Comes with many downsides but
-the plus is that it is simple and easy to understand the modify the behavior. Has been working better than
-I thought it would so will probably stick with it for a while. The other two methods are using a dom element and
-importing someone else's more intracate solution.
+    User input section (mouse + keyboard)
 
      scene.inputting is set to true when input needs to be collected and set false by the same source when
 the text is finished being processed
@@ -427,7 +423,7 @@ the player pressed enter
 let downPressed=false,upPressed=false,leftPressed=false,rightPressed=false;
 
 // variables set to be true by input event listeners and set back to false after being handled by scene update
-let zReleased=false,xReleased=false;
+let zClicked=false,xClicked=false;
 
 // for player movement
 let currentDirection = null;
@@ -446,6 +442,8 @@ window.addEventListener('keydown',function(e) {
        case 'ArrowRight': rightPressed=true; currentDirection="right"; break;
        case 'ArrowDown': downPressed=true; currentDirection="down"; break;
        case 'Enter': scene.finishedInputting=true; break;
+       case 'x': xClicked=true;
+       case 'z': zClicked=true;
        default: if(!scene.finishedInputting){
            switch (e.key) {
               case 'Backspace': if(scene.textEntered.length>0){
@@ -484,8 +482,7 @@ window.addEventListener('keyup',function(e) {
        case 'ArrowDown': downPressed=false; if (currentDirection==="down") reassignCurrentDirection(); break;
        case '=': isLoggingFrame=true; break;
        case '~': showDevInfo=!showDevInfo; break;
-       case 'x': xReleased=true; break;
-       case 'z': zReleased=true; break;
+
        default: break;
    }
 },false);
@@ -923,12 +920,21 @@ function drawCharacter(character, src, x, y){
     }
 }
 
+// Called when dialogue with a character begins
+function initializeDialogue(character, timeStamp){
+    scene.dialogueStartTime = timeStamp;
+    scene.dialogue = "Hi!";
+    console.log(character);
+    scene.dialogueFaces = characterFaces[character];
+    scene.dialogueFaceSrc = [0,0];
+}
+
 // Checks if a tile is marked for collision or not. Scene must be adventure scene.
 // checkAdjacent to be set to "up" "left" "right" or "down" or to be left undefined
 // - if defined, checks that adjacent tile instead of the one directly indicated by the x and y
 // Returns:
 // null for no collision, "bounds" for level boundary collision, returns the num of the collision tile if collision tile, or
-//returns id of entity if entity
+//returns the reference to the entity object that was collided for entity collision
 function isCollidingOnTile(x, y, checkAdjacent = false){
     if(checkAdjacent){
         if(checkAdjacent === "down"){
@@ -960,7 +966,8 @@ function isCollidingOnTile(x, y, checkAdjacent = false){
             //let entityTileNum = getTileNum(level0.entities[i].px[0],level0.entities[i].px[1])
 
             if (level0.entities[i].px[0]*2===x && level0.entities[i].px[1]*2===y){
-                return level0.entities[i].id;
+                //return level0.entities[i].id;
+                return level0.entities[i];
             }
         }
     }
@@ -1011,7 +1018,10 @@ function initializeScene(sceneName){
         // Switch foots each step taken
         scene.whichFoot = 0;
 
-        scene.currentDialogue = `Now, you will die. Very sorry about that. Beautiful madness, Requiem heartless. I dreamed of a mem'ry of before, Something I desired, something I mourned. Now, after the pain, after the tears: Fuel furious void, absence of fear`;
+        scene.dialogueStartTime = 0;
+        scene.dialogue = "";
+        scene.dialogueFaces = null;
+        scene.dialogueFaceSrc = [0,0];
     }
 
     // Register dictionary lookup tooltip boxes from buttons that are japanese
@@ -1037,7 +1047,7 @@ function initializeScene(sceneName){
             }
         }
     }
-    xReleased = zReleased = false;
+    xClicked = zClicked = false;
 }
 
 /*
@@ -1110,52 +1120,75 @@ function updateTatakau(timeStamp){
 }
 
 function updateAdventure(timeStamp){
-    if(currentDirection === "down"){
-        scene.playerSrc = [32,0];
-    } else if (currentDirection === "left") {
-        scene.playerSrc = [32,32];
-    } else if(currentDirection === "right"){
-        scene.playerSrc = [32,32*2];
-    } else if(currentDirection === "up"){
-        scene.playerSrc = [32,32*3];
-    }
-    if(scene.movingDirection===null){
-        if(currentDirection === "down" && downPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"down")===null){
-            scene.playerLocation[1]+=32;
-            scene.movingDirection = "down";
-            scene.startedMovingTime = timeStamp;
-        } else if(currentDirection === "left" && leftPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"left")===null){
-            scene.playerLocation[0]-=32;
-            scene.movingDirection = "left";
-            scene.startedMovingTime = timeStamp;
-        } else if(currentDirection === "right" && rightPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"right")===null){
-            scene.playerLocation[0]+=32;
-            scene.movingDirection = "right";
-            scene.startedMovingTime = timeStamp;
-        } else if(currentDirection === "up" && upPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"up")===null){
-            scene.playerLocation[1]-=32;
-            scene.movingDirection = "up";
-            scene.startedMovingTime = timeStamp;
+    if(scene.dialogue !== ""){
+        //Something maybe
+    } else {
+        if(currentDirection === "down"){
+            scene.playerSrc = [32,0];
+        } else if (currentDirection === "left") {
+            scene.playerSrc = [32,32];
+        } else if(currentDirection === "right"){
+            scene.playerSrc = [32,32*2];
+        } else if(currentDirection === "up"){
+            scene.playerSrc = [32,32*3];
         }
-        //note = scene.playerLocation;
-    } else if(movingAnimationDuration + scene.startedMovingTime < timeStamp){
-        scene.movingDirection = null;
-        scene.playerGraphicLocation = scene.playerLocation;
-        scene.playerSrc[0]=32;
-        scene.whichFoot = (scene.whichFoot+1)%2;
-    }
-    if(xReleased){
-        xReleased = false;
-    }
-    if(zReleased){
-        let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],currentDirection);
-        note = typeof collision;
-        if(typeof collision === "string"){
-            note = `Talking with ${collision}!`;
-        } else if(typeof collision === "number"){
-            note = `Talking with the water instead of hot guy...`;
+        if(scene.movingDirection===null && scene.dialogue === ""){
+            if(currentDirection === "down" && downPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"down")===null){
+                scene.playerLocation[1]+=32;
+                scene.movingDirection = "down";
+                scene.startedMovingTime = timeStamp;
+            } else if(currentDirection === "left" && leftPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"left")===null){
+                scene.playerLocation[0]-=32;
+                scene.movingDirection = "left";
+                scene.startedMovingTime = timeStamp;
+            } else if(currentDirection === "right" && rightPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"right")===null){
+                scene.playerLocation[0]+=32;
+                scene.movingDirection = "right";
+                scene.startedMovingTime = timeStamp;
+            } else if(currentDirection === "up" && upPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"up")===null){
+                scene.playerLocation[1]-=32;
+                scene.movingDirection = "up";
+                scene.startedMovingTime = timeStamp;
+            }
+            //note = scene.playerLocation;
+        } else if(movingAnimationDuration + scene.startedMovingTime < timeStamp){
+            scene.movingDirection = null;
+            scene.playerGraphicLocation = scene.playerLocation;
+            scene.playerSrc[0]=32;
+            scene.whichFoot = (scene.whichFoot+1)%2;
         }
-        zReleased = false;
+    }
+    if(xClicked){
+        if(scene.dialogue !== ""){
+            scene.dialogue = "";
+        }
+        xClicked = false;
+    }
+    if(zClicked){
+        if(scene.dialogue !== ""){
+            currentDirection = null;
+            scene.dialogue = "";
+        } else {
+            let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],currentDirection);
+            if(collision !== null && typeof collision === "object"){
+                note = `Talking with ${collision.id}!`;
+                if(currentDirection === "down"){
+                    collision.src[1] = spritesheetOrientationPosition.up * 32;
+                } else if (currentDirection === "right"){
+                    collision.src[1] = spritesheetOrientationPosition.left * 32;
+                } else if (currentDirection === "left"){
+                    collision.src[1] = spritesheetOrientationPosition.right * 32;
+                } else {
+                    collision.src[1] = spritesheetOrientationPosition.down * 32;
+                }
+                initializeDialogue(collision.id.toLowerCase(),timeStamp);
+            } else if(collision === 1){
+                note = `Talking with the water instead of hot guy...`;
+            } else {
+                note = `Stop being lonely and talk to a hot guy already...`;
+            }
+        }
+        zClicked = false;
     }
 }
 
@@ -1328,7 +1361,7 @@ function drawTatakau(timeStamp){
             scene.finishedInputting = false;
         }
     } else {
-        throw("Loading took wayyyyy too long also you have negative bitches");
+        throw("Loading took wayyyyy too long also ur a stupid bitch");
     }
 }
 
@@ -1344,22 +1377,30 @@ function drawAdventure(timeStamp){
         drawTile(DIRT, level0.dirt[i].src, scene.worldX+level0.dirt[i].px[0]*2, scene.worldY+level0.dirt[i].px[1]*2);
     }
 
-    // Draw dialogue box
-    context.fillStyle = 'hsl(0, 0%, 90%, 20%)';
-    context.beginPath();
-    context.roundRect(scene.worldX+2, scene.worldY+40+scene.tileSize*16, scene.tileSize*16, 105, 5);
-    context.fill();
-
     context.font = '16px zenMaruRegular';
-    context.textAlign = 'start';
-    context.fillStyle = 'white';
+    context.fillStyle = textColor;
+    context.fillText("Press Z to interact",scene.worldX+15, scene.worldY+30+scene.tileSize*16);
+
+    // Draw dialogue box
+    if(scene.dialogue !== ""){
+        context.fillStyle = 'hsl(0, 100%, 0%, 70%)';
+        context.beginPath();
+        context.roundRect(scene.worldX+2, scene.worldY+scene.tileSize*16-105, scene.tileSize*16, 105, 13);
+        context.fill();
+
+        context.fillStyle = textColor;
+        context.drawImage(scene.dialogueFaces, scene.dialogueFaceSrc[0], scene.dialogueFaceSrc[1], faceBitrate, faceBitrate, scene.worldX+5, scene.worldY+scene.tileSize*16-100, 96, 96);
+        context.fillText(scene.dialogue,scene.worldX+120, scene.worldY+scene.tileSize*16-80);
+    }
+
+    /*context.textAlign = 'start';
     let wrappedText = wrapText(context, scene.currentDialogue, scene.worldX+15, scene.worldY+67+scene.tileSize*16, scene.tileSize*16-30, 21);
     wrappedText.forEach(function(item) {
         // item[0] is the text
         // item[1] is the x coordinate to fill the text at
         // item[2] is the y coordinate to fill the text at
         context.fillText(item[0], item[1], item[2]);
-    });
+    });*/
 
     // Draw player
     if(scene.movingDirection !== null){
@@ -1387,7 +1428,7 @@ function drawAdventure(timeStamp){
     for (let i in level0.entities){
         const e = level0.entities[i];
         //alert(e.px[1]);
-        drawCharacter(e.id.toLowerCase(),[32,0],e.px[0]*2+scene.worldX,e.px[1]*2+scene.worldY);
+        drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*2+scene.worldX,e.px[1]*2+scene.worldY);
     }
     drawCharacter("witch",scene.playerSrc,scene.worldX+scene.playerGraphicLocation[0],scene.worldY+scene.playerGraphicLocation[1]);
 
@@ -1593,6 +1634,8 @@ function init(){
         characterFaces[c] = faces;
         characterBitrates[c] = 32;
     }
+
+    console.log(characterFaces.gladius.src);
 
     // Get a reference to the canvas
     canvas = document.getElementById('canvas');
