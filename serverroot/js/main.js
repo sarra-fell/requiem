@@ -96,6 +96,55 @@ kanjiClient.onload = handleKanjiData;
 kanjiClient.open("GET", "assets/kanji.txt");
 kanjiClient.send();
 
+// Contains all dialogue data directly from the file. Not to be modified after load.
+var dialogueFileData = {
+    andro: [],
+    gladius: [],
+};
+
+// Loads the data !!!
+let dialogueLoaded = false;
+function processDialogueData(data) {
+    const splitLines = str => str.split(/\r?\n/);
+    let splitData = splitLines(data);
+
+    for(let i in splitData){
+        const dialogueData = splitData[i].split('+');
+        if(dialogueData.length < 2){
+            break;
+        }
+        const character = dialogueData[0];
+        const dialogueLinesAndFaces = dialogueData.slice(1);
+
+        let faceData = [];
+        let dialogueLineData = [];
+        // Split dialogue and faces
+        for(let j in dialogueLinesAndFaces){
+            faceData.push(dialogueLinesAndFaces[j].substring(0,2));
+            dialogueLineData.push(dialogueLinesAndFaces[j].substring(3));
+        }
+        //console.log(character);
+        dialogueFileData[character].push({
+            faces:faceData,
+            lines:dialogueLineData,
+        });
+    }
+    dialogueLoaded = true;
+}
+
+function handleDialogueData() {
+    if(this.status == 200) {
+        processDialogueData(this.responseText);
+    } else {
+        alert("Handling kanji data: Status " + this.status + ". We have failed and (chou redacted).");
+    }
+}
+
+var dialogueClient = new XMLHttpRequest();
+dialogueClient.onload = handleDialogueData;
+dialogueClient.open("GET", "assets/dialogue.txt");
+dialogueClient.send();
+
 var level0 = {
     gridWidth: -1,
     gridHeight: -1,
@@ -136,7 +185,7 @@ function processLevelData(data) {
     }
     level0.collisions = collisionLayerData.intGridCsv;
     if(level0.water.length < 2){
-        throw "You have no water and no hot guys";
+        throw "You have no water and no hot boyfriend";
     }
 }
 
@@ -388,7 +437,7 @@ let adventureButton = {
             this.color = this.neutralColor;
             scene.switchScene = "adventure";
         } else {
-            throw "images arent loaded yet and you have negative bitches";
+            throw "images arent loaded yet stupid";
         }
 
     }
@@ -922,11 +971,12 @@ function drawCharacter(character, src, x, y){
 
 // Called when dialogue with a character begins
 function initializeDialogue(character, timeStamp){
-    scene.dialogueStartTime = timeStamp;
-    scene.dialogue = "Hi!";
-    console.log(character);
-    scene.dialogueFaces = characterFaces[character];
-    scene.dialogueFaceSrc = [0,0];
+    scene.dialogue = {
+        startTime: timeStamp,
+        currentLine: 0,
+        faces: dialogueFileData[character][0].faces,
+        lines: dialogueFileData[character][0].lines,
+    };
 }
 
 // Checks if a tile is marked for collision or not. Scene must be adventure scene.
@@ -1018,10 +1068,14 @@ function initializeScene(sceneName){
         // Switch foots each step taken
         scene.whichFoot = 0;
 
-        scene.dialogueStartTime = 0;
-        scene.dialogue = "";
-        scene.dialogueFaces = null;
-        scene.dialogueFaceSrc = [0,0];
+        // Object that holds dialogue data
+        scene.dialogue = null;
+        /* scene.dialogue is null when there is no current dialogue, or an object with these properties:
+            startTime (number)
+            currentLine (number of the current index for faces and lines to be displayed)
+            faces (array)
+            lines (array)
+        */
     }
 
     // Register dictionary lookup tooltip boxes from buttons that are japanese
@@ -1120,7 +1174,7 @@ function updateTatakau(timeStamp){
 }
 
 function updateAdventure(timeStamp){
-    if(scene.dialogue !== ""){
+    if(scene.dialogue !== null){
         //Something maybe
     } else {
         if(currentDirection === "down"){
@@ -1132,7 +1186,7 @@ function updateAdventure(timeStamp){
         } else if(currentDirection === "up"){
             scene.playerSrc = [32,32*3];
         }
-        if(scene.movingDirection===null && scene.dialogue === ""){
+        if(scene.movingDirection===null && scene.dialogue === null){
             if(currentDirection === "down" && downPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"down")===null){
                 scene.playerLocation[1]+=32;
                 scene.movingDirection = "down";
@@ -1159,15 +1213,24 @@ function updateAdventure(timeStamp){
         }
     }
     if(xClicked){
-        if(scene.dialogue !== ""){
-            scene.dialogue = "";
+        if(scene.dialogue !== null){
+            if(scene.dialogue.lines.length > scene.dialogue.currentLine+1){
+                scene.dialogue.currentLine++;
+            } else {
+                currentDirection = null;
+                scene.dialogue = null;
+            }
         }
         xClicked = false;
     }
     if(zClicked){
-        if(scene.dialogue !== ""){
-            currentDirection = null;
-            scene.dialogue = "";
+        if(scene.dialogue !== null){
+            if(scene.dialogue.lines.length > scene.dialogue.currentLine+1){
+                scene.dialogue.currentLine++;
+            } else {
+                currentDirection = null;
+                scene.dialogue = null;
+            }
         } else {
             let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],currentDirection);
             if(collision !== null && typeof collision === "object"){
@@ -1382,15 +1445,33 @@ function drawAdventure(timeStamp){
     context.fillText("Press Z to interact",scene.worldX+15, scene.worldY+30+scene.tileSize*16);
 
     // Draw dialogue box
-    if(scene.dialogue !== ""){
+    if(scene.dialogue !== null){
         context.fillStyle = 'hsl(0, 100%, 0%, 70%)';
         context.beginPath();
-        context.roundRect(scene.worldX+2, scene.worldY+scene.tileSize*16-105, scene.tileSize*16, 105, 13);
+        context.roundRect(scene.worldX+2, scene.worldY+scene.tileSize*16-100, scene.tileSize*16, 100);
         context.fill();
 
+        const dialogueFace = scene.dialogue.faces[scene.dialogue.currentLine];
+        const faceNum = parseInt(dialogueFace[1]);
+        let facesImage = null;
+        if(dialogueFace[0]==="g"){
+            facesImage = characterFaces.gladius;
+        } else if (dialogueFace[0]==="a"){
+            facesImage = characterFaces.andro;
+        } else {
+            facesImage = characterFaces.witch;
+        }
+
         context.fillStyle = textColor;
-        context.drawImage(scene.dialogueFaces, scene.dialogueFaceSrc[0], scene.dialogueFaceSrc[1], faceBitrate, faceBitrate, scene.worldX+5, scene.worldY+scene.tileSize*16-100, 96, 96);
-        context.fillText(scene.dialogue,scene.worldX+120, scene.worldY+scene.tileSize*16-80);
+        //note = (faceNum%4)*faceBitrate + " " + Math.floor(faceNum/4)*faceBitrate + " " + facesImage;
+        context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX+5, scene.worldY+scene.tileSize*16-100, 96, 96);
+        let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], scene.worldX+120, scene.worldY+scene.tileSize*16-75, scene.tileSize*16-144, 20);
+        wrappedText.forEach(function(item) {
+            // item[0] is the text
+            // item[1] is the x coordinate to fill the text at
+            // item[2] is the y coordinate to fill the text at
+            context.fillText(item[0], item[1], item[2]);
+        })
     }
 
     /*context.textAlign = 'start';
