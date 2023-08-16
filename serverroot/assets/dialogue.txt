@@ -1,2 +1,2 @@
-andro+a0:Hello ${playerName}, how are you doing on this fine spring day?+p0:Great!
-gladius+g0:Oh, hi ${playerName}...+p4:How are you? You don't seem so happy to see me...+g6:No! I mean, sorry. It's not that. It's just, you know. That thing.
+andro+a0:Hello playerName, how are you doing on this fine spring day?+p0:Great!
+gladius+g0:Oh, hi playerName...+p4:How are you? You don't seem so happy to see me...+g6:No! I mean, sorry. It's not that. It's just, you know. That thing.

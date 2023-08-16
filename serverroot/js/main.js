@@ -647,7 +647,7 @@ window.addEventListener('click',function(e) {
 },false);
 
 // Code baldfacedly stolen https://fjolt.com/article/html-canvas-how-to-wrap-text
-const wrapText = function(ctx, text, x, y, maxWidth, lineHeight) {
+const wrapText = function(ctx, text, x, y, maxWidth, lineHeight, parseFileText = false) {
     // @description: wrapText wraps HTML canvas text onto a canvas of fixed width
     // @param ctx - the context for the canvas we want to wrap text on
     // @param text - the text we want to wrap.
@@ -656,6 +656,11 @@ const wrapText = function(ctx, text, x, y, maxWidth, lineHeight) {
     // @param maxWidth - the width at which we want line breaks to begin - i.e. the maximum width of the canvas.
     // @param lineHeight - the height of each line, so we can space them below each other.
     // @returns an array of [ lineText, x, y ] for all lines
+
+    // Not by original author: Added parseFileText, which parses certain things out before using the text
+    if(parseFileText){
+        text = text.replace(/playerName/g,scene.playerName)
+    }
 
     // First, start by splitting all of our text into words, but splitting it into an array split by spaces
     let words = text.split(' ');
@@ -1054,6 +1059,7 @@ function initializeScene(sceneName){
         // Player location is the location used for logic, graphic location is the location to draw them at
         scene.playerLocation = scene.playerGraphicLocation = [128*2,208*2];
         scene.playerSrc = [32,0];
+        scene.playerName =  name==="" ? "Mari" : name;
         //scene.playerLastMovedTime = 0;
 
         scene.worldX = 198;
@@ -1465,7 +1471,7 @@ function drawAdventure(timeStamp){
         context.fillStyle = textColor;
         //note = (faceNum%4)*faceBitrate + " " + Math.floor(faceNum/4)*faceBitrate + " " + facesImage;
         context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX+5, scene.worldY+scene.tileSize*16-100, 96, 96);
-        let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], scene.worldX+120, scene.worldY+scene.tileSize*16-75, scene.tileSize*16-144, 20);
+        let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], scene.worldX+120, scene.worldY+scene.tileSize*16-75, scene.tileSize*16-144, 20, true);
         wrappedText.forEach(function(item) {
             // item[0] is the text
             // item[1] is the x coordinate to fill the text at
