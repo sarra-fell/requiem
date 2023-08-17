@@ -136,7 +136,7 @@ function handleDialogueData() {
     if(this.status == 200) {
         processDialogueData(this.responseText);
     } else {
-        alert("Handling kanji data: Status " + this.status + ". We have failed and (chou redacted).");
+        alert("Handling dialogue data: Status " + this.status + ". We have failed and (chou redacted).");
     }
 }
 
@@ -145,48 +145,68 @@ dialogueClient.onload = handleDialogueData;
 dialogueClient.open("GET", "assets/dialogue.txt");
 dialogueClient.send();
 
-var level0 = {
-    gridWidth: -1,
-    gridHeight: -1,
-    entities: [],
-    dirt: [],
-    water: [],
-    grass: [],
-    collisions: [],
-};
+// Levels isnt the most amazing word for it technically but it is the terminology that ldtk uses so thats the terms we are using
+var levels = [];
 
-
+let levelsLoaded = false;
 function processLevelData(data) {
     //console.log(data);
-    const levelData = JSON.parse(data).levels[0];
-    const entityLayerData = levelData.layerInstances[0];
-    const dirtLayerData = levelData.layerInstances[1];
-    const waterLayerData = levelData.layerInstances[3];
-    const grassLayerData = levelData.layerInstances[2];
-    const collisionLayerData = levelData.layerInstances[4];
+    const levelsData = JSON.parse(data).levels;
+    for (let i in levelsData){
+        levels[i] = {
+            gridWidth: -1,
+            gridHeight: -1,
+            entities: [],
+            dirt: [],
+            hill: [],
+            water: [],
+            grass: [],
+            collisions: [],
+            levelChanges: [],
+        };
+        const levelData = levelsData[i];
+        const entityLayerData = levelData.layerInstances[0];
+        const dirtLayerData = levelData.layerInstances[1];
+        const waterLayerData = levelData.layerInstances[3];
+        const grassLayerData = levelData.layerInstances[2];
+        const hillLayerData = levelData.layerInstances[4];
+        const collisionLayerData = levelData.layerInstances[5];
+        const levelChangesLayerData = levelData.layerInstances[6];
 
-    level0.gridWidth = collisionLayerData.__cWid;
-    level0.gridHeight = collisionLayerData.__cHei;
-    for (let i in entityLayerData.entityInstances){
-        const e = entityLayerData.entityInstances[i];
-        level0.entities.push({id: e.__identifier, px: e.px, src: [32,0]});
+        levels[i].gridWidth = collisionLayerData.__cWid;
+        levels[i].gridHeight = collisionLayerData.__cHei;
+        for (let j in entityLayerData.entityInstances){
+            const e = entityLayerData.entityInstances[j];
+            let entityData = {id: e.__identifier, px: e.px, src: [32,0], type: e.__tags[0]};
+            for (let k in e.fieldInstances){
+                const field = e.fieldInstances[k];
+                entityData[field.__identifier] = field.__value;
+            }
+            levels[i].entities.push(entityData);
+        }
+        for (let j in dirtLayerData.gridTiles){
+            const t = dirtLayerData.gridTiles[j];
+            levels[i].dirt.push({src: t.src, px: t.px});
+        }
+        for (let j in waterLayerData.gridTiles){
+            const t = waterLayerData.gridTiles[j];
+            levels[i].water.push({src: t.src, px: t.px});
+        }
+        for (let j in grassLayerData.gridTiles){
+            const t = grassLayerData.gridTiles[j];
+            levels[i].grass.push({src: t.src, px: t.px});
+        }
+        for (let j in hillLayerData.gridTiles){
+            const t = hillLayerData.gridTiles[j];
+            levels[i].hill.push({src: t.src, px: t.px});
+        }
+        levels[i].collisions = collisionLayerData.intGridCsv;
+        levels[i].levelChanges = levelChangesLayerData.intGridCsv;
+        /*if(levels[i].water.length < 2){
+            throw "You have no water and no hot boyfriend";
+        }*/
     }
-    for (let i in dirtLayerData.gridTiles){
-        const t = dirtLayerData.gridTiles[i];
-        level0.dirt.push({src: t.src, px: t.px});
-    }
-    for (let i in waterLayerData.gridTiles){
-        const t = waterLayerData.gridTiles[i];
-        level0.water.push({src: t.src, px: t.px});
-    }
-    for (let i in grassLayerData.gridTiles){
-        const t = grassLayerData.gridTiles[i];
-        level0.grass.push({src: t.src, px: t.px});
-    }
-    level0.collisions = collisionLayerData.intGridCsv;
-    if(level0.water.length < 2){
-        throw "You have no water and no hot boyfriend";
-    }
+    levelsLoaded = true;
 }
 
 function handleLevelData() {
@@ -224,6 +244,9 @@ zenMaruBlack.load().then(function(font){document.fonts.add(font);});
 var waterTileset = new Image();
 waterTileset.src = "/assets/Sprout Lands - Sprites - Basic pack/Tilesets/Water.png";
 
+var hillTileset = new Image();
+hillTileset.src = "/assets/Sprout Lands - Sprites - Basic pack/Tilesets/Hills.png";
+
 var dirtTileset = new Image();
 dirtTileset.src = "/assets/Sprout Lands - Sprites - Basic pack/Tilesets/Tilled Dirt.png";
 
@@ -232,6 +255,11 @@ grassTileset.src = "/assets/Sprout Lands - Sprites - Basic pack/Tilesets/Grass.p
 /*grassTileset.onload = () => {
     // Something something idk dont need this rn
 };*/
+
+var houseTileset = new Image();
+houseTileset.src = "/assets/Sprout Lands - Sprites - Basic pack/Tilesets/Wooden House.png"
+
+// Includes tilesets that have their own layer
 const tilesets = [waterTileset, dirtTileset, grassTileset];
 
 const characterList = ["witch","andro","gladius"];
@@ -350,9 +378,11 @@ let frameCount=1;
 let secondsPassed=0;
 let oldTimeStamp=performance.now();
 
-// Constants related to graphics below
-const textColor = "white";
+// Variables and constants related to graphics below
+let textColor = "white";
+let bgColor = "black";
 const screenWidth = 950, screenHeight = 800;
+//let adventureScale = 1.5;
 
 // Complex shapes like this can be created with tools, although it may be better to use an image instead
 const heartPath = new Path2D('M24.85,10.126c2.018-4.783,6.628-8.125,11.99-8.125c7.223,0,12.425,6.179,13.079,13.543 c0,0,0.353,1.828-0.424,5.119c-1.058,4.482-3.545,8.464-6.898,11.503L24.85,48L7.402,32.165c-3.353-3.038-5.84-7.021-6.898-11.503 c-0.777-3.291-0.424-5.119-0.424-5.119C0.734,8.179,5.936,2,13.159,2C18.522,2,22.832,5.343,24.85,10.126z');
@@ -363,6 +393,7 @@ const heartSize = 48;
 
 // Basically just means movement speed, var name could use improvement?
 const movingAnimationDuration = 200;
+
 
 /*
     Extremely insignificant and puny variables !!
@@ -954,6 +985,17 @@ let homeParticleSystems = [bestParticleSystem,worstParticleSystem,silliestPartic
     Adventure mode specfic functions go here.
 */
 
+// Called when dialogue with a character begins
+function initializeDialogue(character, timeStamp){
+    scene.dialogue = {
+        startTime: timeStamp,
+        currentLine: 0,
+        faces: dialogueFileData[character][0].faces,
+        lines: dialogueFileData[character][0].lines,
+        playerDirection: currentDirection,
+    };
+}
+
 // Draws a tile
 function drawTile(type, src, x, y){
     const size = 16;
@@ -974,14 +1016,36 @@ function drawCharacter(character, src, x, y){
     }
 }
 
-// Called when dialogue with a character begins
-function initializeDialogue(character, timeStamp){
-    scene.dialogue = {
-        startTime: timeStamp,
-        currentLine: 0,
-        faces: dialogueFileData[character][0].faces,
-        lines: dialogueFileData[character][0].lines,
-    };
+// Draws an inanimate object
+function drawInanimate(inanimate, x, y) {
+    let size = 16;
+    let image = null;
+    let srcX = 0;
+    let srcY = 0;
+    let bitrate = 16;
+    if(inanimate.id === "Door"){
+        image = houseTileset;
+        srcX = 16*3;
+        if(inanimate.state === "closed"){
+            srcY = 16*1;
+        } else if (inanimate.state === "half-closed"){
+            srcY = 16*3;
+        } else if (inanimate.state === "half-open"){
+            srcY = 16*2;
+        } else if (inanimate.state === "open"){
+            srcY = 16*0;
+        } else {
+            console.alert("drawInanimate: Got unexpected door state: "+ inanimate.state);
+        }
+    } else {
+        throw "Unknown inanimate type: " + inanimate.id;
+    }
+
+    if(typeof image === "object"){
+        context.drawImage(image, srcX, srcY, bitrate, bitrate, x, y, size*2, size*2);
+    } else {
+        console.warn("drawInanimate: Expected object got " + typeof image + ", also you have negative hot men.");
+    }
 }
 
 // Checks if a tile is marked for collision or not. Scene must be adventure scene.
@@ -991,6 +1055,7 @@ function initializeDialogue(character, timeStamp){
 // null for no collision, "bounds" for level boundary collision, returns the num of the collision tile if collision tile, or
 //returns the reference to the entity object that was collided for entity collision
 function isCollidingOnTile(x, y, checkAdjacent = false){
+    let lev = levels[scene.levelNum];
     if(checkAdjacent){
         if(checkAdjacent === "down"){
             y+=32;
@@ -1003,26 +1068,23 @@ function isCollidingOnTile(x, y, checkAdjacent = false){
         }
     }
     // First check world bounds
-    if (x < 0 || y < 0 || x > (level0.gridWidth-1)*32 || y > (level0.gridHeight-1)*32){
-        //note = `y: ${y}, bound: ${(level0.gridHeight-1)*32}`;
+    if (x < 0 || y < 0 || x > (lev.gridWidth-1)*32 || y > (lev.gridHeight-1)*32){
         return "bounds";
     }
 
 
     // Currently this local function does not need to exist, but I thought it might have needed to
-    const getTileNum = function(x,y){return ((x/32) % level0.gridWidth) + (y/32)*level0.gridWidth;}
+    const getTileNum = function(x,y){return ((x/32) % lev.gridWidth) + (y/32)*lev.gridWidth;}
     let tileNum = getTileNum(x,y);
-    if(tileNum>level0.collisions.length || tileNum<0){
+    if(tileNum>lev.collisions.length || tileNum<0){
         throw "Something is wrong with tile collision dumb bitch";
-    } else if (level0.collisions[tileNum]!==0){
-        return level0.collisions[tileNum];
+    } else if (lev.collisions[tileNum]!==0){
+        return lev.collisions[tileNum];
     } else {
-        for(let i in level0.entities) {
-            //let entityTileNum = getTileNum(level0.entities[i].px[0],level0.entities[i].px[1])
+        for(let i in lev.entities) {
 
-            if (level0.entities[i].px[0]*2===x && level0.entities[i].px[1]*2===y){
-                //return level0.entities[i].id;
-                return level0.entities[i];
+            if (lev.entities[i].px[0]*2===x && lev.entities[i].px[1]*2===y){
+                return lev.entities[i];
             }
         }
     }
@@ -1054,6 +1116,7 @@ function initializeScene(sceneName){
     } else if (sceneName === "adventure"){
         scene.buttons = adventureButtons;
         scene.tileSize = 32;
+        scene.levelNum = 0;
         //showDevInfo = false;
 
         // Player location is the location used for logic, graphic location is the location to draw them at
@@ -1062,7 +1125,7 @@ function initializeScene(sceneName){
         scene.playerName =  name==="" ? "Mari" : name;
         //scene.playerLastMovedTime = 0;
 
-        scene.worldX = 198;
+        scene.worldX = 100;
         scene.worldY = 20;
 
         // True when the player is currently moving to the tile they are "at" and the walking animation is playing
@@ -1081,7 +1144,9 @@ function initializeScene(sceneName){
             currentLine (number of the current index for faces and lines to be displayed)
             faces (array)
             lines (array)
+            playerDirection (string) for maintaining currentDirection regardless of fiding with controls
         */
+        bgColor = 'rgb(103,131,92)';
     }
 
     // Register dictionary lookup tooltip boxes from buttons that are japanese
@@ -1181,6 +1246,12 @@ function updateTatakau(timeStamp){
 
 function updateAdventure(timeStamp){
     if(scene.dialogue !== null){
+        if(scene.movingDirection!==null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
+            scene.movingDirection = null;
+            scene.playerGraphicLocation = scene.playerLocation;
+            scene.playerSrc[0]=32;
+            scene.whichFoot = (scene.whichFoot+1)%2;
+        }
         //Something maybe
     } else {
         if(currentDirection === "down"){
@@ -1210,7 +1281,6 @@ function updateAdventure(timeStamp){
                 scene.movingDirection = "up";
                 scene.startedMovingTime = timeStamp;
             }
-            //note = scene.playerLocation;
         } else if(movingAnimationDuration + scene.startedMovingTime < timeStamp){
             scene.movingDirection = null;
             scene.playerGraphicLocation = scene.playerLocation;
@@ -1223,7 +1293,7 @@ function updateAdventure(timeStamp){
             if(scene.dialogue.lines.length > scene.dialogue.currentLine+1){
                 scene.dialogue.currentLine++;
             } else {
-                currentDirection = null;
+                currentDirection = scene.dialogue.playerDirection;
                 scene.dialogue = null;
             }
         }
@@ -1234,7 +1304,7 @@ function updateAdventure(timeStamp){
             if(scene.dialogue.lines.length > scene.dialogue.currentLine+1){
                 scene.dialogue.currentLine++;
             } else {
-                currentDirection = null;
+                currentDirection = scene.dialogue.playerDirection;
                 scene.dialogue = null;
             }
         } else {
@@ -1250,7 +1320,9 @@ function updateAdventure(timeStamp){
                 } else {
                     collision.src[1] = spritesheetOrientationPosition.down * 32;
                 }
-                initializeDialogue(collision.id.toLowerCase(),timeStamp);
+                if(collision.type==="character"){
+                    initializeDialogue(collision.id.toLowerCase(),timeStamp);
+                }
             } else if(collision === 1){
                 note = `Talking with the water instead of hot guy...`;
             } else {
@@ -1435,66 +1507,75 @@ function drawTatakau(timeStamp){
 }
 
 function drawAdventure(timeStamp){
+    let lev = levels[scene.levelNum];
+
+    // world width and height
+    let w = lev.gridWidth*scene.tileSize;
+    let h = lev.gridHeight*scene.tileSize;
     // Draw tile layers
-    for (let i in level0.water){
-        drawTile(WATER, [16*Math.floor( (timeStamp/400) % 4),0], scene.worldX+level0.water[i].px[0]*2, scene.worldY+level0.water[i].px[1]*2);
+    for (let i in lev.water){
+        drawTile(WATER, [16*Math.floor( (timeStamp/400) % 4),0], scene.worldX+lev.water[i].px[0]*2, scene.worldY+lev.water[i].px[1]*2);
     }
-    for (let i in level0.grass){
-        drawTile(GRASS, level0.grass[i].src, scene.worldX+level0.grass[i].px[0]*2, scene.worldY+level0.grass[i].px[1]*2);
+    for (let i in lev.grass){
+        drawTile(GRASS, lev.grass[i].src, scene.worldX+lev.grass[i].px[0]*2, scene.worldY+lev.grass[i].px[1]*2);
     }
-    for (let i in level0.dirt){
-        drawTile(DIRT, level0.dirt[i].src, scene.worldX+level0.dirt[i].px[0]*2, scene.worldY+level0.dirt[i].px[1]*2);
+    for (let i in lev.dirt){
+        drawTile(DIRT, lev.dirt[i].src, scene.worldX+lev.dirt[i].px[0]*2, scene.worldY+lev.dirt[i].px[1]*2);
     }
 
     context.font = '16px zenMaruRegular';
     context.fillStyle = textColor;
-    context.fillText("Press Z to interact",scene.worldX+15, scene.worldY+30+scene.tileSize*16);
+    context.fillText("Press Z to interact",scene.worldX+15, scene.worldY+30+h);
 
     // Draw dialogue box
     if(scene.dialogue !== null){
-        context.fillStyle = 'hsl(0, 100%, 0%, 70%)';
+        context.fillStyle = 'hsl(0, 100%, 0%, 78%)';
         context.beginPath();
-        context.roundRect(scene.worldX+2, scene.worldY+scene.tileSize*16-100, scene.tileSize*16, 100);
+        context.roundRect(scene.worldX, scene.worldY+h-96, w, 96);
         context.fill();
 
         const dialogueFace = scene.dialogue.faces[scene.dialogue.currentLine];
         const faceNum = parseInt(dialogueFace[1]);
-        let facesImage = null;
-        if(dialogueFace[0]==="g"){
-            facesImage = characterFaces.gladius;
-        } else if (dialogueFace[0]==="a"){
-            facesImage = characterFaces.andro;
-        } else {
-            facesImage = characterFaces.witch;
-        }
-
         context.fillStyle = textColor;
-        //note = (faceNum%4)*faceBitrate + " " + Math.floor(faceNum/4)*faceBitrate + " " + facesImage;
-        context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX+5, scene.worldY+scene.tileSize*16-100, 96, 96);
-        let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], scene.worldX+120, scene.worldY+scene.tileSize*16-75, scene.tileSize*16-144, 20, true);
-        wrappedText.forEach(function(item) {
-            // item[0] is the text
-            // item[1] is the x coordinate to fill the text at
-            // item[2] is the y coordinate to fill the text at
-            context.fillText(item[0], item[1], item[2]);
-        })
-    }
 
-    /*context.textAlign = 'start';
-    let wrappedText = wrapText(context, scene.currentDialogue, scene.worldX+15, scene.worldY+67+scene.tileSize*16, scene.tileSize*16-30, 21);
-    wrappedText.forEach(function(item) {
-        // item[0] is the text
-        // item[1] is the x coordinate to fill the text at
-        // item[2] is the y coordinate to fill the text at
-        context.fillText(item[0], item[1], item[2]);
-    });*/
+        // Draw differently depending on player vs non-player
+        const drawDialogueForPlayer = function(facesImage){
+            let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], scene.worldX+96+lev.gridWidth, scene.worldY+h-72, w-144, 20, true);
+            wrappedText.forEach(function(item) {
+                // item[0] is the text
+                // item[1] is the x coordinate to fill the text at
+                // item[2] is the y coordinate to fill the text at
+                context.fillText(item[0], item[1], item[2]);
+            });
+            context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX, scene.worldY+h-96, 96, 96);
+        };
+        const drawDialogueForNonPlayer = function(facesImage){
+            let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], scene.worldX+16+lev.gridWidth, scene.worldY+h-72, w-144, 20, true);
+            wrappedText.forEach(function(item) {
+                // item[0] is the text
+                // item[1] is the x coordinate to fill the text at
+                // item[2] is the y coordinate to fill the text at
+                context.fillText(item[0], item[1], item[2]);
+            });
+            context.save();
+            context.scale(-1,1);
+            context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, -1*(scene.worldX+w), scene.worldY+h-96, 96, 96);
+            context.restore();
+        };
+        if(dialogueFace[0]==="g"){
+            drawDialogueForNonPlayer(characterFaces.gladius);
+        } else if (dialogueFace[0]==="a"){
+            drawDialogueForNonPlayer(characterFaces.andro);
+        } else {
+            drawDialogueForPlayer(characterFaces.witch);
+        }
+    }
 
     // Draw player
     if(scene.movingDirection !== null){
         // Between 0 and 1 where 0 is the very beginning and 1 is finished
         let animationCompletion = (timeStamp - scene.startedMovingTime)/movingAnimationDuration;
 
-        //alert(animationCompletion);
         if(animationCompletion > 0.25 && animationCompletion < 0.75){
             scene.playerSrc = [scene.whichFoot*2*32,spritesheetOrientationPosition[scene.movingDirection]*32];
         } else {
@@ -1512,13 +1593,17 @@ function drawAdventure(timeStamp){
         }
     }
 
-    for (let i in level0.entities){
-        const e = level0.entities[i];
-        //alert(e.px[1]);
-        drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*2+scene.worldX,e.px[1]*2+scene.worldY);
+    for (let i in lev.entities){
+        const e = lev.entities[i];
+        if(e.type === "character"){
+            drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*2+scene.worldX,e.px[1]*2+scene.worldY);
+        } else {
+            drawInanimate(e,e.px[0]*2+scene.worldX,e.px[1]*2+scene.worldY)
+        }
+
     }
     drawCharacter("witch",scene.playerSrc,scene.worldX+scene.playerGraphicLocation[0],scene.worldY+scene.playerGraphicLocation[1]);
-
+    //context.restore();
 }
 
 // Loop that requests animation frames for itself, contains update and draw code that is not unique to any scene and everything else really
@@ -1611,7 +1696,7 @@ function gameLoop(timeStamp){
     // ******************************
 
     // Clear canvas
-    context.fillStyle = 'hsl(0,0%,0%)';
+    context.fillStyle = bgColor;
     context.fillRect(-1000, -1000, screenWidth+2000, screenHeight+2000);
 
     let particleCount = 0;
@@ -1721,8 +1806,6 @@ function init(){
         characterFaces[c] = faces;
         characterBitrates[c] = 32;
     }
-
-    console.log(characterFaces.gladius.src);
 
     // Get a reference to the canvas
     canvas = document.getElementById('canvas');
