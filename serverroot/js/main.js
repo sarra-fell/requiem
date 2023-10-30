@@ -381,8 +381,8 @@ let oldTimeStamp=performance.now();
 // Variables and constants related to graphics below
 let textColor = "white";
 let bgColor = "black";
-const screenWidth = 950, screenHeight = 800;
-//let adventureScale = 1.5;
+const screenWidth = 1150, screenHeight = 900;
+let adventureSizeMod = 1.51;
 
 // Complex shapes like this can be created with tools, although it may be better to use an image instead
 const heartPath = new Path2D('M24.85,10.126c2.018-4.783,6.628-8.125,11.99-8.125c7.223,0,12.425,6.179,13.079,13.543 c0,0,0.353,1.828-0.424,5.119c-1.058,4.482-3.545,8.464-6.898,11.503L24.85,48L7.402,32.165c-3.353-3.038-5.84-7.021-6.898-11.503 c-0.777-3.291-0.424-5.119-0.424-5.119C0.734,8.179,5.936,2,13.159,2C18.522,2,22.832,5.343,24.85,10.126z');
@@ -999,26 +999,28 @@ function initializeDialogue(character, timeStamp){
 // Draws a tile
 function drawTile(type, src, x, y){
     const size = 16;
-    context.drawImage(tilesets[type], src[0], src[1], tileBitrate, tileBitrate, x, y, size*2, size*2);
+    context.drawImage(tilesets[type], src[0], src[1], tileBitrate, tileBitrate, x, y, size*2*adventureSizeMod+1, size*2*adventureSizeMod+1);
 }
 
 // Draws a character
 function drawCharacter(character, src, x, y){
-    let size = characterBitrates[character];
+    context.imageSmoothingEnabled = true;
+    let size = characterBitrates[character]*adventureSizeMod;
     let image = characterSpritesheets[character];
     if(character==="gloria"){
         size/=1.3;
     }
     if(typeof image === "object"){
-        context.drawImage(image, src[0], src[1], characterBitrates[character], characterBitrates[character], x, y, size, size);
+        context.drawImage(image, src[0], src[1], characterBitrates[character], characterBitrates[character], x*adventureSizeMod, y*adventureSizeMod, size, size);
     } else {
         console.warn("drawCharacter: Expected object got " + typeof image + ", also you have negative hot men.");
     }
+    context.imageSmoothingEnabled = false;
 }
 
 // Draws an inanimate object
 function drawInanimate(inanimate, x, y) {
-    let size = 16;
+    let size = 16*adventureSizeMod;
     let image = null;
     let srcX = 0;
     let srcY = 0;
@@ -1042,7 +1044,7 @@ function drawInanimate(inanimate, x, y) {
     }
 
     if(typeof image === "object"){
-        context.drawImage(image, srcX, srcY, bitrate, bitrate, x, y, size*2, size*2);
+        context.drawImage(image, srcX*adventureSizeMod, srcY*adventureSizeMod, bitrate, bitrate, x, y, size*2, size*2);
     } else {
         console.warn("drawInanimate: Expected object got " + typeof image + ", also you have negative hot men.");
     }
@@ -1102,6 +1104,7 @@ function initializeScene(sceneName){
             inputting: false, finishedInputting: true, textEntered:"", currentTooltip:null, tooltipBoxes:[],
             switchScene: null};
 
+    bgColor = 'Black';
     if (sceneName === "tatakau"){
         scene.buttons = tatakauButtons;
     } else if (sceneName === "home"){
@@ -1514,13 +1517,13 @@ function drawAdventure(timeStamp){
     let h = lev.gridHeight*scene.tileSize;
     // Draw tile layers
     for (let i in lev.water){
-        drawTile(WATER, [16*Math.floor( (timeStamp/400) % 4),0], scene.worldX+lev.water[i].px[0]*2, scene.worldY+lev.water[i].px[1]*2);
+        drawTile(WATER, [16*Math.floor( (timeStamp/400) % 4),0], scene.worldX+lev.water[i].px[0]*2*adventureSizeMod, scene.worldY+lev.water[i].px[1]*2*adventureSizeMod);
     }
     for (let i in lev.grass){
-        drawTile(GRASS, lev.grass[i].src, scene.worldX+lev.grass[i].px[0]*2, scene.worldY+lev.grass[i].px[1]*2);
+        drawTile(GRASS, lev.grass[i].src, scene.worldX+lev.grass[i].px[0]*2*adventureSizeMod, scene.worldY+lev.grass[i].px[1]*2*adventureSizeMod);
     }
     for (let i in lev.dirt){
-        drawTile(DIRT, lev.dirt[i].src, scene.worldX+lev.dirt[i].px[0]*2, scene.worldY+lev.dirt[i].px[1]*2);
+        drawTile(DIRT, lev.dirt[i].src, scene.worldX+lev.dirt[i].px[0]*2*adventureSizeMod, scene.worldY+lev.dirt[i].px[1]*2*adventureSizeMod);
     }
 
     context.font = '16px zenMaruRegular';
@@ -1540,7 +1543,7 @@ function drawAdventure(timeStamp){
 
         // Draw differently depending on player vs non-player
         const drawDialogueForPlayer = function(facesImage){
-            let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], scene.worldX+96+lev.gridWidth, scene.worldY+h-72, w-144, 20, true);
+            let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], (scene.worldX+96+lev.gridWidth)*adventureSizeMod, (scene.worldY+h-72)*adventureSizeMod, (w-144)*adventureSizeMod, 20, true);
             wrappedText.forEach(function(item) {
                 // item[0] is the text
                 // item[1] is the x coordinate to fill the text at
