@@ -221,6 +221,43 @@ levelClient.onload = handleLevelData;
 levelClient.open("GET", "assets/ldtk/testy.ldtk");
 levelClient.send();
 
+var dictionary = {
+    entries: {
+        戦う: "たたか・う‾ (0) - Intransitive verb 1. to make war (on); to wage war (against); to go to war (with); to fight (with); to do battle (against)​",
+        ホーム: "",
+        自己紹介: "じこしょ\\うかい (3) - Noun, Intransitive suru verb 1. self-introduction​",
+        冒険: "ぼうけん‾ (0) - Noun, Intransitive suru verb 1. adventure; venture",
+        始める: "はじ・める‾ (0) - Transitive verb 1. to start; to begin; to commence; to initiate; to originate",
+        大好き: "だ\いす・き (1) - Na-Adjective 1. liking very much; loving (something or someone); adoring; being very fond of​"
+    }
+};
+let dictLoaded = false;
+function processDict(data) {
+    const splitLines = str => str.split(/\r?\n/);
+    let splitData = splitLines(data);
+
+    for(let i in splitData){
+        const wordData = splitData[i].split('+');
+        if(wordData.length === 2){
+            dictionary.entries[wordData[0]] = wordData[1]
+        }
+    }
+
+    dictLoaded = true;
+}
+
+function handleDict() {
+    if(this.status == 200) {
+        processDict(this.responseText);
+    } else {
+        alert("Handling dict data: Status " + this.status + ". We have failed and you have negative hot men");
+    }
+}
+var dictClient = new XMLHttpRequest();
+dictClient.onload = handleDict;
+dictClient.open("GET", "assets/compiled_dictionary_data.txt");
+dictClient.send();
+
 /*
     Load our assets before doing anything else !!
 */
@@ -333,18 +370,6 @@ const tileBitrate = 16;
     Important variables  !!!!
 */
 
-// Hardcoded dictionary data, future reworks of the system to be done
-var dictionary = {
-    entries: {
-        戦う: "たたか・う‾ (0) - Intransitive verb 1. to make war (on); to wage war (against); to go to war (with); to fight (with); to do battle (against)​",
-        ホーム: "",
-        自己紹介: "じこしょ\\うかい (3) - Noun, Intransitive suru verb 1. self-introduction​",
-        冒険: "ぼうけん‾ (0) - Noun, Intransitive suru verb 1. adventure; venture",
-        始める: "はじ・める‾ (0) - Transitive verb 1. to start; to begin; to commence; to initiate; to originate",
-        大好き: "だ\いす・き (1) - Na-Adjective 1. liking very much; loving (something or someone); adoring; being very fond of​"
-    }
-};
-
 // The scene is the screen the player is engaging with and the scene object stores information specfic to the scene
 // All state in this object is wiped upon scene change, which hopefully someyhwat mitigates that it is basically a god object containing glorified global state
 var scene = {
@@ -422,7 +447,7 @@ let randomColor = Math.random() > 0.5? '#ff8080' : '#0099b0';
 let loveButton = {　　
     x:20, y:screenHeight-50, width:60, height:30,
     neutralColor: '#ed78ed', hoverColor: '#f3a5f3', pressedColor: '#7070db', color: '#ed78ed',
-    text: "大好き", font: '13px zenMaruRegular', fontSize: 13, jp: true,
+    text: "怨嗟", font: '13px zenMaruRegular', fontSize: 13, jp: true,
     onClick: function() {
         randomColor = Math.random() > 0.5? '#ff80b0' : '#80ffb0';
         love+=1;
@@ -448,6 +473,15 @@ let tatakauSceneButton = {
     onClick: function() {
         this.color = this.neutralColor;
         scene.switchScene = "tatakau";
+    }
+};
+let cardCreationSceneButton = {
+    x:790, y:300, width:150, height:100,
+    neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+    text: "カード=作成", font: '24px zenMaruLight', fontSize: 24, jp: true,
+    onClick: function() {
+        this.color = this.neutralColor;
+        scene.switchScene = "card creation";
     }
 };
 let introductionButton = {
@@ -483,7 +517,7 @@ let backToHomeButton = {
     }
 }
 
-let homeButtons = [loveButton,clearDataButton,tatakauSceneButton,introductionButton,adventureButton];
+let homeButtons = [loveButton,clearDataButton,tatakauSceneButton,cardCreationSceneButton,introductionButton,adventureButton];
 let tatakauButtons = [loveButton,backToHomeButton];
 let adventureButtons = [loveButton,backToHomeButton];
 
@@ -1336,6 +1370,10 @@ function updateAdventure(timeStamp){
     }
 }
 
+function updateCardCreation(timeStamp){
+    note = `dict loaded: ${dictLoaded}`;
+}
+
 /*
     Draw functions called during their specfic scene
 */
@@ -1609,6 +1647,14 @@ function drawAdventure(timeStamp){
     //context.restore();
 }
 
+function drawCardCreation(timeStamp){
+    if(dictLoaded){
+        context.font = '20px zenMaruRegular';
+        context.textAlign = 'center';
+        context.fillText(dictionary.entries["一太刀"], screenWidth/2, 100);
+    }
+}
+
 // Loop that requests animation frames for itself, contains update and draw code that is not unique to any scene and everything else really
 function gameLoop(timeStamp){
     // ******************************
@@ -1638,6 +1684,7 @@ function gameLoop(timeStamp){
        case "home": updateHome(timeStamp); break;
        case "tatakau": updateTatakau(timeStamp); break;
        case "adventure": updateAdventure(timeStamp); break;
+       case "card creation": updateCardCreation(timeStamp); break;
        default: throw "Unknown Scene (update): "+scene.name; break;
     }
 
@@ -1742,6 +1789,7 @@ function gameLoop(timeStamp){
        case "home": drawHome(); break;
        case "tatakau": drawTatakau(timeStamp); break;
        case "adventure": drawAdventure(timeStamp); break;
+       case "card creation": drawCardCreation(timeStamp); break;
        default: throw "Unknown Scene (draw): "+scene.name; break;
     }
 
