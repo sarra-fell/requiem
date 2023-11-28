@@ -59,13 +59,13 @@ func main(){
     // First step: get the relevant words. this slice not to be modified after this step
     var relevantWords []string
 
-    f, err := os.Open("serverroot/assets/card_data.txt")
+    f, err := os.Open("serverroot/assets/srs decks/daily_deck.txt")
     check(err)
 
     scanner := bufio.NewScanner(f)
     for scanner.Scan() {
         chunks := strings.Split(scanner.Text(),"+")
-        if(len(chunks)>0){
+        if(len(chunks)>1){
             relevantWords = append(relevantWords, chunks[1])
         } else {
             fmt.Println("Not enough chunks in data line: ",scanner.Text())

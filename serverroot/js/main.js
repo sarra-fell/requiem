@@ -8,50 +8,82 @@ window.onload = init;
 
 // The srs object functions as a namespace for data related to the srs
 var srs = {
-    // Variables managing the parameters of how the srs works.
-    // The extremely helpful customization options in slime forest help me with these and names are stolen from there
-    // In slime forest, reinforcement refers to the second or later appearance of an item in the same session of play,
-    //we will probably use what they do here as a default until we see a reason to change
+    // Slime forest variables saved elsewhere for reference
 
-    // The descriptions taken from slime forest. How it will work in my game will certainly be significantly different but this is a good
-    //point of reference to draw from when designing my own system. I want to make the best srs possible for this game's needs and improve on lrnj in the end.
-
-    // This is a measure of how important the trainer will consider it when it shows you something that is supposed to be new
-    //but you get it right somehow anyway
-    // At 1, it treats even a correct responce as wrong when it's the first in-game encounter.
-    // At 10, if you get anything right on the first try, the trainer will never bring it up again.
-    firstHitSignificance:9,
-
-    // This is a measure of how frequently the trainer repreats new items.
-    // More precisely, it controls how slowly the interval increases between repetitions of a new item.
-    // At 1, the length of time between repetitions will increase tenfold every time you get a right answer. (least intense reinforcement)
-    // At 10, the length of time between reptitions won't increase at all. (most intense)
-    introductionReinforcementIntensity:6,
-
-    // At a certain point, you just know something well enough to remember it until the next session. THis is a measure of how quickly the trainer assumes
-    //you've reached that limit where further reptition would waste your time.
-    // At 1, there is no limit, so reinforcement of new items will continue for the whole mession.
-    // At 10, the limit is as tight as possible; reinforcement stops after one right answer.
-    introductionReinforcementLimit:4,
-
-    // This is a measure of how important the trainer will consider it when you get a wrong answer on the second or later appearance of an tiem in a session.
-    // At 1, it will treat wrong answers as if they were right answers.
-    // At 10, it will treat one wrong answer as proof that you don't know the item at all, and reintroduces it as if it was a new item.
-    reinforcementMissSignificance:10,
-
-    // This is a measure of how important the trainer will consider it when you get a wrong answer on the second or later appearance of an item in a session.
-    // At 1, it will treat wrong answers as if they were right answers.
-    // At 10, it will treat one wrong answer as proof that you don't know the item at all, and reintroduce it as if it was a new item.
-    correctionReinforcementIntensity:6,
-    correctionReinforcementLimit:4,
-    reviewMissSignificance:10,
-    reviewIntensity:6,
-
-    // Stores the user's srs data sorted by card.
+    // Stores the user's srs data sorted by card. Temporary implementation, only used for the kanji srs and not card decks
     data:[],
 
     // Temporary implementation
     nextKanjiToIntro:0,
+
+    // Stores deck information. Objects here contain:
+    // deckName: string. indicates deck name.
+    // fileName: string. indicates path of the deck's source file
+    // cards: array. card objects contain a front and back field, and are stored independant of progrss
+    // cardData: array. contains objects with user progress data that correspond to the index in cards
+    // progressData: object. null if no data. contains all data about the user's progress that is not associated with a specfic card
+    // studySession: object. null if not currently studying, otherwise contains information about the current study session
+    decks:[],
+
+    /*loadDeck: function(fileName){
+        // First, check if deck is already loaded
+        for(const d of decks){
+            if(d.fileName === fileName){
+                return "already loaded or failed loading idk"
+            }
+        }
+    }*/
+    studyingDeck: -1,
+    servingCard: -1,
+    beginDeckStudySession: function(deckNum){
+        let studySession = {
+            startTime: new Date(),
+
+            // array of objects with:
+            // index: int, index of the card from cardData
+            // failed: boolean, whether this card has been failed yet this session or not
+            cardsToStudy: [],
+
+            // array of objects with:
+            // index: int, index of the card from cardData
+            // success: boolean, whether this card was passed on the first try or not
+            studiedCards: [],
+        };
+
+        for (let i in this.decks[deckNum].cardData){
+            const cd = this.decks[deckNum].cardData[i];
+
+            if(cd.dateLastStudied === null){
+                studySession.cardsToStudy.push({index: i, failed: false});
+            } else if(new Date() - new Date(cd.dateLastStudied) >= cd.interval){
+                studySession.cardsToStudy.push({index: i, failed: false});
+            }
+        }
+        this.decks[deckNum].studySession = studySession;
+        this.studyingDeck = deckNum;
+    },
+
+    // only to be called while a deck is currently being studied
+    serveNextCard: function(){
+        if(this.decks[this.studyingDeck].studySession.cardsToStudy.length === 0){
+            return null;
+        } else {
+            this.servingCard = this.decks[this.studyingDeck].studySession.cardsToStudy[0];
+            return this.decks[this.studyingDeck].cards[this.servingCard.index];
+        }
+
+    },
+
+    // only to be called while a deck is currently being studied. takes true or false for whether the served card was a success or fail
+    submitCardResult: function(success){
+        let cardsToStudy = this.decks[this.studyingDeck].studySession.cardsToStudy;
+        if(!success){
+            cardsToStudy.push({index: cardsToStudy[0].index, failed: true});
+        } else {
+            this.decks[this.studyingDeck].studySession.studiedCards.push({index: cardsToStudy[0].index, success: !cardsToStudy[0].failed});
+        }
+        cardsToStudy.splice(0,1);
+    }
 };
 
 /*
@@ -90,11 +122,6 @@ function handleKanjiData() {
         alert("Handling kanji data: Status " + this.status + ". We have failed and (redacted).");
     }
 }
-
-var kanjiClient = new XMLHttpRequest();
-kanjiClient.onload = handleKanjiData;
-kanjiClient.open("GET", "assets/kanji.txt");
-kanjiClient.send();
 
 // Contains all dialogue data directly from the file. Not to be modified after load.
 var dialogueFileData = {
@@ -139,11 +166,6 @@ function handleDialogueData() {
         alert("Handling dialogue data: Status " + this.status + ". We have failed and (chou redacted).");
     }
 }
-
-var dialogueClient = new XMLHttpRequest();
-dialogueClient.onload = handleDialogueData;
-dialogueClient.open("GET", "assets/dialogue.txt");
-dialogueClient.send();
 
 // Levels isnt the most amazing word for it technically but it is the terminology that ldtk uses so thats the terms we are using
 var levels = [];
@@ -216,10 +238,6 @@ function handleLevelData() {
         alert("Handling level data: Status " + this.status + ". We have failed and you have negative hot men");
     }
 }
-var levelClient = new XMLHttpRequest();
-levelClient.onload = handleLevelData;
-levelClient.open("GET", "assets/ldtk/testy.ldtk");
-levelClient.send();
 
 var dictionary = {
     entries: {
@@ -246,13 +264,92 @@ function processDict(data) {
     dictLoaded = true;
 }
 
+let deckLoaded = false;
+function processDeckData(data,fileName){
+    // see srs object for information about this data structure
+    var deck = {
+        deckName: "nikka",
+        fileName: fileName,
+        cards: [],
+        cardData: [],
+        progressData: null,
+        studySession: null,
+    };
+    const splitLines = str => str.split(/\r?\n/);
+    let splitData = splitLines(data);
+
+    for(const line of splitData){
+        const lineData = line.split('+');
+        if(lineData.length < 2 || lineData[0] === "disable" || (lineData.length > 2 && lineData[2] === "disable")){
+            continue;
+        }
+        if(lineData[0] === "days_studied"){
+            deck.progressData = {daysStudied: lineData[1]};
+        } else if (lineData[0] === "date_last_studied"){
+            deck.progressData.dateLastStudied = lineData[1];
+        } else {
+            var card = {};
+            var cardData = {};
+            card.front = lineData[0];
+            if(dictionary.entries.hasOwnProperty(lineData[1])){
+                card.back = dictionary.entries[lineData[1]];
+            } else {
+                card.back = "unknown"
+            }
+            if(dictionary.entries.hasOwnProperty(lineData[2])){
+                cardData.progress = lineData[2];
+            } else {
+                cardData.progress = 0;
+            }
+            if(dictionary.entries.hasOwnProperty(lineData[3])){
+                cardData.dateLastStudied = lineData[3];
+            } else {
+                cardData.dateLastStudied = null;
+            }
+            deck.cards.push(card);
+            deck.cardData.push(cardData);
+        }
+    }
+    srs.decks.push(deck);
+    deckLoaded = true;
+}
+
+function handleDeckData() {
+    if(this.status == 200) {
+        processDeckData(this.responseText,"assets/srs decks/daily_deck.txt");
+    } else {
+        alert("Handling deck data: Status " + this.status + ". We have failed and you have negative hot men");
+    }
+}
+
+var kanjiClient = new XMLHttpRequest();
+kanjiClient.onload = handleKanjiData;
+kanjiClient.open("GET", "assets/kanji.txt");
+kanjiClient.send();
+
+var dialogueClient = new XMLHttpRequest();
+dialogueClient.onload = handleDialogueData;
+dialogueClient.open("GET", "assets/dialogue.txt");
+dialogueClient.send();
+
+var levelClient = new XMLHttpRequest();
+levelClient.onload = handleLevelData;
+levelClient.open("GET", "assets/ldtk/testy.ldtk");
+levelClient.send();
+
+var deckClient = new XMLHttpRequest();
+deckClient.onload = handleDeckData;
+
 function handleDict() {
     if(this.status == 200) {
         processDict(this.responseText);
+        deckClient.open("GET", "assets/srs decks/daily_deck.txt");
+        deckClient.send();
     } else {
         alert("Handling dict data: Status " + this.status + ". We have failed and you have negative hot men");
     }
 }
+
 var dictClient = new XMLHttpRequest();
 dictClient.onload = handleDict;
 dictClient.open("GET", "assets/compiled_dictionary_data.txt");
@@ -476,7 +573,7 @@ let tatakauSceneButton = {
     }
 };
 let cardCreationSceneButton = {
-    x:790, y:300, width:150, height:100,
+    x:-1000, y:-1000, width:150, height:100,
     neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
     text: "カード=作成", font: '24px zenMaruLight', fontSize: 24, jp: true,
     onClick: function() {
@@ -493,6 +590,15 @@ let introductionButton = {
         scene.finishedInputting = false;
     }
 };
+let nikkaSceneButton = {
+    x:500, y:60, width:100, height:100,
+    neutralColor: '#fffe15', hoverColor: '#ffff81', pressedColor: '#21f100', color: '#fffe15',
+    text: "日課", font: '24px zenMaruLight', fontSize: 28, jp: true,
+    onClick: function() {
+        this.color = this.neutralColor;
+        scene.switchScene = "nikka";
+    }
+};
 let adventureButton = {
     x:500, y:180, width:270, height:100,
     neutralColor: '#9c79ec', hoverColor: '#bda6f2', pressedColor: '#f0d800', color: '#9c79ec',
@@ -504,7 +610,6 @@ let adventureButton = {
         } else {
             throw "images arent loaded yet stupid";
         }
-
     }
 };
 let backToHomeButton = {
@@ -517,9 +622,70 @@ let backToHomeButton = {
     }
 }
 
-let homeButtons = [loveButton,clearDataButton,tatakauSceneButton,cardCreationSceneButton,introductionButton,adventureButton];
+/* nikka buttons */
+
+let studyDeckButton = {
+    x:screenWidth/2 - 60 , y:420, width:120, height:30,
+    neutralColor: '#b3b3ff', hoverColor: '#ff66ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+    text: "Study Deck", font: '14px zenMaruMedium', fontSize: 14,
+    onClick: function() {
+        this.color = this.neutralColor;
+        srs.beginDeckStudySession(0);
+        scene.switchScene = "study deck";
+    }
+}
+
+/* card study buttons */
+
+let failButton = {
+    x:screenWidth/2 + 25, y:490, width:75, height:30,
+    neutralColor: '#b3b3ff', hoverColor: '#ff66ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+    text: "Fail", font: '14px zenMaruMedium', fontSize: 14,
+    enabled: false,
+    onClick: function() {
+        scene.cardResult = "fail";
+    }
+}
+
+let passButton = {
+    x:screenWidth/2 - 100 , y:490, width:75, height:30,
+    neutralColor: '#b3b3ff', hoverColor: '#ff66ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+    text: "Pass", font: '14px zenMaruMedium', fontSize: 14,
+    enabled: false,
+    onClick: function() {
+        scene.cardResult = "pass";
+    }
+}
+
+let continueButton = {
+    x:screenWidth/2 - 60, y:420, width:120, height:30,
+    neutralColor: '#b3b3ff', hoverColor: '#ff66ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+    text: "See Back", font: '14px zenMaruMedium', fontSize: 14,
+    onClick: function() {
+        scene.showBack = true;
+        failButton.enabled = true;
+        passButton.enabled = true;
+    }
+}
+
+let homeButtons = [loveButton,clearDataButton,tatakauSceneButton,cardCreationSceneButton,introductionButton,adventureButton,nikkaSceneButton];
 let tatakauButtons = [loveButton,backToHomeButton];
+let nikkaButtons = [loveButton,backToHomeButton,studyDeckButton];
+let cardCreationButtons = [loveButton,backToHomeButton];
 let adventureButtons = [loveButton,backToHomeButton];
+let deckStudyButtons = [loveButton,backToHomeButton,continueButton,failButton,passButton];
+
+// Initializes an array of buttons during scene switch
+function initializeButtons(buttons){
+    for(const b of buttons){
+        if(!b.hasOwnProperty("color")){
+            b.color = b.neutralColor;
+        }
+        if(!b.hasOwnProperty("enabled")){
+            b.enabled = true;
+        }
+    }
+}
 
 /*
     User input section (mouse + keyboard)
@@ -694,6 +860,9 @@ window.addEventListener('click',function(e) {
 
     for (let x in scene.buttons) {
         let b = scene.buttons[x];
+        if(!b.enabled){
+            continue;
+        }
 
         if (mouseX >= b.x && mouseX <= b.x + b.width && mouseY >= b.y && mouseY <= b.y + b.height) {
             b.color = b.hoverColor;
@@ -1184,7 +1353,18 @@ function initializeScene(sceneName){
             playerDirection (string) for maintaining currentDirection regardless of fiding with controls
         */
         bgColor = 'rgb(103,131,92)';
+    } else if (sceneName === "card creation"){
+        scene.buttons = cardCreationButtons;
+    } else if (sceneName === "nikka"){
+        scene.buttons = nikkaButtons;
+    } else if (sceneName === "study deck"){
+        scene.buttons = deckStudyButtons;
+        scene.currentCard = srs.serveNextCard();
+        scene.showBack = false;
+        scene.cardResult = "pending";
     }
+
+    initializeButtons(scene.buttons);
 
     // Register dictionary lookup tooltip boxes from buttons that are japanese
     for(let i in scene.buttons){
@@ -1372,6 +1552,14 @@ function updateAdventure(timeStamp){
 
 function updateCardCreation(timeStamp){
     note = `dict loaded: ${dictLoaded}`;
+}
+
+function updateNikka(timeStamp){
+    // ok
+}
+
+function updateDeckStudy(timeStamp){
+    // ok
 }
 
 /*
@@ -1648,11 +1836,53 @@ function drawAdventure(timeStamp){
 }
 
 function drawCardCreation(timeStamp){
-    if(dictLoaded){
-        context.font = '20px zenMaruRegular';
-        context.textAlign = 'center';
-        context.fillText(dictionary.entries["一太刀"], screenWidth/2, 100);
+    context.fillStyle = 'white';
+    context.font = '20px zenMaruRegular';
+    context.textAlign = 'center';
+    context.fillText("You can't actually make new cards here yet (just manually make the deck txt file right now)", screenWidth/2, 100);
+    context.fillText("But this is where you can do deck editing and viewing i guess?", screenWidth/2, 128);
+}
+
+function drawNikka(timeStamp){
+    context.fillStyle = 'white';
+    context.font = '20px zenMaruRegular';
+    context.textAlign = 'center';
+    context.fillText("Remember to come here when you have added 10 new sentence cards!", screenWidth/2, 100);
+    context.fillText("Deck loaded: " + deckLoaded, screenWidth/2, 128);
+    if(deckLoaded){
+        let d = srs.decks[0];
+        if(d.progressData === null){
+            context.fillText("No progress data for the daily deck! Go ahead and start making progress by studying!", screenWidth/2, 156);
+        } else {
+            context.fillText("Studied daily deck for "+progressData.daysStudied, screenWidth/2, 156);
+        }
     }
+    if(srs.decks[0])
+    context.fillText("Deck loaded: " + deckLoaded, screenWidth/2, 128);
+}
+
+function drawDeckStudy(timeStamp){
+    let d = srs.decks[srs.studyingDeck];
+    context.fillStyle = '#dedede';
+    context.font = '16px zenMaruRegular';
+    context.textAlign = 'left';
+    context.fillText("Deck name: "+d.deckName, 20, 40);
+    context.fillText("Number of cards: "+d.cards.length, 20, 60);
+    context.fillText("Cards to study: "+d.studySession.cardsToStudy.length, 20, 80);
+
+    context.fillStyle = 'white';
+    context.font = '20px zenMaruRegular';
+    context.textAlign = 'center';
+    context.fillText("Studying deck. Front of card:", screenWidth/2, 100);
+    context.fillText(scene.currentCard.front, screenWidth/2, 150);
+    if(scene.showBack){
+        context.fillText("Back of card:", screenWidth/2, 250);
+        context.fillText(scene.currentCard.back, screenWidth/2, 300);
+    }
+    /*if(scene.cardResult === "fail"){
+
+    }*/
+
 }
 
 // Loop that requests animation frames for itself, contains update and draw code that is not unique to any scene and everything else really
@@ -1685,6 +1915,8 @@ function gameLoop(timeStamp){
        case "tatakau": updateTatakau(timeStamp); break;
        case "adventure": updateAdventure(timeStamp); break;
        case "card creation": updateCardCreation(timeStamp); break;
+       case "nikka": updateNikka(timeStamp); break;
+       case "study deck" : updateDeckStudy(timeStamp); break;
        default: throw "Unknown Scene (update): "+scene.name; break;
     }
 
@@ -1762,6 +1994,9 @@ function gameLoop(timeStamp){
     // Draw the active buttons as it is not specifc to scene
     for (let x in scene.buttons) {
         let b = scene.buttons[x];
+        if(!b.enabled){
+            continue;
+        }
         let text = b.text.replaceAll("=",""); // i use = as a special delimiter, not to be displayed
 
         //context.reset();
@@ -1790,6 +2025,8 @@ function gameLoop(timeStamp){
        case "tatakau": drawTatakau(timeStamp); break;
        case "adventure": drawAdventure(timeStamp); break;
        case "card creation": drawCardCreation(timeStamp); break;
+       case "nikka": drawNikka(timeStamp); break;
+       case "study deck": drawDeckStudy(timeStamp); break;
        default: throw "Unknown Scene (draw): "+scene.name; break;
     }
 
