@@ -95,6 +95,25 @@ var srs = {
     Load important data  !!
 */
 
+// When levels are loaded it will give us (relative) paths of all the images we need for them
+var tilesetPaths = [];
+
+// Contains Images of each tileset we need, the index corresponds with the layer that the tileset corrosponbds to
+var tilesets = {
+    tilesetImages: [],
+
+    // Each element is an object that corresponds to the tileset
+    // Those objects contain arrays of information that corresponds to each tile in the tileset
+    tilesetTileInfo: [],
+};
+
+function loadTilesets(){
+    for (let i in tilesetPaths){
+        tilesets.tilesetImages.push(new Image());
+        tilesets.tilesetImages[i].src = tilesetPaths[i].replace("..","/assets");
+    }
+}
+
 // Contains pairs of each kanji with it's data
 var kanjiKeyPairs = [];
 
@@ -182,26 +201,48 @@ var levels = [];
 let levelsLoaded = false;
 function processLevelData(data) {
     //console.log(data);
-    const levelsData = JSON.parse(data).levels;
+    const worldData = JSON.parse(data);
+    const levelsData = worldData.levels;
+
+    // Takes the length of the layers and takes off 2 for the entities and collisions layer
+    const numTileLayers = worldData.defs.layers.length -2;
+
+    // Load in tileset information
+    for (let i=0;i<numTileLayers;i++){
+        let tsetData = worldData.defs.tilesets[i];
+        tilesetPaths.push(tsetData.relPath);
+        tilesets.tilesetTileInfo.push({});
+
+        const amountOfTiles = (tsetData.pxWid/tsetData.tileGridSize) * (tsetData.pxHei/tsetData.tileGridSize);
+        for (let j=0;j<tsetData.enumTags.length;j++){
+            tilesets.tilesetTileInfo[i][tsetData.enumTags[j].enumValueId] = Array(amountOfTiles).fill(false);
+            //console.log(tsetData.enumTags[j].enumValueId);
+            for (const id of tsetData.enumTags[j].tileIds){
+                tilesets.tilesetTileInfo[i][tsetData.enumTags[j].enumValueId][id] = true;
+            }
+        }
+    }
+
     for (let i in levelsData){
         levels[i] = {
             gridWidth: -1,
             gridHeight: -1,
             entities: [],
+            grassBiomeThings: [],
             dirt: [],
             hill: [],
-            water: [],
             grass: [],
+            water: [],
             collisions: [],
         };
         const levelData = levelsData[i];
         const entityLayerData = levelData.layerInstances[0];
-        const dirtLayerData = levelData.layerInstances[1];
-        const waterLayerData = levelData.layerInstances[3];
-        const grassLayerData = levelData.layerInstances[2];
-        const hillLayerData = levelData.layerInstances[4];
-        const collisionLayerData = levelData.layerInstances[5];
-        const levelChangesLayerData = levelData.layerInstances[6];
+        const grassBiomeThingsData = levelData.layerInstances[1];
+        const dirtLayerData = levelData.layerInstances[2];
+        const hillLayerData = levelData.layerInstances[3];
+        const grassLayerData = levelData.layerInstances[4];
+        const waterLayerData = levelData.layerInstances[5];
+        const collisionLayerData = levelData.layerInstances[6];
 
         levels[i].gridWidth = collisionLayerData.__cWid;
         levels[i].gridHeight = collisionLayerData.__cHei;
@@ -214,21 +255,25 @@ function processLevelData(data) {
             }
             levels[i].entities.push(entityData);
         }
+        for (let j in grassBiomeThingsData.gridTiles){
+            const t = grassBiomeThingsData.gridTiles[j];
+            levels[i].grassBiomeThings.push({src: t.src, px: t.px, t: t.t});
+        }
         for (let j in dirtLayerData.gridTiles){
             const t = dirtLayerData.gridTiles[j];
-            levels[i].dirt.push({src: t.src, px: t.px});
+            levels[i].dirt.push({src: t.src, px: t.px, t: t.t});
         }
         for (let j in waterLayerData.gridTiles){
             const t = waterLayerData.gridTiles[j];
-            levels[i].water.push({src: t.src, px: t.px});
+            levels[i].water.push({src: t.src, px: t.px, t: t.t});
         }
         for (let j in grassLayerData.gridTiles){
             const t = grassLayerData.gridTiles[j];
-            levels[i].grass.push({src: t.src, px: t.px});
+            levels[i].grass.push({src: t.src, px: t.px, t: t.t});
         }
         for (let j in hillLayerData.gridTiles){
             const t = hillLayerData.gridTiles[j];
-            levels[i].hill.push({src: t.src, px: t.px});
+            levels[i].hill.push({src: t.src, px: t.px, t: t.t});
         }
         levels[i].collisions = collisionLayerData.intGridCsv;
         levels[i].iid = levelData.iid;
@@ -238,6 +283,8 @@ function processLevelData(data) {
         }*/
     }
     levelsLoaded = true;
+
+    loadTilesets();
 }
 
 function handleLevelData() {
@@ -381,58 +428,17 @@ zenMaruBold.load().then(function(font){document.fonts.add(font);});
 var zenMaruBlack = new FontFace('zenMaruBlack', 'url(assets/ZenMaruGothic-Black.ttf)');
 zenMaruBlack.load().then(function(font){document.fonts.add(font);});
 
-
-var waterTileset = new Image();
-waterTileset.src = "/assets/Sprout Lands - Sprites - Basic pack/Tilesets/Water.png";
-
-var hillTileset = new Image();
-hillTileset.src = "/assets/Sprout Lands - Sprites - Basic pack/Tilesets/Hills.png";
-
-var dirtTileset = new Image();
-dirtTileset.src = "/assets/Sprout Lands - Sprites - Basic pack/Tilesets/Tilled Dirt.png";
-
-var grassTileset = new Image();
-grassTileset.src = "/assets/Sprout Lands - Sprites - Basic pack/Tilesets/Grass.png";
-/*grassTileset.onload = () => {
-    // Something something idk dont need this rn
-};*/
-
-var houseTileset = new Image();
-houseTileset.src = "/assets/Sprout Lands - Sprites - Basic pack/Tilesets/Wooden House.png"
-
-// Includes tilesets that have their own layer
-const tilesets = [waterTileset, dirtTileset, grassTileset];
-
 const characterList = ["witch","andro","gladius"];
-
-/*
-var gloria64bit = new Image();
-gloria64bit.src = "/assets/3x4charactersheets/pokemon_sword_gloria__female_player__gen_4_ow_v2_by_boonzeet_ddxoofo-fullview.png";
-
-var witch32bit = new Image();
-witch32bit.src = "/assets/3x4charactersheets/witch_spritesheet.png";
-
-var witchfaces = new Image();
-witchfaces.src = "/assets/faces/witch_faces_brown.png";
-
-var andro32bit = new Image();
-andro32bit.src = "/assets/3x4charactersheets/andro_spritesheet.png";
-
-var androfaces = new Image();
-androfaces.src = "/assets/faces/andro_faces.png";
-
-
-var characterSpritesheets = {gloria: gloria64bit, witch: witch32bit, andro: andro32bit};
-var characterFaces = {witch: witchfaces, andro: androfaces};
-var characterBitrates = {gloria: 64 ,andro: 32, witch: 32};*/
 
 var characterSpritesheets={},characterFaces={},characterBitrates={};
 const faceBitrate = 96;
 
 // Constants to indicate tile type
-const WATER = 0;
+const WATER = 4;
 const DIRT = 1;
-const GRASS = 2;
+const GRASS = 3;
+const HILL = 2;
+const GRASSBIOMETHINGS = 0;
 
 // Constants to indicate character location in sprite sheets
 const PROTAGONIST = 1;
@@ -450,8 +456,8 @@ Object.defineProperty( spritesheetOrientationPosition, "up", {value: 3});
 
 // Simple function that returns true when all images are indicated complete, false otherwise
 function areImageAssetsLoaded() {
-    for(let i in tilesets){
-        if(!tilesets[i].complete){
+    for(let i in tilesets.tilesetImages){
+        if(!tilesets.tilesetImages[i].complete){
             return false;
         }
     }
@@ -510,7 +516,7 @@ let oldTimeStamp=performance.now();
 // Variables and constants related to graphics below
 let textColor = "white";
 let bgColor = "black";
-const screenWidth = 1150, screenHeight = 900;
+const screenWidth = 1200, screenHeight = 950;
 
 // Complex shapes like this can be created with tools, although it may be better to use an image instead
 const heartPath = new Path2D('M24.85,10.126c2.018-4.783,6.628-8.125,11.99-8.125c7.223,0,12.425,6.179,13.079,13.543 c0,0,0.353,1.828-0.424,5.119c-1.058,4.482-3.545,8.464-6.898,11.503L24.85,48L7.402,32.165c-3.353-3.038-5.84-7.021-6.898-11.503 c-0.777-3.291-0.424-5.119-0.424-5.119C0.734,8.179,5.936,2,13.159,2C18.522,2,22.832,5.343,24.85,10.126z');
@@ -924,7 +930,7 @@ const wrapText = function(ctx, text, y, maxWidth, lineHeight, parseFileText = fa
 
     // Not by original author: Added parseFileText, which parses certain things out before using the text
     if(parseFileText){
-        text = text.replace(/playerName/g,scene.playerName)
+        text = text.replace(/playerName/g,scene.player.name)
     }
 
     // First, start by splitting all of our text into words, but splitting it into an array split by spaces
@@ -1250,7 +1256,7 @@ function initializeDialogue(character, timeStamp){
 // Draws a tile
 function drawTile(type, src, x, y){
     const size = 16;
-    context.drawImage(tilesets[type], src[0], src[1], tileBitrate, tileBitrate, x, y, size*2*scene.sizeMod+1, size*2*scene.sizeMod+1);
+    context.drawImage(tilesets.tilesetImages[type], src[0], src[1], tileBitrate, tileBitrate, x, y, size*2*scene.sizeMod+1, size*2*scene.sizeMod+1);
 }
 
 // Draws a character
@@ -1379,16 +1385,21 @@ function initializeScene(sceneName){
         scene.buttons = adventureButtons;
         scene.tileSize = 32;
         scene.levelNum = 1;
-        scene.sizeMod = 1;
+        scene.sizeMod = 1.4;
         //showDevInfo = false;
 
-        // Player location is the location used for logic, graphic location is the location to draw them at
-        scene.playerLocation = scene.playerGraphicLocation = [128*2,208*2];
-        scene.playerSrc = [32,0];
-        scene.playerName =  name==="" ? "Mari" : name;
-        //scene.playerLastMovedTime = 0;
+        // Stores all player and progress info for adventure (as long as its information that would be worth saving between sessions)
+        scene.player = {
+            location: [128*2,208*2],
+            graphicLocation: [128*2,208*2],
+            src: [32,0],
+            name: name==="" ? "Mari" : name,
+            finishedWaterScene: false,
+            finishedFruitScene: false,
+            numFinishedTutorialScenes: 0,
+        }
 
-        scene.worldX = 100;
+        scene.worldX = 150;
         scene.worldY = 20;
 
         // Counts the minutes elapsed from 0:00 in the day, for now it goes up 1 every second
@@ -1525,83 +1536,83 @@ function updateAdventure(timeStamp){
     if(scene.dialogue !== null){
         if(scene.movingDirection!==null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
             scene.movingDirection = null;
-            scene.playerGraphicLocation = scene.playerLocation;
-            scene.playerSrc[0]=32;
+            scene.player.graphicLocation = scene.player.location;
+            scene.player.src[0]=32;
             scene.whichFoot = (scene.whichFoot+1)%2;
         }
         //Something maybe
     } else {
         if(currentDirection === "down"){
-            scene.playerSrc = [32,0];
+            scene.player.src = [32,0];
         } else if (currentDirection === "left") {
-            scene.playerSrc = [32,32];
+            scene.player.src = [32,32];
         } else if(currentDirection === "right"){
-            scene.playerSrc = [32,32*2];
+            scene.player.src = [32,32*2];
         } else if(currentDirection === "up"){
-            scene.playerSrc = [32,32*3];
+            scene.player.src = [32,32*3];
         }
         if(scene.movingDirection===null && scene.dialogue === null){
             if(currentDirection === "down" && downPressed){
-                let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"down");
+                let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"down");
                 if(collision===null){
-                    scene.playerLocation[1]+=32;
+                    scene.player.location[1]+=32;
                     scene.movingDirection = "down";
                     scene.startedMovingTime = timeStamp;
                 } else if (collision === "bounds"){
                     for(const n of levels[scene.levelNum].neighbours){
                         if(n.dir === "s"){
                             changeArea(n.levelIid);
-                            scene.playerLocation[1]=-32;
+                            scene.player.location[1]=-32;
                         }
                     }
                 }
             } else if(currentDirection === "left" && leftPressed){
-                let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"left");
+                let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"left");
                 if(collision===null){
-                    scene.playerLocation[0]-=32;
+                    scene.player.location[0]-=32;
                     scene.movingDirection = "left";
                     scene.startedMovingTime = timeStamp;
                 } else if (collision === "bounds"){
                     for(const n of levels[scene.levelNum].neighbours){
                         if(n.dir === "w"){
                             changeArea(n.levelIid);
-                            scene.playerLocation[0]=18*32;
+                            scene.player.location[0]=18*32;
                         }
                     }
                 }
             } else if(currentDirection === "right" && rightPressed){
-                let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"right");
+                let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"right");
                 if(collision===null){
-                    scene.playerLocation[0]+=32;
+                    scene.player.location[0]+=32;
                     scene.movingDirection = "right";
                     scene.startedMovingTime = timeStamp;
                 } else if (collision === "bounds"){
                     for(const n of levels[scene.levelNum].neighbours){
                         if(n.dir === "e"){
                             changeArea(n.levelIid);
-                            scene.playerLocation[0]=-32;
+                            scene.player.location[0]=-32;
                         }
                     }
                 }
             } else if(currentDirection === "up" && upPressed){
-                let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"up");
+                let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"up");
                 if(collision===null){
-                    scene.playerLocation[1]-=32;
+                    scene.player.location[1]-=32;
                     scene.movingDirection = "up";
                     scene.startedMovingTime = timeStamp;
                 } else if (collision === "bounds"){
                     for(const n of levels[scene.levelNum].neighbours){
                         if(n.dir === "n"){
                             changeArea(n.levelIid);
-                            scene.playerLocation[1]=18*32;
+                            scene.player.location[1]=18*32;
                         }
                     }
                 }
             }
         } else if(movingAnimationDuration + scene.startedMovingTime < timeStamp){
             scene.movingDirection = null;
-            scene.playerGraphicLocation = scene.playerLocation;
-            scene.playerSrc[0]=32;
+            scene.player.graphicLocation = scene.player.location;
+            scene.player.src[0]=32;
             scene.whichFoot = (scene.whichFoot+1)%2;
         }
     }
@@ -1625,7 +1636,7 @@ function updateAdventure(timeStamp){
                 scene.dialogue = null;
             }
         } else {
-            let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],currentDirection);
+            let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],currentDirection);
             if(collision !== null && typeof collision === "object"){
                 note = `Talking with ${collision.id}!`;
                 if(currentDirection === "down"){
@@ -1858,20 +1869,32 @@ function drawAdventure(timeStamp){
     // world width and height
     let w = lev.gridWidth*scene.tileSize+1;
     let h = lev.gridHeight*scene.tileSize+1;
+
     // Draw tile layers
+    let deferredTiles = [];
     for (let i in lev.water){
         drawTile(WATER, [16*Math.floor( (timeStamp/400) % 4),0], scene.worldX+lev.water[i].px[0]*2*scene.sizeMod, scene.worldY+lev.water[i].px[1]*2*scene.sizeMod);
     }
     for (let i in lev.grass){
         drawTile(GRASS, lev.grass[i].src, scene.worldX+lev.grass[i].px[0]*2*scene.sizeMod, scene.worldY+lev.grass[i].px[1]*2*scene.sizeMod);
     }
+    for (let i in lev.hill){
+        drawTile(HILL, lev.hill[i].src, scene.worldX+lev.hill[i].px[0]*2*scene.sizeMod, scene.worldY+lev.hill[i].px[1]*2*scene.sizeMod);
+    }
     for (let i in lev.dirt){
         drawTile(DIRT, lev.dirt[i].src, scene.worldX+lev.dirt[i].px[0]*2*scene.sizeMod, scene.worldY+lev.dirt[i].px[1]*2*scene.sizeMod);
+    }
+    for (let i in lev.grassBiomeThings){
+        if(tilesets.tilesetTileInfo[GRASSBIOMETHINGS].Front[lev.grassBiomeThings[i].t]){
+            deferredTiles.push({tilesetNum: GRASSBIOMETHINGS, tile: lev.grassBiomeThings[i]});
+        } else {
+            drawTile(GRASSBIOMETHINGS, lev.grassBiomeThings[i].src, scene.worldX+lev.grassBiomeThings[i].px[0]*2*scene.sizeMod, scene.worldY+lev.grassBiomeThings[i].px[1]*2*scene.sizeMod);
+        }
     }
 
     context.font = '16px zenMaruRegular';
     context.fillStyle = textColor;
-    context.fillText("Press Z to interact",scene.worldX+15, scene.worldY+30+h);
+    context.fillText("Press Z to interact",scene.worldX+15, scene.worldY+30+h*scene.sizeMod);
     context.font = '20px zenMaruMedium';
     context.fillStyle = 'black';
     let hours = Math.floor(scene.currentGameClock/60);
@@ -1891,27 +1914,25 @@ function drawAdventure(timeStamp){
         }
     }
 
-
-
     // Draw player
     if(scene.movingDirection !== null){
         // Between 0 and 1 where 0 is the very beginning and 1 is finished
         let animationCompletion = (timeStamp - scene.startedMovingTime)/movingAnimationDuration;
 
         if(animationCompletion > 0.25 && animationCompletion < 0.75){
-            scene.playerSrc = [scene.whichFoot*2*32,spritesheetOrientationPosition[scene.movingDirection]*32];
+            scene.player.src = [scene.whichFoot*2*32,spritesheetOrientationPosition[scene.movingDirection]*32];
         } else {
-            scene.playerSrc = [32,spritesheetOrientationPosition[scene.movingDirection]*32];
+            scene.player.src = [32,spritesheetOrientationPosition[scene.movingDirection]*32];
         }
 
         if(scene.movingDirection === "up"){
-            scene.playerGraphicLocation = [scene.playerLocation[0],scene.playerLocation[1]+scene.tileSize*(1-animationCompletion)];
+            scene.player.graphicLocation = [scene.player.location[0],scene.player.location[1]+scene.tileSize*(1-animationCompletion)];
         } else if(scene.movingDirection === "left"){
-            scene.playerGraphicLocation = [scene.playerLocation[0]+scene.tileSize*(1-animationCompletion),scene.playerLocation[1]];
+            scene.player.graphicLocation = [scene.player.location[0]+scene.tileSize*(1-animationCompletion),scene.player.location[1]];
         } else if(scene.movingDirection === "right"){
-            scene.playerGraphicLocation = [scene.playerLocation[0]-scene.tileSize*(1-animationCompletion),scene.playerLocation[1]];
+            scene.player.graphicLocation = [scene.player.location[0]-scene.tileSize*(1-animationCompletion),scene.player.location[1]];
         } else if(scene.movingDirection === "down"){
-            scene.playerGraphicLocation = [scene.playerLocation[0],scene.playerLocation[1]-scene.tileSize*(1-animationCompletion)];
+            scene.player.graphicLocation = [scene.player.location[0],scene.player.location[1]-scene.tileSize*(1-animationCompletion)];
         }
     }
 
@@ -1924,8 +1945,13 @@ function drawAdventure(timeStamp){
         }
 
     }
-    drawCharacter("witch",scene.playerSrc,scene.worldX+scene.playerGraphicLocation[0]*scene.sizeMod,scene.worldY+scene.playerGraphicLocation[1]*scene.sizeMod);
+    drawCharacter("witch",scene.player.src,scene.worldX+scene.player.graphicLocation[0]*scene.sizeMod,scene.worldY+scene.player.graphicLocation[1]*scene.sizeMod);
     //context.restore();
+
+    // Draw foreground elements
+    for (const dt of deferredTiles){
+        drawTile(dt.tilesetNum, dt.tile.src, scene.worldX+dt.tile.px[0]*2*scene.sizeMod, scene.worldY+dt.tile.px[1]*2*scene.sizeMod);
+    }
 
     // Apply time of day brightness effect
     let maximumDarkness = 0.4
@@ -2228,7 +2254,7 @@ function gameLoop(timeStamp){
 `Time Stamp: ${timeStamp}
 Scene: ${scene.name}
 Number of tooltips: ${scene.tooltipBoxes.length}
-Player Src: ${scene.playerSrc}
+Player Src: ${scene.player.src}
 `;
         console.log(statement);
         alert(statement);
