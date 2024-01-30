@@ -18,6 +18,7 @@ var srs = {
 
     // Stores deck information. Objects here contain:
     // deckName: string. indicates deck name.
+    // daysStudied: num that indiates the total number of days that at least 1 card was studied. when this number is 0 it indicates a clean deck
     // fileName: string. indicates path of the deck's source file
     // cards: array. card objects contain a front and back field, and are stored independant of progrss
     // cardData: array. contains objects with user progress data that correspond to the index in cards
@@ -61,6 +62,10 @@ var srs = {
         }
         this.decks[deckNum].studySession = studySession;
         this.studyingDeck = deckNum;
+    },
+
+    finishDeckStudySession: function(){
+
     },
 
     // only to be called while a deck is currently being studied
@@ -127,6 +132,8 @@ function handleKanjiData() {
 var dialogueFileData = {
     andro: [],
     gladius: [],
+    world: [],
+    scenes: [],
 };
 
 // Loads the data !!!
@@ -140,8 +147,9 @@ function processDialogueData(data) {
         if(dialogueData.length < 2){
             break;
         }
-        const character = dialogueData[0];
-        const dialogueLinesAndFaces = dialogueData.slice(1);
+        const category = dialogueData[0];
+        const scenario = dialogueData[1];
+        const dialogueLinesAndFaces = dialogueData.slice(2);
 
         let faceData = [];
         let dialogueLineData = [];
@@ -151,9 +159,10 @@ function processDialogueData(data) {
             dialogueLineData.push(dialogueLinesAndFaces[j].substring(3));
         }
         //console.log(character);
-        dialogueFileData[character].push({
-            faces:faceData,
-            lines:dialogueLineData,
+        dialogueFileData[category].push({
+            scenario: scenario,
+            faces: faceData,
+            lines: dialogueLineData,
         });
     }
     dialogueLoaded = true;
@@ -184,7 +193,6 @@ function processLevelData(data) {
             water: [],
             grass: [],
             collisions: [],
-            levelChanges: [],
         };
         const levelData = levelsData[i];
         const entityLayerData = levelData.layerInstances[0];
@@ -223,7 +231,8 @@ function processLevelData(data) {
             levels[i].hill.push({src: t.src, px: t.px});
         }
         levels[i].collisions = collisionLayerData.intGridCsv;
-        levels[i].levelChanges = levelChangesLayerData.intGridCsv;
+        levels[i].iid = levelData.iid;
+        levels[i].neighbours = levelData.__neighbours;
         /*if(levels[i].water.length < 2){
             throw "You have no water and no hot boyfriend";
         }*/
@@ -269,10 +278,10 @@ function processDeckData(data,fileName){
     // see srs object for information about this data structure
     var deck = {
         deckName: "nikka",
+        daysStudied: 0,
         fileName: fileName,
         cards: [],
         cardData: [],
-        progressData: null,
         studySession: null,
     };
     const splitLines = str => str.split(/\r?\n/);
@@ -285,8 +294,6 @@ function processDeckData(data,fileName){
         }
         if(lineData[0] === "days_studied"){
             deck.progressData = {daysStudied: lineData[1]};
-        } else if (lineData[0] === "date_last_studied"){
-            deck.progressData.dateLastStudied = lineData[1];
         } else {
             var card = {};
             var cardData = {};
@@ -504,7 +511,6 @@ let oldTimeStamp=performance.now();
 let textColor = "white";
 let bgColor = "black";
 const screenWidth = 1150, screenHeight = 900;
-let adventureSizeMod = 1.51;
 
 // Complex shapes like this can be created with tools, although it may be better to use an image instead
 const heartPath = new Path2D('M24.85,10.126c2.018-4.783,6.628-8.125,11.99-8.125c7.223,0,12.425,6.179,13.079,13.543 c0,0,0.353,1.828-0.424,5.119c-1.058,4.482-3.545,8.464-6.898,11.503L24.85,48L7.402,32.165c-3.353-3.038-5.84-7.021-6.898-11.503 c-0.777-3.291-0.424-5.119-0.424-5.119C0.734,8.179,5.936,2,13.159,2C18.522,2,22.832,5.343,24.85,10.126z');
@@ -550,6 +556,13 @@ let loveButton = {　　
         love+=1;
         note = "<3";
         localStorage.setItem('love', love.toString());
+        if(scene.name === "adventure"){
+            if(scene.sizeMod === 1.4){
+                scene.sizeMod = 1;
+            } else {
+                scene.sizeMod = 1.4;
+            }
+        }
     }
 };
 let clearDataButton = {
@@ -614,7 +627,7 @@ let adventureButton = {
 };
 let backToHomeButton = {
     x:20, y:screenHeight-100, width:60, height:30,
-    neutralColor: '#b3b3ff', hoverColor: '#ff66ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+    neutralColor: '#b3b3ff', hoverColor: '#c8c8fa', pressedColor: '#ff66ff', color: '#b3b3ff',
     text: "Back", font: '14px zenMaruMedium', fontSize: 14,
     onClick: function() {
         this.color = this.neutralColor;
@@ -626,7 +639,7 @@ let backToHomeButton = {
 
 let studyDeckButton = {
     x:screenWidth/2 - 60 , y:420, width:120, height:30,
-    neutralColor: '#b3b3ff', hoverColor: '#ff66ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+    neutralColor: '#b3b3ff', hoverColor: '#c8c8fa', pressedColor: '#ff66ff', color: '#b3b3ff',
     text: "Study Deck", font: '14px zenMaruMedium', fontSize: 14,
     onClick: function() {
         this.color = this.neutralColor;
@@ -638,28 +651,46 @@ let studyDeckButton = {
 /* card study buttons */
 
 let failButton = {
-    x:screenWidth/2 + 25, y:490, width:75, height:30,
-    neutralColor: '#b3b3ff', hoverColor: '#ff66ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+    x:screenWidth/2 + 25, y:600, width:75, height:30,
+    neutralColor: '#b3b3ff', hoverColor: '#c8c8fa', pressedColor: '#ff66ff', color: '#b3b3ff',
     text: "Fail", font: '14px zenMaruMedium', fontSize: 14,
-    enabled: false,
     onClick: function() {
         scene.cardResult = "fail";
     }
 }
 
 let passButton = {
-    x:screenWidth/2 - 100 , y:490, width:75, height:30,
-    neutralColor: '#b3b3ff', hoverColor: '#ff66ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+    x:screenWidth/2 - 100 , y:600, width:75, height:30,
+    neutralColor: '#b3b3ff', hoverColor: '#c8c8fa', pressedColor: '#ff66ff', color: '#b3b3ff',
     text: "Pass", font: '14px zenMaruMedium', fontSize: 14,
-    enabled: false,
     onClick: function() {
         scene.cardResult = "pass";
     }
 }
+let pauseStudyButton = {
+    x:screenWidth/2 - 125 , y:700, width:250, height:30,
+    neutralColor: '#b3b3ff', hoverColor: '#c8c8fa', pressedColor: '#ff66ff', color: '#b3b3ff',
+    text: "Finish Session and Generate File", font: '14px zenMaruMedium', fontSize: 14,
+    onClick: function() {
+        const file = new File(['fook u'], 'note.txt', {
+            type: 'text/plain',
+        })
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(file);
+
+        link.href = url;
+        link.download = file.name;
+        document.body.appendChild(link);
+        link.click();
+
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    }
+}
 
 let continueButton = {
-    x:screenWidth/2 - 60, y:420, width:120, height:30,
-    neutralColor: '#b3b3ff', hoverColor: '#ff66ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+    x:screenWidth/2 - 60, y:540, width:120, height:30,
+    neutralColor: '#b3b3ff', hoverColor: '#c8c8fa', pressedColor: '#ff66ff', color: '#b3b3ff',
     text: "See Back", font: '14px zenMaruMedium', fontSize: 14,
     onClick: function() {
         scene.showBack = true;
@@ -673,7 +704,7 @@ let tatakauButtons = [loveButton,backToHomeButton];
 let nikkaButtons = [loveButton,backToHomeButton,studyDeckButton];
 let cardCreationButtons = [loveButton,backToHomeButton];
 let adventureButtons = [loveButton,backToHomeButton];
-let deckStudyButtons = [loveButton,backToHomeButton,continueButton,failButton,passButton];
+let deckStudyButtons = [loveButton,backToHomeButton,continueButton,failButton,passButton,pauseStudyButton];
 
 // Initializes an array of buttons during scene switch
 function initializeButtons(buttons){
@@ -880,12 +911,12 @@ window.addEventListener('click',function(e) {
     scene.particleSystems.push(createParticleSystem({x:mouseX, y:mouseY, temporary:true, particlesLeft:10, particleSpeed: 150, particleAcceleration: -150, particleLifespan: 1000}));
 },false);
 
-// Code baldfacedly stolen https://fjolt.com/article/html-canvas-how-to-wrap-text
-const wrapText = function(ctx, text, x, y, maxWidth, lineHeight, parseFileText = false) {
+// Code stolen and modified from https://fjolt.com/article/html-canvas-how-to-wrap-text
+// Japanese text doesnt have spaces so we just split it anywhere, rough but easy solution
+const wrapText = function(ctx, text, y, maxWidth, lineHeight, parseFileText = false, japanese = false) {
     // @description: wrapText wraps HTML canvas text onto a canvas of fixed width
     // @param ctx - the context for the canvas we want to wrap text on
     // @param text - the text we want to wrap.
-    // @param x - the X starting point of the text on the canvas.
     // @param y - the Y starting point of the text on the canvas.
     // @param maxWidth - the width at which we want line breaks to begin - i.e. the maximum width of the canvas.
     // @param lineHeight - the height of each line, so we can space them below each other.
@@ -897,33 +928,51 @@ const wrapText = function(ctx, text, x, y, maxWidth, lineHeight, parseFileText =
     }
 
     // First, start by splitting all of our text into words, but splitting it into an array split by spaces
-    let words = text.split(' ');
+    let wordBreak = ' ';
+    if(japanese){
+        wordBreak = '';
+    }
+    let words = text.split(wordBreak);
     let line = ''; // This will store the text of the current line
     let testLine = ''; // This will store the text when we add a word, to test if it's too long
     let lineArray = []; // This is an array of lines, which the function will return
     // Lets iterate over each word
     for(var n = 0; n < words.length; n++) {
         // Create a test line, and measure it..
-        testLine += `${words[n]} `;
+        if(japanese){
+            testLine += `${words[n]}`;
+        } else {
+            testLine += `${words[n]} `;
+        }
         let metrics = ctx.measureText(testLine);
         let testWidth = metrics.width;
         // If the width of this test line is more than the max width
         if (testWidth > maxWidth && n > 0) {
             // Then the line is finished, push the current line into "lineArray"
-            lineArray.push([line, x, y]);
+            lineArray.push([line, y]);
             // Increase the line height, so a new line is started
             y += lineHeight;
             // Update line and test line to use this word as the first word on the next line
-            line = `${words[n]} `;
-            testLine = `${words[n]} `;
+            if(japanese){
+                line = `${words[n]}`;
+                testLine = `${words[n]}`;
+            } else {
+                line = `${words[n]} `;
+                testLine = `${words[n]} `;
+            }
+
         }
         else {
             // If the test line is still less than the max width, then add the word to the current line
-            line += `${words[n]} `;
+            if(japanese){
+                line += `${words[n]}`;
+            } else {
+                line += `${words[n]} `;
+            }
         }
         // If we never reach the full max width, then there is only one line.. so push it into the lineArray so we return something
         if(n === words.length - 1) {
-            lineArray.push([line, x, y]);
+            lineArray.push([line, y]);
         }
     }
     // Return the line array
@@ -933,12 +982,12 @@ const wrapText = function(ctx, text, x, y, maxWidth, lineHeight, parseFileText =
 // Tooltip to show reading and meaning of jp words. Probably will be other types of tooltips much later
 function drawTooltip() {
     const word = scene.tooltipBoxes[scene.currentTooltip.index].word;
-    let wrappedText = wrapText(context, dictionary.entries[word], mouseX+12+10, mouseY+74, 360, 16);
+    let wrappedText = wrapText(context, dictionary.entries[word], mouseY+74, 360, 16);
 
     const boxX = mouseX+12;
     const boxY = mouseY+12;
     const boxWidth = 250;
-    const boxHeight = wrappedText[wrappedText.length-1][2]-mouseY+12;
+    const boxHeight = wrappedText[wrappedText.length-1][1]-mouseY+12;
 
     let offsetX = 0;
     let offsetY = 0;
@@ -964,9 +1013,8 @@ function drawTooltip() {
 
     wrappedText.forEach(function(item) {
         // item[0] is the text
-        // item[1] is the x coordinate to fill the text at
-        // item[2] is the y coordinate to fill the text at
-        context.fillText(item[0], item[1]+offsetX, item[2]+offsetY);
+        // item[1] is the y coordinate to fill the text at
+        context.fillText(item[0], mouseX+12+10+offsetX, item[1]+offsetY);
     });
 
     //context.fillText(dictionary.entries[word], mouseX+12+10, mouseY+74);
@@ -1202,19 +1250,16 @@ function initializeDialogue(character, timeStamp){
 // Draws a tile
 function drawTile(type, src, x, y){
     const size = 16;
-    context.drawImage(tilesets[type], src[0], src[1], tileBitrate, tileBitrate, x, y, size*2*adventureSizeMod+1, size*2*adventureSizeMod+1);
+    context.drawImage(tilesets[type], src[0], src[1], tileBitrate, tileBitrate, x, y, size*2*scene.sizeMod+1, size*2*scene.sizeMod+1);
 }
 
 // Draws a character
 function drawCharacter(character, src, x, y){
     context.imageSmoothingEnabled = true;
-    let size = characterBitrates[character]*adventureSizeMod;
+    let size = characterBitrates[character]*scene.sizeMod;
     let image = characterSpritesheets[character];
-    if(character==="gloria"){
-        size/=1.3;
-    }
     if(typeof image === "object"){
-        context.drawImage(image, src[0], src[1], characterBitrates[character], characterBitrates[character], x*adventureSizeMod, y*adventureSizeMod, size, size);
+        context.drawImage(image, src[0], src[1], characterBitrates[character], characterBitrates[character], x, y, size, size);
     } else {
         console.warn("drawCharacter: Expected object got " + typeof image + ", also you have negative hot men.");
     }
@@ -1223,7 +1268,7 @@ function drawCharacter(character, src, x, y){
 
 // Draws an inanimate object
 function drawInanimate(inanimate, x, y) {
-    let size = 16*adventureSizeMod;
+    let size = 16*scene.sizeMod;
     let image = null;
     let srcX = 0;
     let srcY = 0;
@@ -1247,7 +1292,7 @@ function drawInanimate(inanimate, x, y) {
     }
 
     if(typeof image === "object"){
-        context.drawImage(image, srcX*adventureSizeMod, srcY*adventureSizeMod, bitrate, bitrate, x, y, size*2, size*2);
+        context.drawImage(image, srcX*scene.sizeMod, srcY*scene.sizeMod, bitrate, bitrate, x, y, size*2, size*2);
     } else {
         console.warn("drawInanimate: Expected object got " + typeof image + ", also you have negative hot men.");
     }
@@ -1296,6 +1341,17 @@ function isCollidingOnTile(x, y, checkAdjacent = false){
     return null;
 }
 
+// Changes the area (level) in adventure mode
+// Takes the Iid of the area to be changed to because thats what the level neighbours are identified by (TODO: also allow change by level name or index)
+function changeArea(iid){
+    for(let i in levels){
+        if(levels[i].iid === iid){
+            scene.levelNum = i;
+            return;
+        }
+    }
+}
+
 /*
     The high level control procedures begin here
 */
@@ -1322,7 +1378,8 @@ function initializeScene(sceneName){
     } else if (sceneName === "adventure"){
         scene.buttons = adventureButtons;
         scene.tileSize = 32;
-        scene.levelNum = 0;
+        scene.levelNum = 1;
+        scene.sizeMod = 1;
         //showDevInfo = false;
 
         // Player location is the location used for logic, graphic location is the location to draw them at
@@ -1333,6 +1390,9 @@ function initializeScene(sceneName){
 
         scene.worldX = 100;
         scene.worldY = 20;
+
+        // Counts the minutes elapsed from 0:00 in the day, for now it goes up 1 every second
+        scene.currentGameClock = 900;
 
         // True when the player is currently moving to the tile they are "at" and the walking animation is playing
         scene.moving = false;
@@ -1481,22 +1541,62 @@ function updateAdventure(timeStamp){
             scene.playerSrc = [32,32*3];
         }
         if(scene.movingDirection===null && scene.dialogue === null){
-            if(currentDirection === "down" && downPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"down")===null){
-                scene.playerLocation[1]+=32;
-                scene.movingDirection = "down";
-                scene.startedMovingTime = timeStamp;
-            } else if(currentDirection === "left" && leftPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"left")===null){
-                scene.playerLocation[0]-=32;
-                scene.movingDirection = "left";
-                scene.startedMovingTime = timeStamp;
-            } else if(currentDirection === "right" && rightPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"right")===null){
-                scene.playerLocation[0]+=32;
-                scene.movingDirection = "right";
-                scene.startedMovingTime = timeStamp;
-            } else if(currentDirection === "up" && upPressed && isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"up")===null){
-                scene.playerLocation[1]-=32;
-                scene.movingDirection = "up";
-                scene.startedMovingTime = timeStamp;
+            if(currentDirection === "down" && downPressed){
+                let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"down");
+                if(collision===null){
+                    scene.playerLocation[1]+=32;
+                    scene.movingDirection = "down";
+                    scene.startedMovingTime = timeStamp;
+                } else if (collision === "bounds"){
+                    for(const n of levels[scene.levelNum].neighbours){
+                        if(n.dir === "s"){
+                            changeArea(n.levelIid);
+                            scene.playerLocation[1]=-32;
+                        }
+                    }
+                }
+            } else if(currentDirection === "left" && leftPressed){
+                let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"left");
+                if(collision===null){
+                    scene.playerLocation[0]-=32;
+                    scene.movingDirection = "left";
+                    scene.startedMovingTime = timeStamp;
+                } else if (collision === "bounds"){
+                    for(const n of levels[scene.levelNum].neighbours){
+                        if(n.dir === "w"){
+                            changeArea(n.levelIid);
+                            scene.playerLocation[0]=18*32;
+                        }
+                    }
+                }
+            } else if(currentDirection === "right" && rightPressed){
+                let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"right");
+                if(collision===null){
+                    scene.playerLocation[0]+=32;
+                    scene.movingDirection = "right";
+                    scene.startedMovingTime = timeStamp;
+                } else if (collision === "bounds"){
+                    for(const n of levels[scene.levelNum].neighbours){
+                        if(n.dir === "e"){
+                            changeArea(n.levelIid);
+                            scene.playerLocation[0]=-32;
+                        }
+                    }
+                }
+            } else if(currentDirection === "up" && upPressed){
+                let collision = isCollidingOnTile(scene.playerLocation[0],scene.playerLocation[1],"up");
+                if(collision===null){
+                    scene.playerLocation[1]-=32;
+                    scene.movingDirection = "up";
+                    scene.startedMovingTime = timeStamp;
+                } else if (collision === "bounds"){
+                    for(const n of levels[scene.levelNum].neighbours){
+                        if(n.dir === "n"){
+                            changeArea(n.levelIid);
+                            scene.playerLocation[1]=18*32;
+                        }
+                    }
+                }
             }
         } else if(movingAnimationDuration + scene.startedMovingTime < timeStamp){
             scene.movingDirection = null;
@@ -1548,6 +1648,9 @@ function updateAdventure(timeStamp){
         }
         zClicked = false;
     }
+
+    // Update in-game time
+    scene.currentGameClock = (280+Math.floor((timeStamp-scene.timeOfSceneChange)/1000))%1440;
 }
 
 function updateCardCreation(timeStamp){
@@ -1559,7 +1662,21 @@ function updateNikka(timeStamp){
 }
 
 function updateDeckStudy(timeStamp){
-    // ok
+    if(scene.cardResult === "pass"){
+        srs.submitCardResult(true);
+        scene.currentCard = srs.serveNextCard();
+        scene.showBack = false;
+        scene.cardResult = "pending";
+    } else if(scene.cardResult === "fail"){
+        srs.submitCardResult(false);
+        scene.currentCard = srs.serveNextCard();
+        scene.showBack = false;
+        scene.cardResult = "pending";
+    }
+    if(scene.currentCard === null){
+        srs.finishDeckStudySession();
+        scene.cardResult = "no card";
+    }
 }
 
 /*
@@ -1697,14 +1814,14 @@ function drawTatakau(timeStamp){
         context.fillStyle = 'hsla(0,0%,100%,'+alpha+')';
         context.font = '20px zenMaruRegular';
         context.textAlign = 'center';
-        context.fillText("なら、君の実力見せてもらいます", screenWidth/2, 150);
+        context.fillText("なら、君の実力見せてもらおっか", screenWidth/2, 150);
     } else if (timeElapsed < animationSpeed*6){
         let alpha = Math.max(0,(animationSpeed*5-timeElapsed)/animationSpeed);
 
         context.fillStyle = 'hsla(0,0%,100%,'+alpha+')';
         context.font = '20px zenMaruRegular';
         context.textAlign = 'center';
-        context.fillText("なら、君の実力見せてもらいます", screenWidth/2, 150);
+        context.fillText("なら、君の実力見せてもらおっか", screenWidth/2, 150);
     } else if (kanjiLoaded) {
         if(scene.inputting){
             if(!scene.finishedInputting){
@@ -1739,66 +1856,42 @@ function drawAdventure(timeStamp){
     let lev = levels[scene.levelNum];
 
     // world width and height
-    let w = lev.gridWidth*scene.tileSize;
-    let h = lev.gridHeight*scene.tileSize;
+    let w = lev.gridWidth*scene.tileSize+1;
+    let h = lev.gridHeight*scene.tileSize+1;
     // Draw tile layers
     for (let i in lev.water){
-        drawTile(WATER, [16*Math.floor( (timeStamp/400) % 4),0], scene.worldX+lev.water[i].px[0]*2*adventureSizeMod, scene.worldY+lev.water[i].px[1]*2*adventureSizeMod);
+        drawTile(WATER, [16*Math.floor( (timeStamp/400) % 4),0], scene.worldX+lev.water[i].px[0]*2*scene.sizeMod, scene.worldY+lev.water[i].px[1]*2*scene.sizeMod);
     }
     for (let i in lev.grass){
-        drawTile(GRASS, lev.grass[i].src, scene.worldX+lev.grass[i].px[0]*2*adventureSizeMod, scene.worldY+lev.grass[i].px[1]*2*adventureSizeMod);
+        drawTile(GRASS, lev.grass[i].src, scene.worldX+lev.grass[i].px[0]*2*scene.sizeMod, scene.worldY+lev.grass[i].px[1]*2*scene.sizeMod);
     }
     for (let i in lev.dirt){
-        drawTile(DIRT, lev.dirt[i].src, scene.worldX+lev.dirt[i].px[0]*2*adventureSizeMod, scene.worldY+lev.dirt[i].px[1]*2*adventureSizeMod);
+        drawTile(DIRT, lev.dirt[i].src, scene.worldX+lev.dirt[i].px[0]*2*scene.sizeMod, scene.worldY+lev.dirt[i].px[1]*2*scene.sizeMod);
     }
 
     context.font = '16px zenMaruRegular';
     context.fillStyle = textColor;
     context.fillText("Press Z to interact",scene.worldX+15, scene.worldY+30+h);
-
-    // Draw dialogue box
-    if(scene.dialogue !== null){
-        context.fillStyle = 'hsl(0, 100%, 0%, 78%)';
-        context.beginPath();
-        context.roundRect(scene.worldX, scene.worldY+h-96, w, 96);
-        context.fill();
-
-        const dialogueFace = scene.dialogue.faces[scene.dialogue.currentLine];
-        const faceNum = parseInt(dialogueFace[1]);
-        context.fillStyle = textColor;
-
-        // Draw differently depending on player vs non-player
-        const drawDialogueForPlayer = function(facesImage){
-            let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], (scene.worldX+96+lev.gridWidth)*adventureSizeMod, (scene.worldY+h-72)*adventureSizeMod, (w-144)*adventureSizeMod, 20, true);
-            wrappedText.forEach(function(item) {
-                // item[0] is the text
-                // item[1] is the x coordinate to fill the text at
-                // item[2] is the y coordinate to fill the text at
-                context.fillText(item[0], item[1], item[2]);
-            });
-            context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX, scene.worldY+h-96, 96, 96);
-        };
-        const drawDialogueForNonPlayer = function(facesImage){
-            let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], scene.worldX+16+lev.gridWidth, scene.worldY+h-72, w-144, 20, true);
-            wrappedText.forEach(function(item) {
-                // item[0] is the text
-                // item[1] is the x coordinate to fill the text at
-                // item[2] is the y coordinate to fill the text at
-                context.fillText(item[0], item[1], item[2]);
-            });
-            context.save();
-            context.scale(-1,1);
-            context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, -1*(scene.worldX+w), scene.worldY+h-96, 96, 96);
-            context.restore();
-        };
-        if(dialogueFace[0]==="g"){
-            drawDialogueForNonPlayer(characterFaces.gladius);
-        } else if (dialogueFace[0]==="a"){
-            drawDialogueForNonPlayer(characterFaces.andro);
+    context.font = '20px zenMaruMedium';
+    context.fillStyle = 'black';
+    let hours = Math.floor(scene.currentGameClock/60);
+    let minutes = Math.floor(scene.currentGameClock%60);
+    if(hours === 0){hours = 24;}
+    if(hours>12){
+        if(minutes<10){
+            context.fillText(`${hours-12}:0${minutes} PM`,scene.worldX+15, scene.worldY+30);
         } else {
-            drawDialogueForPlayer(characterFaces.witch);
+            context.fillText(`${hours-12}:${minutes} PM`,scene.worldX+15, scene.worldY+30);
+        }
+    } else {
+        if(minutes<10){
+            context.fillText(`${hours}:0${minutes} AM`,scene.worldX+15, scene.worldY+30);
+        } else {
+            context.fillText(`${hours}:${minutes} AM`,scene.worldX+15, scene.worldY+30);
         }
     }
+
+
 
     // Draw player
     if(scene.movingDirection !== null){
@@ -1825,14 +1918,79 @@ function drawAdventure(timeStamp){
     for (let i in lev.entities){
         const e = lev.entities[i];
         if(e.type === "character"){
-            drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*2+scene.worldX,e.px[1]*2+scene.worldY);
+            drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*scene.sizeMod*2+scene.worldX,e.px[1]*scene.sizeMod*2+scene.worldY);
         } else {
             drawInanimate(e,e.px[0]*2+scene.worldX,e.px[1]*2+scene.worldY)
         }
 
     }
-    drawCharacter("witch",scene.playerSrc,scene.worldX+scene.playerGraphicLocation[0],scene.worldY+scene.playerGraphicLocation[1]);
+    drawCharacter("witch",scene.playerSrc,scene.worldX+scene.playerGraphicLocation[0]*scene.sizeMod,scene.worldY+scene.playerGraphicLocation[1]*scene.sizeMod);
     //context.restore();
+
+    // Apply time of day brightness effect
+    let maximumDarkness = 0.4
+    if(hours >= 19 || hours < 5){
+        context.fillStyle = `hsla(0, 0%, 0%, ${maximumDarkness})`;
+    } else if(hours >= 7 && hours < 17){
+        context.fillStyle = `hsla(0, 0%, 0%, 0)`;
+    } else if(hours < 7){
+        // Sunrise. Starts at 5 AM (game clock 300) finishes at 7 AM (game clock 420)
+        let phase = 0.5 + (scene.currentGameClock-300)/120
+        let a = ((maximumDarkness/2) * Math.sin(Math.PI*phase))+maximumDarkness/2;
+        context.fillStyle = `hsla(0, 0%, 0%, ${a})`;
+    } else if(hours >= 17){
+        // Sunrise. Starts at 5 PM (game clock 1020) finishes at 7 PM (game clock 1140)
+        let phase = 1.5 + (scene.currentGameClock-300)/120
+        let a = ((maximumDarkness/2) * Math.sin(Math.PI*phase))+maximumDarkness/2;
+        context.fillStyle = `hsla(0, 0%, 0%, ${a})`;
+    }
+    context.fillRect(scene.worldX, scene.worldY, w*scene.sizeMod, h*scene.sizeMod);
+
+
+    // Draw dialogue box
+    if(scene.dialogue !== null){
+        context.fillStyle = 'hsl(0, 100%, 0%, 78%)';
+        context.beginPath();
+        context.roundRect(scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, w*scene.sizeMod, scene.sizeMod*96);
+        context.fill();
+
+        const dialogueFace = scene.dialogue.faces[scene.dialogue.currentLine];
+        const faceNum = parseInt(dialogueFace[1]);
+        context.fillStyle = textColor;
+        context.font = `${Math.floor(16*scene.sizeMod)}px zenMaruRegular`;
+
+        // Draw differently depending on player vs non-player
+        const drawDialogueForPlayer = function(facesImage){
+            let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], (scene.worldY+h*scene.sizeMod-72*scene.sizeMod), (w*scene.sizeMod-144), 20*scene.sizeMod, true);
+            wrappedText.forEach(function(item) {
+                // item[0] is the text
+                // item[1] is the y coordinate to fill the text at
+                context.fillText(item[0], (96+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
+            });
+            context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
+        };
+        const drawDialogueForNonPlayer = function(facesImage){
+            let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-144*scene.sizeMod, 20*scene.sizeMod, true);
+            wrappedText.forEach(function(item) {
+                // item[0] is the text
+                // item[1] is the y coordinate to fill the text at
+                context.fillText(item[0], (16+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
+            });
+            context.save();
+            context.scale(-1,1);
+            context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, -1*(scene.worldX+w*scene.sizeMod), scene.worldY+h*scene.sizeMod-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
+            context.restore();
+        };
+        context.imageSmoothingEnabled = true;
+        if(dialogueFace[0]==="g"){
+            drawDialogueForNonPlayer(characterFaces.gladius);
+        } else if (dialogueFace[0]==="a"){
+            drawDialogueForNonPlayer(characterFaces.andro);
+        } else {
+            drawDialogueForPlayer(characterFaces.witch);
+        }
+        context.imageSmoothingEnabled = false;
+    }
 }
 
 function drawCardCreation(timeStamp){
@@ -1874,10 +2032,22 @@ function drawDeckStudy(timeStamp){
     context.font = '20px zenMaruRegular';
     context.textAlign = 'center';
     context.fillText("Studying deck. Front of card:", screenWidth/2, 100);
-    context.fillText(scene.currentCard.front, screenWidth/2, 150);
+    let wrappedText = wrapText(context, scene.currentCard.front, 150, screenWidth*2/3, 25, false, true);
+    wrappedText.forEach(function(item) {
+        // item[0] is the text
+        // item[1] is the y coordinate to fill the text at
+        context.fillText(item[0], screenWidth/2, item[1]);
+    });
+    //context.fillText(scene.currentCard.front, screenWidth/2, 150);
     if(scene.showBack){
         context.fillText("Back of card:", screenWidth/2, 250);
-        context.fillText(scene.currentCard.back, screenWidth/2, 300);
+        let wrappedText = wrapText(context, scene.currentCard.back, 300, screenWidth*2/3, 25);
+        wrappedText.forEach(function(item) {
+            // item[0] is the text
+            // item[1] is the y coordinate to fill the text at
+            context.fillText(item[0], screenWidth/2, item[1]);
+        });
+        //context.fillText(scene.currentCard.back, screenWidth/2, 300);
     }
     /*if(scene.cardResult === "fail"){
 
