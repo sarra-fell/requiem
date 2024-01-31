@@ -1,3 +1,87 @@
-andro+initial+a0:Hello playerName, how are you doing on this fine spring day?+p0:Great!
-gladius+initial+g0:Oh, hi playerName...+p4:How are you? You don't seem so happy to see me...+g6:No! I mean, sorry. It's not that. It's just, you know. That thing.+g7:I'm too focused on being such a hot dude, y'know? It takes so much effort. Also I'm kind of tired, there's that too.
-scenes+tutorial water scene+p0:This water looks fresh enough. I better drink up before I die from dehydration.
+{
+    "scenes": {
+        "tutorial water scene": {
+            "textLines": [
+                "This water looks fresh enough. I better drink up before I die from dehydration."
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 0
+                }
+            ]
+        },
+        "opening scene": {
+            "textLines": [
+                "...",
+                ".....",
+                ".........................",
+                "...Urg.......",
+                "...",
+                "Where... am I?",
+                "Thirsty... hungry... and something else feels off too. Something unpleasant.",
+                "Let's look around for now, at least a little bit."
+            ],
+            "lineInfo": [
+                {},
+                {},
+                {},
+                {},
+                {
+                    "face": "player",
+                    "faceNum": 9
+                },
+                {
+                    "face": "player",
+                    "faceNum": 5
+                },
+                {
+                    "face": "player",
+                    "faceNum": 2
+                },
+                {
+                    "face": "player",
+                    "faceNum": 2
+                }
+            ]
+        }
+    },
+    "characterDialogue": {
+        "Gladius": {
+            "initial": {
+                "textLines": [
+                    "Hello playerName, how are you doing on this fine spring day?",
+                    "Great!",
+                    "Hey its nobody here here to say: no body!!!! hahahahah ahahahaha"
+                ],
+                "lineInfo": [
+                    {
+                        "face": "Gladius",
+                        "faceNum": 0
+                    },
+                    {
+                        "face": "player",
+                        "faceNum": 0
+                    },
+                    {}
+                ]
+            }
+        },
+        "Andro": {}
+    },
+    "worldDialogue": {
+        "clouds": {
+            "tutorial": {
+                "textLines": [
+                    "I wonder how far up this is in the sky..."
+                ],
+                "lineInfo": [
+                    {
+                        "face": "player",
+                        "faceNum": 4
+                    }
+                ]
+            }
+        }
+    }
+}

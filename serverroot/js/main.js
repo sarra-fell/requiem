@@ -149,15 +149,22 @@ function handleKanjiData() {
 
 // Contains all dialogue data directly from the file. Not to be modified after load.
 var dialogueFileData = {
-    andro: [],
-    gladius: [],
-    world: [],
-    scenes: [],
+    andro: {},
+    gladius: {},
+    world: {},
+    scenes: {},
 };
 
 // Loads the data !!!
 let dialogueLoaded = false;
 function processDialogueData(data) {
+    const dialogueData = JSON.parse(data);
+
+    dialogueFileData.scenes = dialogueData.scenes;
+    dialogueFileData.world = dialogueData.worldDialogue;
+    dialogueFileData.gladius = dialogueData.characterDialogue.Gladius;
+    dialogueFileData.andro = dialogueData.characterDialogue.Andro;
+    /*
     const splitLines = str => str.split(/\r?\n/);
     let splitData = splitLines(data);
 
@@ -183,7 +190,7 @@ function processDialogueData(data) {
             faces: faceData,
             lines: dialogueLineData,
         });
-    }
+    }*/
     dialogueLoaded = true;
 }
 
@@ -228,21 +235,16 @@ function processLevelData(data) {
             gridWidth: -1,
             gridHeight: -1,
             entities: [],
-            grassBiomeThings: [],
-            dirt: [],
-            hill: [],
-            grass: [],
-            water: [],
             collisions: [],
+
+            // tileLayers is populated with objects with fields:
+            // name - layer name
+            // tiles - array of tile
+            tileLayers: [],
         };
         const levelData = levelsData[i];
         const entityLayerData = levelData.layerInstances[0];
-        const grassBiomeThingsData = levelData.layerInstances[1];
-        const dirtLayerData = levelData.layerInstances[2];
-        const hillLayerData = levelData.layerInstances[3];
-        const grassLayerData = levelData.layerInstances[4];
-        const waterLayerData = levelData.layerInstances[5];
-        const collisionLayerData = levelData.layerInstances[6];
+        const collisionLayerData = levelData.layerInstances[levelData.layerInstances.length-1];
 
         levels[i].gridWidth = collisionLayerData.__cWid;
         levels[i].gridHeight = collisionLayerData.__cHei;
@@ -255,25 +257,17 @@ function processLevelData(data) {
             }
             levels[i].entities.push(entityData);
         }
-        for (let j in grassBiomeThingsData.gridTiles){
-            const t = grassBiomeThingsData.gridTiles[j];
-            levels[i].grassBiomeThings.push({src: t.src, px: t.px, t: t.t});
-        }
-        for (let j in dirtLayerData.gridTiles){
-            const t = dirtLayerData.gridTiles[j];
-            levels[i].dirt.push({src: t.src, px: t.px, t: t.t});
-        }
-        for (let j in waterLayerData.gridTiles){
-            const t = waterLayerData.gridTiles[j];
-            levels[i].water.push({src: t.src, px: t.px, t: t.t});
-        }
-        for (let j in grassLayerData.gridTiles){
-            const t = grassLayerData.gridTiles[j];
-            levels[i].grass.push({src: t.src, px: t.px, t: t.t});
-        }
-        for (let j in hillLayerData.gridTiles){
-            const t = hillLayerData.gridTiles[j];
-            levels[i].hill.push({src: t.src, px: t.px, t: t.t});
+
+        for(let j=0;j<numTileLayers;j++){
+            let tileLayerData = levelData.layerInstances[j+1];
+            let tileLayer = {
+                name: tileLayerData.__identifier,
+                tiles: [],
+            }
+            for (const t of tileLayerData.gridTiles){
+                tileLayer.tiles.push({src: t.src, px: t.px, t: t.t});
+            }
+            levels[i].tileLayers.push(tileLayer);
         }
         levels[i].collisions = collisionLayerData.intGridCsv;
         levels[i].iid = levelData.iid;
@@ -412,6 +406,9 @@ dictClient.send();
 /*
     Load our assets before doing anything else !!
 */
+
+var uiThingImage = new Image();
+uiThingImage.src = "assets/some ui/thing.png";
 
 var zenMaruRegular = new FontFace('zenMaruRegular', 'url(assets/ZenMaruGothic-Regular.ttf)');
 zenMaruRegular.load().then(function(font){document.fonts.add(font);});
@@ -556,7 +553,7 @@ let randomColor = Math.random() > 0.5? '#ff8080' : '#0099b0';
 let loveButton = {　　
     x:20, y:screenHeight-50, width:60, height:30,
     neutralColor: '#ed78ed', hoverColor: '#f3a5f3', pressedColor: '#7070db', color: '#ed78ed',
-    text: "怨嗟", font: '13px zenMaruRegular', fontSize: 13, jp: true,
+    text: "好き", font: '13px zenMaruRegular', fontSize: 13, jp: true,
     onClick: function() {
         randomColor = Math.random() > 0.5? '#ff80b0' : '#80ffb0';
         love+=1;
@@ -1242,13 +1239,13 @@ let homeParticleSystems = [bestParticleSystem,worstParticleSystem,silliestPartic
     Adventure mode specfic functions go here.
 */
 
-// Called when dialogue with a character begins
-function initializeDialogue(character, timeStamp){
+// Called when dialogue begins
+function initializeDialogue(category, scenario, timeStamp){
     scene.dialogue = {
         startTime: timeStamp,
         currentLine: 0,
-        faces: dialogueFileData[character][0].faces,
-        lines: dialogueFileData[character][0].lines,
+        textLines: dialogueFileData[category][scenario].textLines,
+        lineInfo: dialogueFileData[category][scenario].lineInfo,
         playerDirection: currentDirection,
     };
 }
@@ -1384,14 +1381,14 @@ function initializeScene(sceneName){
     } else if (sceneName === "adventure"){
         scene.buttons = adventureButtons;
         scene.tileSize = 32;
-        scene.levelNum = 1;
+        scene.levelNum = 0;
         scene.sizeMod = 1.4;
         //showDevInfo = false;
 
         // Stores all player and progress info for adventure (as long as its information that would be worth saving between sessions)
         scene.player = {
-            location: [128*2,208*2],
-            graphicLocation: [128*2,208*2],
+            location: [64*2,112*2],
+            graphicLocation: [64*2,112*2],
             src: [32,0],
             name: name==="" ? "Mari" : name,
             finishedWaterScene: false,
@@ -1399,7 +1396,7 @@ function initializeScene(sceneName){
             numFinishedTutorialScenes: 0,
         }
 
-        scene.worldX = 150;
+        scene.worldX = 80;
         scene.worldY = 20;
 
         // Counts the minutes elapsed from 0:00 in the day, for now it goes up 1 every second
@@ -1423,7 +1420,9 @@ function initializeScene(sceneName){
             lines (array)
             playerDirection (string) for maintaining currentDirection regardless of fiding with controls
         */
+
         bgColor = 'rgb(103,131,92)';
+        initializeDialogue("scenes","opening scene",scene.timeOfSceneChange);
     } else if (sceneName === "card creation"){
         scene.buttons = cardCreationButtons;
     } else if (sceneName === "nikka"){
@@ -1629,7 +1628,7 @@ function updateAdventure(timeStamp){
     }
     if(zClicked){
         if(scene.dialogue !== null){
-            if(scene.dialogue.lines.length > scene.dialogue.currentLine+1){
+            if(scene.dialogue.textLines.length > scene.dialogue.currentLine+1){
                 scene.dialogue.currentLine++;
             } else {
                 currentDirection = scene.dialogue.playerDirection;
@@ -1649,7 +1648,7 @@ function updateAdventure(timeStamp){
                     collision.src[1] = spritesheetOrientationPosition.down * 32;
                 }
                 if(collision.type==="character"){
-                    initializeDialogue(collision.id.toLowerCase(),timeStamp);
+                    initializeDialogue(collision.id.toLowerCase(),"initial",timeStamp);
                 }
             } else if(collision === 1){
                 note = `Talking with the water instead of hot guy...`;
@@ -1872,29 +1871,30 @@ function drawAdventure(timeStamp){
 
     // Draw tile layers
     let deferredTiles = [];
-    for (let i in lev.water){
-        drawTile(WATER, [16*Math.floor( (timeStamp/400) % 4),0], scene.worldX+lev.water[i].px[0]*2*scene.sizeMod, scene.worldY+lev.water[i].px[1]*2*scene.sizeMod);
-    }
-    for (let i in lev.grass){
-        drawTile(GRASS, lev.grass[i].src, scene.worldX+lev.grass[i].px[0]*2*scene.sizeMod, scene.worldY+lev.grass[i].px[1]*2*scene.sizeMod);
-    }
-    for (let i in lev.hill){
-        drawTile(HILL, lev.hill[i].src, scene.worldX+lev.hill[i].px[0]*2*scene.sizeMod, scene.worldY+lev.hill[i].px[1]*2*scene.sizeMod);
-    }
-    for (let i in lev.dirt){
-        drawTile(DIRT, lev.dirt[i].src, scene.worldX+lev.dirt[i].px[0]*2*scene.sizeMod, scene.worldY+lev.dirt[i].px[1]*2*scene.sizeMod);
-    }
-    for (let i in lev.grassBiomeThings){
-        if(tilesets.tilesetTileInfo[GRASSBIOMETHINGS].Front[lev.grassBiomeThings[i].t]){
-            deferredTiles.push({tilesetNum: GRASSBIOMETHINGS, tile: lev.grassBiomeThings[i]});
+    for (let i=lev.tileLayers.length-1;i>=0;i--) {
+        let layer = lev.tileLayers[i];
+        if(layer.name === "Grass_Biome_Things_Tiles"){
+            for (let t of layer.tiles){
+                if(tilesets.tilesetTileInfo[i].Front[t.t]){
+                    deferredTiles.push({tilesetNum: i, tile: t});
+                } else {
+                    drawTile(i, t.src, scene.worldX+t.px[0]*2*scene.sizeMod, scene.worldY+t.px[1]*2*scene.sizeMod);
+                }
+            }
+        } else if(layer.name === "Water_Tiles") {
+            for (let t of layer.tiles){
+                drawTile(i, [16*Math.floor( (timeStamp/400) % 4),0], scene.worldX+lev.water[i].px[0]*2*scene.sizeMod, scene.worldY+lev.water[i].px[1]*2*scene.sizeMod);
+            }
         } else {
-            drawTile(GRASSBIOMETHINGS, lev.grassBiomeThings[i].src, scene.worldX+lev.grassBiomeThings[i].px[0]*2*scene.sizeMod, scene.worldY+lev.grassBiomeThings[i].px[1]*2*scene.sizeMod);
+            for (let t of layer.tiles){
+                drawTile(i, t.src, scene.worldX+t.px[0]*2*scene.sizeMod, scene.worldY+t.px[1]*2*scene.sizeMod);
+            }
         }
     }
 
     context.font = '16px zenMaruRegular';
     context.fillStyle = textColor;
-    context.fillText("Press Z to interact",scene.worldX+15, scene.worldY+30+h*scene.sizeMod);
+    context.fillText("Press Z to interact",scene.worldX+100, scene.worldY+30+h*scene.sizeMod);
     context.font = '20px zenMaruMedium';
     context.fillStyle = 'black';
     let hours = Math.floor(scene.currentGameClock/60);
@@ -1980,14 +1980,14 @@ function drawAdventure(timeStamp){
         context.roundRect(scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, w*scene.sizeMod, scene.sizeMod*96);
         context.fill();
 
-        const dialogueFace = scene.dialogue.faces[scene.dialogue.currentLine];
-        const faceNum = parseInt(dialogueFace[1]);
+        const faceCharacter = scene.dialogue.lineInfo[scene.dialogue.currentLine].face;
+        const faceNum = scene.dialogue.lineInfo[scene.dialogue.currentLine].faceNum;
         context.fillStyle = textColor;
         context.font = `${Math.floor(16*scene.sizeMod)}px zenMaruRegular`;
 
-        // Draw differently depending on player vs non-player
+        // Draw differently depending on player vs non-player vs no image
         const drawDialogueForPlayer = function(facesImage){
-            let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], (scene.worldY+h*scene.sizeMod-72*scene.sizeMod), (w*scene.sizeMod-144), 20*scene.sizeMod, true);
+            let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], (scene.worldY+h*scene.sizeMod-72*scene.sizeMod), (w*scene.sizeMod-124*scene.sizeMod), 20*scene.sizeMod, true);
             wrappedText.forEach(function(item) {
                 // item[0] is the text
                 // item[1] is the y coordinate to fill the text at
@@ -1996,7 +1996,7 @@ function drawAdventure(timeStamp){
             context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
         };
         const drawDialogueForNonPlayer = function(facesImage){
-            let wrappedText = wrapText(context, scene.dialogue.lines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-144*scene.sizeMod, 20*scene.sizeMod, true);
+            let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-144*scene.sizeMod, 20*scene.sizeMod, true);
             wrappedText.forEach(function(item) {
                 // item[0] is the text
                 // item[1] is the y coordinate to fill the text at
@@ -2007,16 +2007,51 @@ function drawAdventure(timeStamp){
             context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, -1*(scene.worldX+w*scene.sizeMod), scene.worldY+h*scene.sizeMod-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
             context.restore();
         };
+        const drawDialogueForNobody = function(){
+            let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-40*scene.sizeMod, 20*scene.sizeMod, true);
+            wrappedText.forEach(function(item) {
+                // item[0] is the text
+                // item[1] is the y coordinate to fill the text at
+                context.fillText(item[0], (16+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
+            });
+        };
         context.imageSmoothingEnabled = true;
-        if(dialogueFace[0]==="g"){
+        if(faceCharacter==="Gladius"){
             drawDialogueForNonPlayer(characterFaces.gladius);
-        } else if (dialogueFace[0]==="a"){
+        } else if (faceCharacter==="Andro"){
             drawDialogueForNonPlayer(characterFaces.andro);
-        } else {
+        } else if (faceCharacter==="player"){
             drawDialogueForPlayer(characterFaces.witch);
+        } else {
+            drawDialogueForNobody();
         }
         context.imageSmoothingEnabled = false;
     }
+
+    // Draw the right part of the screen
+    context.fillStyle = 'hsl(0, 100%, 0%, 55%)';
+    context.beginPath();
+    context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 300, 805, 30);
+    context.fill();
+
+    context.font = '32px zenMaruMedium';
+    context.textAlign = 'center';
+    context.fillStyle = 'white';
+    context.fillText("Status", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+50);
+    drawCharacter("witch",[32,0],scene.worldX+18*16*scene.sizeMod*2+30 + 225,scene.worldY+120);
+
+    context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+    context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 80, scene.worldY+65, 300-160, 2)
+
+    context.font = '24px zenMaruRegular';
+    context.textAlign = 'center';
+    context.fillStyle = "#d5a6ff";
+    context.fillText("Mari", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+100);
+
+    context.font = '18px zenMaruRegular';
+    context.textAlign = 'left';
+    context.fillStyle = "white";
+    context.fillText("HP: ", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+100);
 }
 
 function drawCardCreation(timeStamp){
@@ -2228,7 +2263,7 @@ function gameLoop(timeStamp){
 
     // Draw constant elements
     context.fillStyle = textColor;
-    if(showDevInfo){
+    if(showDevInfo && scene.name !== "adventure"){
         context.font = '18px Arial';
         context.textAlign = "right";
         context.fillText(note, screenWidth-30, screenHeight-110);
