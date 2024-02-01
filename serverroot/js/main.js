@@ -1247,7 +1247,69 @@ function initializeDialogue(category, scenario, timeStamp){
         textLines: dialogueFileData[category][scenario].textLines,
         lineInfo: dialogueFileData[category][scenario].lineInfo,
         playerDirection: currentDirection,
+        cinematic: null,
     };
+
+    if(scene.dialogue.lineInfo[0] !== undefined && scene.dialogue.lineInfo[0].dysymbolia !== undefined){
+        scene.dialogue.cinematic = {
+            type: "dysymbolia",
+            startTime: timeStamp,
+            info: scene.dialogue.lineInfo.dysymbolia,
+        }
+    }
+}
+
+// Draws text one word at a time to be able to finely control what is written, designed to be a version of wrapText with much more features,
+//  including utilizing and managing its own particle systems
+
+// Uses the dialogue object in the scene to figure out what to write.
+function drawDialogueText(x, y, maxWidth, lineHeight) {
+    let d = scene.dialogue;
+    // First cuts up the dialogue text
+    let wordBreak = ' ';
+    let words = d.textLines[d.currentLine].split(wordBreak);
+    let testLine = ''; // This will store the text when we add a word, to test if it's too long
+    let lineArray = []; // Array of the individual words, a new array is a new line
+    // The words are arrays with text, x, and y and are all to be drawn at the end
+
+    let currentX = x; // x coordinate in which to draw the next word
+    let currentY = y; // y coordinate in which to draw the next word
+
+    for(var i = 0; i < words.length; i++) {
+        // Create a test line, and measure it..
+        testLine += `${words[i]} `;
+
+        let metrics = context.measureText(testLine);
+        // If the width of this test line is more than the max width
+        if (metrics.width > maxWidth && i > 0) {
+            // Then the line is finished, start a new line by increasing the line height, resetting the x value,
+            //  and resetting the test line
+            currentY += lineHeight;
+            currentX = x;
+            testLine = `${words[i]} `;
+            metrics = context.measureText(testLine)
+        }
+
+        lineArray.push([words[i],currentX,currentY]);
+        currentX = x + metrics.width;
+        /*
+        // If we never reach the full max width, then there is only one line.. so push it into the lineArray so we return something
+        if(i === words.length - 1) {
+            lineArray.push([line, y]);
+        }*/
+    }
+
+    // Now get around to actually writing the text
+    for(const word of lineArray){
+        if(word[0] === "hungry..."){
+            context.save();
+            context.fillStyle = "#d66b00";
+            context.fillText(word[0],word[1],word[2]);
+            context.restore();
+        } else {
+            context.fillText(word[0],word[1],word[2]);
+        }
+    }
 }
 
 // Draws a tile
@@ -1383,6 +1445,7 @@ function initializeScene(sceneName){
         scene.tileSize = 32;
         scene.levelNum = 0;
         scene.sizeMod = 1.4;
+        scene.blur = 0;
         //showDevInfo = false;
 
         // Stores all player and progress info for adventure (as long as its information that would be worth saving between sessions)
@@ -1390,9 +1453,32 @@ function initializeScene(sceneName){
             location: [64*2,112*2],
             graphicLocation: [64*2,112*2],
             src: [32,0],
-            name: name==="" ? "Mari" : name,
+            name: "Mari", jpName: "マリィ",
+            level: 1,
+            hp: 40, maxHp: 40,
+            power: 0, powerSoftcap: 5,
+            //hunger: 75, maxHunger: 100,
+            conditions: [
+                {
+                    name: "Dysymbolia",
+                    jpName: "ディシンボリア",
+                    type: "Curse",
+                    color: "black",
+                    desc: "Character sees visions of a distant world. Next in ??:??, or ????."
+                },
+                {
+                    name: "Hunger",
+                    jpName: "空腹",
+                    type: "Standard condition",
+                    color: "#d66b00",
+                    desc: "Character is hungry. Healing from most sources is reduced."
+                }
+            ],
             finishedWaterScene: false,
             finishedFruitScene: false,
+            finishedCloudScene: false,
+            finishedMonsterScene: false,
+            finishedNightScene: false,
             numFinishedTutorialScenes: 0,
         }
 
@@ -1419,6 +1505,7 @@ function initializeScene(sceneName){
             faces (array)
             lines (array)
             playerDirection (string) for maintaining currentDirection regardless of fiding with controls
+            cinematic (object) when any kind of special scene is playing during a dialogue. when not null the dialogue will not be continued with the z button
         */
 
         bgColor = 'rgb(103,131,92)';
@@ -1539,7 +1626,17 @@ function updateAdventure(timeStamp){
             scene.player.src[0]=32;
             scene.whichFoot = (scene.whichFoot+1)%2;
         }
-        //Something maybe
+        if(scene.dialogue.cinematic !== null){
+            if(scene.dialogue.cinematic.type === "dysymbolia"){
+                let timeElapsed = timeStamp-scene.dialogue.startTime;
+                if(timeElapsed < 5000){
+                    scene.blur = timeElapsed/1000;
+                } else {
+                    scene.blur = 5;
+                }
+                //console.log(scene.blur);
+            }
+        }
     } else {
         if(currentDirection === "down"){
             scene.player.src = [32,0];
@@ -1616,23 +1713,32 @@ function updateAdventure(timeStamp){
         }
     }
     if(xClicked){
-        if(scene.dialogue !== null){
+        /*if(scene.dialogue !== null){
             if(scene.dialogue.lines.length > scene.dialogue.currentLine+1){
                 scene.dialogue.currentLine++;
             } else {
                 currentDirection = scene.dialogue.playerDirection;
                 scene.dialogue = null;
             }
-        }
+        }*/
         xClicked = false;
     }
     if(zClicked){
         if(scene.dialogue !== null){
-            if(scene.dialogue.textLines.length > scene.dialogue.currentLine+1){
-                scene.dialogue.currentLine++;
-            } else {
-                currentDirection = scene.dialogue.playerDirection;
-                scene.dialogue = null;
+            if(scene.dialogue.cinematic === null){
+                if(scene.dialogue.textLines.length > scene.dialogue.currentLine+1){
+                    scene.dialogue.currentLine++;
+                    if(scene.dialogue.lineInfo[scene.dialogue.currentLine] !== undefined && scene.dialogue.lineInfo[scene.dialogue.currentLine].dysymbolia !== undefined){
+                        scene.dialogue.cinematic = {
+                            type: "dysymbolia",
+                            startTime: timeStamp,
+                            info: scene.dialogue.lineInfo.dysymbolia,
+                        };
+                    }
+                } else {
+                    currentDirection = scene.dialogue.playerDirection;
+                    scene.dialogue = null;
+                }
             }
         } else {
             let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],currentDirection);
@@ -1652,6 +1758,14 @@ function updateAdventure(timeStamp){
                 }
             } else if(collision === 1){
                 note = `Talking with the water instead of hot guy...`;
+            } else if(collision === 7){
+                if(scene.player.finishedCloudScene){
+                    initializeDialogue("world","clouds",timeStamp);
+                } else {
+                    initializeDialogue("scenes","tutorial cloud scene",timeStamp);
+                    scene.player.finishedCloudScene = true;
+                    scene.player.numFinishedTutorialScenes++;
+                }
             } else {
                 note = `Stop being lonely and talk to a hot guy already...`;
             }
@@ -1864,7 +1978,6 @@ function drawTatakau(timeStamp){
 
 function drawAdventure(timeStamp){
     let lev = levels[scene.levelNum];
-
     // world width and height
     let w = lev.gridWidth*scene.tileSize+1;
     let h = lev.gridHeight*scene.tileSize+1;
@@ -1953,6 +2066,16 @@ function drawAdventure(timeStamp){
         drawTile(dt.tilesetNum, dt.tile.src, scene.worldX+dt.tile.px[0]*2*scene.sizeMod, scene.worldY+dt.tile.px[1]*2*scene.sizeMod);
     }
 
+    if (scene.blur > 0) {
+        context.filter = `blur(${scene.blur}px)`;
+        // The canvas can draw itself lol
+        context.drawImage(canvas,
+            scene.worldX, scene.worldY, scene.worldX+18*16*2*scene.sizeMod, scene.worldY+18*16*2*scene.sizeMod,
+            scene.worldX, scene.worldY, scene.worldX+18*16*2*scene.sizeMod, scene.worldY+18*16*2*scene.sizeMod,
+         );
+        context.filter = "none";
+    }
+
     // Apply time of day brightness effect
     let maximumDarkness = 0.4
     if(hours >= 19 || hours < 5){
@@ -1987,12 +2110,13 @@ function drawAdventure(timeStamp){
 
         // Draw differently depending on player vs non-player vs no image
         const drawDialogueForPlayer = function(facesImage){
-            let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], (scene.worldY+h*scene.sizeMod-72*scene.sizeMod), (w*scene.sizeMod-124*scene.sizeMod), 20*scene.sizeMod, true);
+            /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], (scene.worldY+h*scene.sizeMod-72*scene.sizeMod), (w*scene.sizeMod-124*scene.sizeMod), 20*scene.sizeMod, true);
             wrappedText.forEach(function(item) {
                 // item[0] is the text
                 // item[1] is the y coordinate to fill the text at
                 context.fillText(item[0], (96+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
-            });
+            });*/
+            drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod);
             context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
         };
         const drawDialogueForNonPlayer = function(facesImage){
@@ -2031,27 +2155,55 @@ function drawAdventure(timeStamp){
     // Draw the right part of the screen
     context.fillStyle = 'hsl(0, 100%, 0%, 55%)';
     context.beginPath();
-    context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 300, 805, 30);
+    context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 305, 805, 30);
     context.fill();
 
     context.font = '32px zenMaruMedium';
     context.textAlign = 'center';
     context.fillStyle = 'white';
     context.fillText("Status", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+50);
-    drawCharacter("witch",[32,0],scene.worldX+18*16*scene.sizeMod*2+30 + 225,scene.worldY+120);
+    drawCharacter("witch",[32,0],scene.worldX+18*16*scene.sizeMod*2+30 + 200,scene.worldY+122);
+
+    context.font = '20px zenMaruMedium';
+    context.fillText("Abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+275);
+
+    context.font = '15px zenMaruRegular';
+    context.fillText("No learned abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+320);
 
     context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
-    context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 80, scene.worldY+65, 300-160, 2)
+    context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 80, scene.worldY+65, 300-160, 2);
+    context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 100, scene.worldY+290, 300-200, 2);
 
     context.font = '24px zenMaruRegular';
     context.textAlign = 'center';
     context.fillStyle = "#d5a6ff";
     context.fillText("Mari", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+100);
 
-    context.font = '18px zenMaruRegular';
+    context.font = '18px zenMaruMedium';
     context.textAlign = 'left';
-    context.fillStyle = "white";
-    context.fillText("HP: ", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+100);
+    context.fillStyle = "White";
+    context.fillText("HP: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+140);
+    context.fillText("Power: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+165);
+    context.fillText("Conditions: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+220);
+    //context.fillText("Abilties: No learned abilities.", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+245);
+
+    context.fillStyle = "#40d600";
+    context.fillText(scene.player.hp+"/"+scene.player.maxHp, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("HP: ").width, scene.worldY+140);
+
+    context.fillStyle = "#d600ba";
+    context.fillText(scene.player.power+"/"+scene.player.powerSoftcap, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("Power: ").width, scene.worldY+165);
+
+    let conditionLine = "Conditions: "
+    for(let i in scene.player.conditions){
+        const condition = scene.player.conditions[i];
+        context.fillStyle = condition.color;
+        if(i < scene.player.conditions.length-1){
+            context.fillText(condition.name+", ", scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText(conditionLine).width, scene.worldY+220);
+            conditionLine += condition.name+", ";
+        } else {
+            context.fillText(condition.name, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText(conditionLine).width, scene.worldY+220);
+        }
+    }
 }
 
 function drawCardCreation(timeStamp){

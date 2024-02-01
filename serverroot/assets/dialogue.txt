@@ -11,6 +11,23 @@
                 }
             ]
         },
+        "tutorial cloud scene": {
+            "textLines": [
+                "What is this...",
+                "These are... 雲? And this island is floating?"
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 4
+                },
+                {
+                    "face": "player",
+                    "faceNum": 4,
+                    "dysymbolia": ["雲","clouds","black"]
+                }
+            ]
+        },
         "opening scene": {
             "textLines": [
                 "...",
@@ -71,17 +88,15 @@
     },
     "worldDialogue": {
         "clouds": {
-            "tutorial": {
-                "textLines": [
-                    "I wonder how far up this is in the sky..."
-                ],
-                "lineInfo": [
-                    {
-                        "face": "player",
-                        "faceNum": 4
-                    }
-                ]
-            }
+            "textLines": [
+                "I wonder how far up this is in the sky..."
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 4
+                }
+            ]
         }
     }
 }
