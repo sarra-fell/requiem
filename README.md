@@ -1,2 +1,2 @@
 # requiem
-hi letsjam you should totally download this uwu
+love u xavier

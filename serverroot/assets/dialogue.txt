@@ -69,7 +69,7 @@
                 "textLines": [
                     "Hello playerName, how are you doing on this fine spring day?",
                     "Great!",
-                    "Hey its nobody here here to say: no body!!!! hahahahah ahahahaha"
+                    "Hey its nobody here here to say: no body!!!! hahahahah ahahahaha. i lied, im not nobody, im the devil of arch-hunger."
                 ],
                 "lineInfo": [
                     {
