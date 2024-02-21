@@ -16,22 +16,23 @@
                     "speed": 2,
                     "costs": [
                         {
-                            type: "expend this"
+                            "type": "expend this"
                         }
-                    ]
+                    ],
                     "targets": [
                         {
                             "number": 1,
-                            "conditions": [
+                            "recipient": [
                                 "unit",
                                 "you control"
                             ]
                         }
-                    ]
+                    ],
                     "effects": [
                         {
                             "type": "prevent damage",
                             "number": 2,
+                            "length": 1,
                             "recipient": 0
                         }
                     ]
@@ -64,16 +65,18 @@
                  {
                     "type": "passive ability",
                     "effects": [
-                        "type": "stat modifier",
-                        "attack": 1,
-                        "defense": 1,
-                        "recipient": [
-                            "medieval",
-                            "unit",
-                            "you control",
-                            "other",
-                            "this theater"
-                        ]
+                        {
+                            "type": "stat modifier",
+                            "attack": 1,
+                            "defense": 1,
+                            "recipient": [
+                                "medieval",
+                                "unit",
+                                "you control",
+                                "other",
+                                "this theater"
+                            ]
+                        }
                     ]
                  }
             ]
@@ -95,7 +98,7 @@
                         {
                             "type": "enter theater",
                             "recipient": [
-                                "this",
+                                "this"
                             ]
                         }
                     ],
@@ -117,6 +120,584 @@
                 }
             ]
         },
+        {
+            "name": "War Horse",
+            "type": "Unit",
+            "subtypes": [
+                "Animal"
+            ],
+            "era": "Medieval",
+            "cost": 3,
+            "attack": 3,
+            "defense": 2,
+            "rules": [
+                {
+                   "type": "passive ability",
+                   "conditions": [
+                        {
+                            "type": "existence check",
+                            "number": 1,
+                            "recipient": [
+                                "unit",
+                                "you control",
+                                "cavalry",
+                                "this theater"
+                            ]
+                        }
+                   ],
+                   "effects": [
+                       {
+                           "type": "ability gain",
+                           "ability": "gumption",
+                           "recipient": [
+                               "this"
+                           ]
+                       }
+                   ]
+                }
+            ]
+        },
+        {
+            "name": "Call for Reinforcements",
+            "type": "Tactic",
+            "subtypes": [
 
+            ],
+            "era": "Medieval",
+            "cost": 3,
+            "rules": [
+                {
+                    "type": "on play",
+                    "effects": [
+                        {
+                            "type": "draw",
+                            "number": 2
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Surprise Volley",
+            "type": "Tactic",
+            "subtypes": [
+                "Guerilla"
+            ],
+            "era": "Medieval",
+            "cost": 2,
+            "rules": [
+                {
+                    "type": "on play",
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "unit"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "damage",
+                            "number": 3,
+                            "recipient": 0
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Trebuchet Bombardment",
+            "type": "Tactic",
+            "subtypes": [
+
+            ],
+            "era": "Medieval",
+            "cost": 4,
+            "rules": [
+                {
+                    "type": "on play",
+                    "costs": [
+                        {
+                            "type": "expend",
+                            "number": 2,
+                            "recipient": [
+                                "unit",
+                                "you control",
+                                0
+                            ]
+                        }
+                    ],
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "theater"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "damage",
+                            "number": 3,
+                            "recipient number": "all",
+                            "recipient": [
+                                "unit",
+                                "opponent controls",
+                                0
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Battlements",
+            "type": "Theater",
+            "subtypes": [
+
+            ],
+            "era": "Medieval",
+            "rules": [
+                {
+                    "type": "activated ability",
+                    "costs": [
+                        {
+                            "type": "pay resource",
+                            "number": 1
+                        }
+                    ],
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "unit",
+                                "medieval",
+                                "this"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "stat modifier",
+                            "length": 2,
+                            "attack": 0,
+                            "defense": 1,
+                            "recipient": 0
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Moat",
+            "type": "Theater",
+            "subtypes": [
+
+            ],
+            "era": "Medieval",
+            "rules": [
+                {
+                    "type": "passive ability",
+                    "conditions": [
+                        {
+                            "type": "state check",
+                            "turn player": "you"
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "cost modifier",
+                            "number": 1,
+                            "recipient": [
+                                "card",
+                                "opponent controls",
+                                "tactic"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Battle Initiate",
+            "type": "Unit",
+            "subtypes": [
+                "Warrior"
+            ],
+            "era": "Classical",
+            "cost": 1,
+            "attack": 1,
+            "defense": 2,
+            "rules": []
+        },
+        {
+            "name": "Boundless Legionnaire",
+            "type": "Unit",
+            "subtypes": [
+                "Warrior",
+                "Guerrilla"
+            ],
+            "era": "Classical",
+            "cost": 4,
+            "attack": 2,
+            "defense": 1,
+            "rules": [
+                {
+                    "type": "trigger ability",
+                    "trigger conditions": [
+                        {
+                            "type": "enter theater",
+                            "recipient": [
+                                "this"
+                            ]
+                        }
+                    ],
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "unit",
+                                "this theater",
+                                "opponent"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "expend",
+                            "recipient": 0
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Hardened Battlemaster",
+            "type": "Unit",
+            "subtypes": [
+                "Officer"
+            ],
+            "era": "Classical",
+            "cost": 5,
+            "attack": 3,
+            "defense": 5,
+            "rules": [
+                {
+                    "type": "trigger ability",
+                    "trigger conditions": [
+                        {
+                            "type": "enter theater",
+                            "recipient": [
+                                "this"
+                            ]
+                        }
+                    ],
+                    "costs": [
+                        {
+                            "type": "expend",
+                            "number": 1,
+                            "recipient": [
+                                "you control",
+                                "other"
+                            ]
+                        }
+                    ],
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "unit",
+                                "this theater"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "destroy",
+                            "recipient": 0
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Swiftblade Marauder",
+            "type": "Unit",
+            "subtypes": [
+                "Mercenary"
+            ],
+            "era": "Classical",
+            "cost": 3,
+            "attack": 2,
+            "defense": 2,
+            "rules": [
+                {
+                    "type": "trigger ability",
+                    "trigger conditions": [
+                        {
+                            "type": "enter theater",
+                            "recipient": [
+                                "this"
+                            ]
+                        }
+                    ],
+                    "costs": [
+                        {
+                            "type": "expend",
+                            "number": 1,
+                            "recipient": [
+                                "you control",
+                                "other"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "draw",
+                            "number": 1
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Recruit the Locals",
+            "type": "Tactic",
+            "subtypes": [
+
+            ],
+            "era": "Classical",
+            "cost": 2,
+            "rules": [
+                {
+                    "type": "on play",
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "grave",
+                                "unit",
+                                "you control"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "to deck",
+                            "location": "top",
+                            "recipient": 0
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Shield Wall",
+            "type": "Tactic",
+            "subtypes": [
+                "Guerrilla"
+            ],
+            "era": "Classical",
+            "cost": 3,
+            "rules": [
+                {
+                    "type": "on play",
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "classical",
+                                "unit",
+                                "you control"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "stat modifier",
+                            "length": 1,
+                            "attack": 1,
+                            "defense": 2,
+                            "recipient": 0
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Take Captive",
+            "type": "Tactic",
+            "subtypes": [
+                "stratagem"
+            ],
+            "era": "Classical",
+            "cost": 7,
+            "rules": [
+                {
+                    "type": "on play",
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "unit",
+                                "opponent controls"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "attach",
+                            "recipient": 0
+                        }
+                    ]
+                },
+                {
+                    "type": "passive ability",
+                    "effects": [
+                        {
+                            "type": "control",
+                            "recipient": "attached"
+                        }
+                    ]
+                },
+                {
+                    "type": "trigger ability",
+                    "trigger conditions": [
+                        {
+                            "type": "existence check",
+                            "number": 1,
+                            "timing": "post skirmish",
+                            "recipient": [
+                                "attached",
+                                "battled"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "sacrifice",
+                            "recipient": "this"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Clifftop City",
+            "type": "Theater",
+            "subtypes": [
+
+            ],
+            "era": "Medieval",
+            "rules": [
+                {
+                    "type": "activated ability",
+                    "costs": [
+                        {
+                            "type": "pay resource",
+                            "number": 2
+                        }
+                    ],
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "unit",
+                                "classical",
+                                "this"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "stat modifier",
+                            "length": 2,
+                            "attack": 1,
+                            "defense": 1,
+                            "recipient": 0
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Oafish Brute",
+            "type": "Unit",
+            "subtypes": [
+                "Warrior"
+            ],
+            "era": "Generic",
+            "cost": 4,
+            "attack": 5,
+            "defense": 3,
+            "rules": [
+                {
+                    "type": "trigger ability",
+                    "trigger conditions": [
+                        {
+                            "timing": "upkeep",
+                            "turn player": "opponent"
+                        }
+                    ],
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "unit",
+                                "this theater",
+                                "opponent controls"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "stat modifier",
+                            "length": 2,
+                            "attack": 1,
+                            "defense": 0,
+                            "recipient": 0
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Sabotage",
+            "type": "Tactic",
+            "subtypes": [
+                "Guerilla"
+            ],
+            "era": "Generic",
+            "cost": 3,
+            "rules": [
+                {
+                    "type": "on play",
+                    "targets": [
+                        {
+                            "number": 1,
+                            "recipient": [
+                                "stratagem"
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "destroy",
+                            "recipient": 0
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Resource",
+            "type": "Resource",
+            "subtypes": [
+
+            ],
+            "era": "Generic",
+            "rules": []
+        }
     ]
 }

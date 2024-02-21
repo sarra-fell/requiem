@@ -114,6 +114,20 @@ function loadTilesets(){
     }
 }
 
+// When cards are loaded it will give us (relative) paths of all the images we need for them
+// Contains objects with fields "path" and "name"
+var sensouCardImagePaths = [];
+
+// Dictionary of card name -> card image
+var sensouCardImages = {};
+
+function loadSensouCardImages(){
+    for (const card of sensouCardImagePaths){
+        sensouCardImages[card.name] = new Image();
+        sensouCardImages[card.name].src = card.path.replace("..","/assets");
+    }
+}
+
 // Contains pairs of each kanji with it's data
 var kanjiKeyPairs = [];
 
@@ -139,14 +153,6 @@ function processKanjiData(data) {
     kanjiLoaded = true;
 }
 
-function handleKanjiData() {
-    if(this.status == 200) {
-        processKanjiData(this.responseText);
-    } else {
-        alert("Handling kanji data: Status " + this.status + ". We have failed and (redacted).");
-    }
-}
-
 // Contains all dialogue data directly from the file. Not to be modified after load.
 var dialogueFileData = {
     andro: {},
@@ -168,14 +174,6 @@ function processDialogueData(data) {
     dialogueLoaded = true;
 }
 
-function handleDialogueData() {
-    if(this.status == 200) {
-        processDialogueData(this.responseText);
-    } else {
-        alert("Handling dialogue data: Status " + this.status + ". We have failed and (chou redacted).");
-    }
-}
-
 // Levels isnt the most amazing word for it technically but it is the terminology that ldtk uses so thats the terms we are using
 var levels = [];
 
@@ -194,7 +192,7 @@ function processLevelData(data) {
         tilesetPaths.push(tsetData.relPath);
         tilesets.tilesetTileInfo.push({});
 
-        const amountOfTiles = (tsetData.pxWid/tsetData.tileGridSize) * (tsetData.pxHei/tsetData.tileGridSize);
+        const amountOfTiles = Math.floor((tsetData.pxWid/tsetData.tileGridSize)) * Math.floor((tsetData.pxHei/tsetData.tileGridSize));
         for (let j=0;j<tsetData.enumTags.length;j++){
             tilesets.tilesetTileInfo[i][tsetData.enumTags[j].enumValueId] = Array(amountOfTiles).fill(false);
             //console.log(tsetData.enumTags[j].enumValueId);
@@ -258,14 +256,6 @@ function processLevelData(data) {
     levelsLoaded = true;
 
     loadTilesets();
-}
-
-function handleLevelData() {
-    if(this.status == 200) {
-        processLevelData(this.responseText);
-    } else {
-        alert("Handling level data: Status " + this.status + ". We have failed and you have negative hot men");
-    }
 }
 
 var dictionary = {
@@ -341,11 +331,26 @@ function processDeckData(data,fileName){
     deckLoaded = true;
 }
 
-function handleDeckData() {
+let sensouCards = [];
+let sensouCardsLoaded = false;
+
+function processSensouCardData(data){
+    sensouCards = JSON.parse(data).cards;
+    for (const c of sensouCards){
+        sensouCardImagePaths.push({
+            name: c.name,
+            path: "../xavier game/"+c.name+".png",
+        });
+    }
+    loadSensouCardImages();
+    sensouCardsLoaded = true;
+}
+
+function handleKanjiData() {
     if(this.status == 200) {
-        processDeckData(this.responseText,"assets/srs decks/daily_deck.txt");
+        processKanjiData(this.responseText);
     } else {
-        alert("Handling deck data: Status " + this.status + ". We have failed and you have negative hot men");
+        alert("Handling kanji data: Status " + this.status + ". We have failed and (redacted).");
     }
 }
 
@@ -354,15 +359,39 @@ kanjiClient.onload = handleKanjiData;
 kanjiClient.open("GET", "assets/kanji.txt");
 kanjiClient.send();
 
+function handleDialogueData() {
+    if(this.status == 200) {
+        processDialogueData(this.responseText);
+    } else {
+        alert("Handling dialogue data: Status " + this.status + ". We have failed and (chou redacted).");
+    }
+}
+
 var dialogueClient = new XMLHttpRequest();
 dialogueClient.onload = handleDialogueData;
 dialogueClient.open("GET", "assets/dialogue.txt");
 dialogueClient.send();
 
+function handleLevelData() {
+    if(this.status == 200) {
+        processLevelData(this.responseText);
+    } else {
+        alert("Handling level data: Status " + this.status + ". We have failed and you have negative hot men");
+    }
+}
+
 var levelClient = new XMLHttpRequest();
 levelClient.onload = handleLevelData;
 levelClient.open("GET", "assets/ldtk/testy2.ldtk");
 levelClient.send();
+
+function handleDeckData() {
+    if(this.status == 200) {
+        processDeckData(this.responseText,"assets/srs decks/daily_deck.txt");
+    } else {
+        alert("Handling deck data: Status " + this.status + ". We have failed and you have negative hot men");
+    }
+}
 
 var deckClient = new XMLHttpRequest();
 deckClient.onload = handleDeckData;
@@ -381,6 +410,19 @@ var dictClient = new XMLHttpRequest();
 dictClient.onload = handleDict;
 dictClient.open("GET", "assets/compiled_dictionary_data.txt");
 dictClient.send();
+
+function handleSensouCardData() {
+    if(this.status == 200) {
+        processSensouCardData(this.responseText);
+    } else {
+        alert("Handling dict data: Status " + this.status + ". We have failed and you have negative hot men");
+    }
+}
+
+var sensouCardClient = new XMLHttpRequest();
+sensouCardClient.onload = handleSensouCardData;
+sensouCardClient.open("GET", "assets/xavier game/card_data.txt");
+sensouCardClient.send();
 
 /*
     Load our assets before doing anything else !!
@@ -1462,6 +1504,23 @@ function drawInanimate(inanimate, x, y) {
     }
 }
 
+// Draws a sensou card.
+// Size is either width for "width" mode or height for "height" mode
+function drawSensouCard(card,x,y,size,mode) {
+    context.imageSmoothingEnabled = true;
+    let img = sensouCardImages[card];
+    if(mode === "width"){
+        let scale = size/img.width;
+        context.drawImage(img, x, y, size, scale*img.height);
+    } else if (mode === "height"){
+        let scale = size/img.height;
+        context.drawImage(img, x, y, scale*img.width, size);
+    } else {
+        context.drawImage(img, x, y);
+    }
+    context.imageSmoothingEnabled = false;
+}
+
 // Checks if a tile is marked for collision or not. Scene must be adventure scene.
 // checkAdjacent to be set to "up" "left" "right" or "down" or to be left undefined
 // - if defined, checks that adjacent tile instead of the one directly indicated by the x and y
@@ -2103,7 +2162,7 @@ function drawAdventure(timeStamp){
     let deferredTiles = [];
     for (let i=lev.tileLayers.length-1;i>=0;i--) {
         let layer = lev.tileLayers[i];
-        if(layer.name === "Grass_Biome_Things_Tiles"){
+        if(layer.name === "Grass_Biome_Things_Tiles" || layer.name === "Bridge_Tiles"){
             for (let t of layer.tiles){
                 if(tilesets.tilesetTileInfo[i].Front[t.t]){
                     deferredTiles.push({tilesetNum: i, tile: t});
@@ -2469,6 +2528,10 @@ function drawZidaiSensou(timeStamp){
     context.textAlign = 'center';
     context.fillText("Welcome to Xavier's card game!", screenWidth/2, 100);
     context.fillText("Cards loaded: " + sensouCardsLoaded, screenWidth/2, 128);
+
+    context.scale(0.2,0.2);
+    drawSensouCard("Knight",10,10,234,"no");
+    context.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 sceneDefinitions.push({
