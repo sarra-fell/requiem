@@ -386,8 +386,8 @@ dictClient.send();
     Load our assets before doing anything else !!
 */
 
-var uiThingImage = new Image();
-uiThingImage.src = "assets/some ui/thing.png";
+/*var uiThingImage = new Image();
+uiThingImage.src = "assets/some ui/thing.png";*/
 
 var zenMaruRegular = new FontFace('zenMaruRegular', 'url(assets/ZenMaruGothic-Regular.ttf)');
 zenMaruRegular.load().then(function(font){document.fonts.add(font);});
@@ -452,7 +452,7 @@ const tileBitrate = 16;
 // The scene is the screen the player is engaging with and the scene object stores information specfic to the scene
 // All state in this object is wiped upon scene change, which hopefully someyhwat mitigates that it is basically a god object containing glorified global state
 var scene = {
-    name: "home", buttons: [], particleSystems: [], timeOfSceneChange: -1,
+    name: "home", index: 0, buttons: [], particleSystems: [], timeOfSceneChange: -1,
     inputting: false, finishedInputting: true, textEntered:"",
 
     // Contains the 'hitboxes' for the areas where tooltips need to appear when hovered
@@ -587,6 +587,15 @@ let nikkaSceneButton = {
         scene.switchScene = "nikka";
     }
 };
+let zidaiSensouButton = {
+    x:620, y:60, width:150, height:100,
+    neutralColor: '#0390fc', hoverColor: '#53b3fc', pressedColor: '#a024ff', color: '#0390fc',
+    text: "時代=戦争", font: '24px zenMaruLight', fontSize: 24, jp: true,
+    onClick: function() {
+        this.color = this.neutralColor;
+        scene.switchScene = "zidai sensou";
+    }
+};
 let adventureButton = {
     x:500, y:180, width:270, height:100,
     neutralColor: '#9c79ec', hoverColor: '#bda6f2', pressedColor: '#f0d800', color: '#9c79ec',
@@ -611,7 +620,6 @@ let backToHomeButton = {
 }
 
 /* nikka buttons */
-
 let studyDeckButton = {
     x:screenWidth/2 - 60 , y:420, width:120, height:30,
     neutralColor: '#b3b3ff', hoverColor: '#c8c8fa', pressedColor: '#ff66ff', color: '#b3b3ff',
@@ -624,7 +632,6 @@ let studyDeckButton = {
 }
 
 /* card study buttons */
-
 let failButton = {
     x:screenWidth/2 + 25, y:600, width:75, height:30,
     neutralColor: '#b3b3ff', hoverColor: '#c8c8fa', pressedColor: '#ff66ff', color: '#b3b3ff',
@@ -673,13 +680,6 @@ let continueButton = {
         passButton.enabled = true;
     }
 }
-
-let homeButtons = [loveButton,clearDataButton,tatakauSceneButton,cardCreationSceneButton,introductionButton,adventureButton,nikkaSceneButton];
-let tatakauButtons = [loveButton,backToHomeButton];
-let nikkaButtons = [loveButton,backToHomeButton,studyDeckButton];
-let cardCreationButtons = [loveButton,backToHomeButton];
-let adventureButtons = [loveButton,backToHomeButton];
-let deckStudyButtons = [loveButton,backToHomeButton,continueButton,failButton,passButton,pauseStudyButton];
 
 // Initializes an array of buttons during scene switch
 function initializeButtons(buttons){
@@ -1529,15 +1529,20 @@ function changeArea(iid,changePlayerLocation = false){
 // Called upon scene change and initializes
 function initializeScene(sceneName){
     // First clear the current scene before repopulating it
-    scene = {name: sceneName, buttons: [], particleSystems: [], timeOfSceneChange: performance.now(),
+    scene = {name: sceneName, index: -1, buttons: [], particleSystems: [], timeOfSceneChange: performance.now(),
             inputting: false, finishedInputting: true, textEntered:"", currentTooltip:null, tooltipBoxes:[],
             switchScene: null};
 
+    // Find the scene definition for the scene
+    for(let i in sceneDefinitions){
+        if(sceneName === sceneDefinitions[i].name){
+            scene.index = i;
+            scene.buttons = sceneDefinitions[i].buttons;
+        }
+    }
+
     bgColor = 'Black';
-    if (sceneName === "tatakau"){
-        scene.buttons = tatakauButtons;
-    } else if (sceneName === "home"){
-        scene.buttons = homeButtons;
+    if (sceneName === "home"){
         scene.particleSystems = homeParticleSystems;
 
         // Variables specfic to home
@@ -1546,7 +1551,6 @@ function initializeScene(sceneName){
 
         scene.bullets=[];
     } else if (sceneName === "adventure"){
-        scene.buttons = adventureButtons;
         scene.tileSize = 32;
         scene.levelNum = 0;
         scene.sizeMod = 1.4;
@@ -1616,12 +1620,7 @@ function initializeScene(sceneName){
         bgColor = 'rgb(103,131,92)';
         initializeDialogue("scenes","opening scene",scene.timeOfSceneChange);
         registerConditionTooltips();
-    } else if (sceneName === "card creation"){
-        scene.buttons = cardCreationButtons;
-    } else if (sceneName === "nikka"){
-        scene.buttons = nikkaButtons;
     } else if (sceneName === "study deck"){
-        scene.buttons = deckStudyButtons;
         scene.currentCard = srs.serveNextCard();
         scene.showBack = false;
         scene.cardResult = "pending";
@@ -1656,8 +1655,14 @@ function initializeScene(sceneName){
 }
 
 /*
-    Update functions called each frame during their scene
+    Scene draw + update functions and scene definition array
 */
+
+// Array of all defined scenes
+let sceneDefinitions = [];
+
+/********************************* Home scene *************************************/
+
 function updateHome(timeStamp){
     scene.ballX += scene.ballVelocityX/fps;
     scene.ballY += scene.ballVelocityY/fps;
@@ -1720,9 +1725,196 @@ function updateHome(timeStamp){
     }
 }
 
+function drawHome(timeStamp){
+
+    // circle
+    context.fillStyle = randomColor;
+    context.beginPath();
+    context.arc(mouseX, mouseY, 10, 0, 2 * Math.PI);
+    context.fill();
+
+    // Line
+    context.beginPath();
+    context.moveTo(500, 500);
+    context.lineTo(250, 150);
+    context.stroke();
+
+    // triangle
+    context.beginPath();
+    context.moveTo(300, 200);
+    context.lineTo(350, 250);
+    context.lineTo(350, 150);
+    context.fill();
+
+    // shapes drawn with stroke instead of fill
+    context.lineWidth = 5;
+
+    context.beginPath();
+    context.arc(400, 100, 50, 0, 2 * Math.PI);
+    context.strokeStyle = randomColor;
+    context.stroke();
+
+    // to be a full triangle it would have to be 3 lines, it doesnt
+    // automatically close it like with fill
+    context.beginPath();
+    context.moveTo(400, 300);
+    context.lineTo(450, 350);
+    context.lineTo(350, 150);
+    context.stroke();
+
+    context.beginPath();
+    context.strokeStyle = '#0099b0';
+    context.fillStyle = randomColor;
+    context.stroke(heartPath);
+    //context.fill(heartPath);
+
+    context.fillStyle = 'hsl(240,100%,50%)';
+    context.fillRect(100, 250, 100, 125);
+
+    // and now for what we have all be waiting for: text
+    context.fillStyle = 'white';
+    context.font = '20px zenMaruRegular';
+    context.fillText("Welcome to ホーム! Have a good stay!", 50, 100);
+
+    if(name!==""){
+        if(nameRecentlyLearned){
+            context.fillText("Your name is "+name+"! Thanks for letting me know!", 50, 130);
+        } else {
+            context.fillText("Your name is "+name+"! I can't believe I remembered!", 50, 130);
+        }
+    } else {
+        context.fillText("I don't know your name! Please introduce yourself. pien", 50, 130);
+    }
+
+    // Turned on by the intoduction button, player is to enter their name.
+    if(scene.inputting){
+        if(!scene.finishedInputting){
+            context.fillStyle = 'white';
+            context.font = '16px zenMaruMedium';
+            //x:620, y:300
+            context.fillText("Hello! My name is Sarracenia!", 600, 250);
+            context.fillText("What is your name?", 600, 270);
+            context.fillText(scene.textEntered+"_", 600, 290);
+        } else {
+            name = scene.textEntered;
+            localStorage.setItem('name', name);
+            scene.inputting = false;
+            nameRecentlyLearned = true;
+            scene.textEntered = "";
+        }
+    }
+
+    // Background was drawn; now draw the object(s)
+
+    // Draw the Ball
+    context.fillStyle = randomColor;
+    context.beginPath();
+    context.arc(scene.ballX, scene.ballY, scene.ballRadius, 0, 2 * Math.PI);
+    context.fill();
+
+    // Draw the Player (who is also a ball)
+    context.fillStyle = scene.playerColor;
+    context.beginPath();
+    context.arc(scene.playerX, scene.playerY, scene.playerRadius, 0, 2 * Math.PI);
+    context.fill();
+
+    // Draw Bullets
+    for (let x in scene.bullets) {
+        let bullet = scene.bullets[x];
+        context.fillStyle = 'white';
+        //context.font = '14px Arial';
+        //context.fillText("Bullet "+x+" X:"+bullet.bulletX, screenWidth-200, 50+40*x);
+        //context.fillText("Bullet "+x+" Y:"+bullet.bulletY, screenWidth-200, 65+40*x);
+        context.beginPath();
+        context.arc(bullet.bulletX, bullet.bulletY, bulletRadius, 0, 2 * Math.PI);
+        context.fill();
+    }
+}
+
+sceneDefinitions.push({
+    name: "home",
+    update: updateHome,
+    draw: drawHome,
+    buttons: [loveButton,clearDataButton,tatakauSceneButton,cardCreationSceneButton,introductionButton,adventureButton,nikkaSceneButton,zidaiSensouButton],
+});
+
+/********************************* Tatakau scene *************************************/
+
 function updateTatakau(timeStamp){
     // Lol
 }
+
+function drawTatakau(timeStamp){
+    // If not enough time has passed, play a cinematic based on time elapsed since scene change
+    let timeElapsed = timeStamp - scene.timeOfSceneChange;
+
+    let animationSpeed = 1000;
+    if(timeElapsed < animationSpeed*2){
+        let alpha = timeElapsed/animationSpeed;
+
+        context.fillStyle = 'hsla(0,0%,100%,'+alpha+')';
+        context.font = '20px zenMaruRegular';
+        context.textAlign = 'center';
+        context.fillText("君も戦うのね", screenWidth/2, 100);
+    } else if (timeElapsed < animationSpeed*4) {
+        let alpha = Math.max(0,(animationSpeed*3-timeElapsed)/animationSpeed);
+
+        context.fillStyle = 'hsla(0,0%,100%,'+alpha+')';
+        context.font = '20px zenMaruRegular';
+        context.textAlign = 'center';
+        context.fillText("君も戦うのね", screenWidth/2, 100);
+
+        alpha = (timeElapsed-animationSpeed*2)/animationSpeed;
+
+        context.fillStyle = 'hsla(0,0%,100%,'+alpha+')';
+        context.font = '20px zenMaruRegular';
+        context.textAlign = 'center';
+        context.fillText("なら、君の実力見せてもらおっか", screenWidth/2, 150);
+    } else if (timeElapsed < animationSpeed*6){
+        let alpha = Math.max(0,(animationSpeed*5-timeElapsed)/animationSpeed);
+
+        context.fillStyle = 'hsla(0,0%,100%,'+alpha+')';
+        context.font = '20px zenMaruRegular';
+        context.textAlign = 'center';
+        context.fillText("なら、君の実力見せてもらおっか", screenWidth/2, 150);
+    } else if (kanjiLoaded) {
+        if(scene.inputting){
+            if(!scene.finishedInputting){
+                context.font = '20px zenMaruRegular';
+                context.fillStyle = 'white';
+                context.textAlign = 'center';
+                context.fillText(kanjiKeyPairs[scene.srsCard[0]].story, screenWidth/2, 100);
+                context.fillText(scene.srsCard[0], screenWidth/2, 200);
+                context.fillText(scene.textEntered+"_", screenWidth/2, 250);
+            } else {
+                if(scene.textEntered.toLowerCase()===kanjiKeyPairs[scene.srsCard[0]].meaning){
+                    note = "Correct :)";
+                    srs.nextKanjiToIntro++;
+                } else {
+                    note = "You fail >:(";
+                    //console.log(scene.textEntered.toLowerCase() + "+" + kanjiKeyPairs[scene.srsCard[0]])
+                }
+                scene.inputting = false;
+                scene.textEntered = "";
+            }
+        } else {
+            scene.srsCard = [kanjiList[srs.nextKanjiToIntro],"intro"];
+            scene.inputting = true;
+            scene.finishedInputting = false;
+        }
+    } else {
+        throw("Loading took wayyyyy too long also ur a stupid bitch");
+    }
+}
+
+sceneDefinitions.push({
+    name: "tatakau",
+    update: updateTatakau,
+    draw: drawTatakau,
+    buttons: [loveButton,backToHomeButton,studyDeckButton],
+});
+
+/********************************* Adventure scene *************************************/
 
 function updateAdventure(timeStamp){
     let lev = levels[scene.levelNum];
@@ -1899,205 +2091,6 @@ function updateAdventure(timeStamp){
 
     // Update in-game time
     scene.currentGameClock = (280+Math.floor((timeStamp-scene.timeOfSceneChange)/1000))%1440;
-}
-
-function updateCardCreation(timeStamp){
-    note = `dict loaded: ${dictLoaded}`;
-}
-
-function updateNikka(timeStamp){
-    // ok
-}
-
-function updateDeckStudy(timeStamp){
-    if(scene.cardResult === "pass"){
-        srs.submitCardResult(true);
-        scene.currentCard = srs.serveNextCard();
-        scene.showBack = false;
-        scene.cardResult = "pending";
-    } else if(scene.cardResult === "fail"){
-        srs.submitCardResult(false);
-        scene.currentCard = srs.serveNextCard();
-        scene.showBack = false;
-        scene.cardResult = "pending";
-    }
-    if(scene.currentCard === null){
-        srs.finishDeckStudySession();
-        scene.cardResult = "no card";
-    }
-}
-
-/*
-    Draw functions called during their specfic scene
-*/
-
-function drawHome(timeStamp){
-
-    // circle
-    context.fillStyle = randomColor;
-    context.beginPath();
-    context.arc(mouseX, mouseY, 10, 0, 2 * Math.PI);
-    context.fill();
-
-    // Line
-    context.beginPath();
-    context.moveTo(500, 500);
-    context.lineTo(250, 150);
-    context.stroke();
-
-    // triangle
-    context.beginPath();
-    context.moveTo(300, 200);
-    context.lineTo(350, 250);
-    context.lineTo(350, 150);
-    context.fill();
-
-    // shapes drawn with stroke instead of fill
-    context.lineWidth = 5;
-
-    context.beginPath();
-    context.arc(400, 100, 50, 0, 2 * Math.PI);
-    context.strokeStyle = randomColor;
-    context.stroke();
-
-    // to be a full triangle it would have to be 3 lines, it doesnt
-    // automatically close it like with fill
-    context.beginPath();
-    context.moveTo(400, 300);
-    context.lineTo(450, 350);
-    context.lineTo(350, 150);
-    context.stroke();
-
-    context.beginPath();
-    context.strokeStyle = '#0099b0';
-    context.fillStyle = randomColor;
-    context.stroke(heartPath);
-    //context.fill(heartPath);
-
-    context.fillStyle = 'hsl(240,100%,50%)';
-    context.fillRect(100, 250, 100, 125);
-
-    // and now for what we have all be waiting for: text
-    context.fillStyle = 'white';
-    context.font = '20px zenMaruRegular';
-    context.fillText("Welcome to ホーム! Have a good stay!", 50, 100);
-
-    if(name!==""){
-        if(nameRecentlyLearned){
-            context.fillText("Your name is "+name+"! Thanks for letting me know!", 50, 130);
-        } else {
-            context.fillText("Your name is "+name+"! I can't believe I remembered!", 50, 130);
-        }
-    } else {
-        context.fillText("I don't know your name! Please introduce yourself. pien", 50, 130);
-    }
-
-    // Turned on by the intoduction button, player is to enter their name.
-    if(scene.inputting){
-        if(!scene.finishedInputting){
-            context.fillStyle = 'white';
-            context.font = '16px zenMaruMedium';
-            //x:620, y:300
-            context.fillText("Hello! My name is Sarracenia!", 600, 250);
-            context.fillText("What is your name?", 600, 270);
-            context.fillText(scene.textEntered+"_", 600, 290);
-        } else {
-            name = scene.textEntered;
-            localStorage.setItem('name', name);
-            scene.inputting = false;
-            nameRecentlyLearned = true;
-            scene.textEntered = "";
-        }
-    }
-
-    // Background was drawn; now draw the object(s)
-
-    // Draw the Ball
-    context.fillStyle = randomColor;
-    context.beginPath();
-    context.arc(scene.ballX, scene.ballY, scene.ballRadius, 0, 2 * Math.PI);
-    context.fill();
-
-    // Draw the Player (who is also a ball)
-    context.fillStyle = scene.playerColor;
-    context.beginPath();
-    context.arc(scene.playerX, scene.playerY, scene.playerRadius, 0, 2 * Math.PI);
-    context.fill();
-
-    // Draw Bullets
-    for (let x in scene.bullets) {
-        let bullet = scene.bullets[x];
-        context.fillStyle = 'white';
-        //context.font = '14px Arial';
-        //context.fillText("Bullet "+x+" X:"+bullet.bulletX, screenWidth-200, 50+40*x);
-        //context.fillText("Bullet "+x+" Y:"+bullet.bulletY, screenWidth-200, 65+40*x);
-        context.beginPath();
-        context.arc(bullet.bulletX, bullet.bulletY, bulletRadius, 0, 2 * Math.PI);
-        context.fill();
-    }
-}
-
-function drawTatakau(timeStamp){
-    // If not enough time has passed, play a cinematic based on time elapsed since scene change
-    let timeElapsed = timeStamp - scene.timeOfSceneChange;
-
-    let animationSpeed = 1000;
-    if(timeElapsed < animationSpeed*2){
-        let alpha = timeElapsed/animationSpeed;
-
-        context.fillStyle = 'hsla(0,0%,100%,'+alpha+')';
-        context.font = '20px zenMaruRegular';
-        context.textAlign = 'center';
-        context.fillText("君も戦うのね", screenWidth/2, 100);
-    } else if (timeElapsed < animationSpeed*4) {
-        let alpha = Math.max(0,(animationSpeed*3-timeElapsed)/animationSpeed);
-
-        context.fillStyle = 'hsla(0,0%,100%,'+alpha+')';
-        context.font = '20px zenMaruRegular';
-        context.textAlign = 'center';
-        context.fillText("君も戦うのね", screenWidth/2, 100);
-
-        alpha = (timeElapsed-animationSpeed*2)/animationSpeed;
-
-        context.fillStyle = 'hsla(0,0%,100%,'+alpha+')';
-        context.font = '20px zenMaruRegular';
-        context.textAlign = 'center';
-        context.fillText("なら、君の実力見せてもらおっか", screenWidth/2, 150);
-    } else if (timeElapsed < animationSpeed*6){
-        let alpha = Math.max(0,(animationSpeed*5-timeElapsed)/animationSpeed);
-
-        context.fillStyle = 'hsla(0,0%,100%,'+alpha+')';
-        context.font = '20px zenMaruRegular';
-        context.textAlign = 'center';
-        context.fillText("なら、君の実力見せてもらおっか", screenWidth/2, 150);
-    } else if (kanjiLoaded) {
-        if(scene.inputting){
-            if(!scene.finishedInputting){
-                context.font = '20px zenMaruRegular';
-                context.fillStyle = 'white';
-                context.textAlign = 'center';
-                context.fillText(kanjiKeyPairs[scene.srsCard[0]].story, screenWidth/2, 100);
-                context.fillText(scene.srsCard[0], screenWidth/2, 200);
-                context.fillText(scene.textEntered+"_", screenWidth/2, 250);
-            } else {
-                if(scene.textEntered.toLowerCase()===kanjiKeyPairs[scene.srsCard[0]].meaning){
-                    note = "Correct :)";
-                    srs.nextKanjiToIntro++;
-                } else {
-                    note = "You fail >:(";
-                    //console.log(scene.textEntered.toLowerCase() + "+" + kanjiKeyPairs[scene.srsCard[0]])
-                }
-                scene.inputting = false;
-                scene.textEntered = "";
-            }
-        } else {
-            scene.srsCard = [kanjiList[srs.nextKanjiToIntro],"intro"];
-            scene.inputting = true;
-            scene.finishedInputting = false;
-        }
-    } else {
-        throw("Loading took wayyyyy too long also ur a stupid bitch");
-    }
 }
 
 function drawAdventure(timeStamp){
@@ -2342,12 +2335,38 @@ function drawAdventure(timeStamp){
     }
 }
 
+sceneDefinitions.push({
+    name: "adventure",
+    update: updateAdventure,
+    draw: drawAdventure,
+    buttons: [loveButton,backToHomeButton],
+});
+
+/********************************* Card creation scene *************************************/
+
+function updateCardCreation(timeStamp){
+    note = `dict loaded: ${dictLoaded}`;
+}
+
 function drawCardCreation(timeStamp){
     context.fillStyle = 'white';
     context.font = '20px zenMaruRegular';
     context.textAlign = 'center';
     context.fillText("You can't actually make new cards here yet (just manually make the deck txt file right now)", screenWidth/2, 100);
     context.fillText("But this is where you can do deck editing and viewing i guess?", screenWidth/2, 128);
+}
+
+sceneDefinitions.push({
+    name: "card creation",
+    update: updateCardCreation,
+    draw: drawCardCreation,
+    buttons: [loveButton,backToHomeButton],
+});
+
+/********************************* Nikka scene *************************************/
+
+function updateNikka(timeStamp){
+    // ok
 }
 
 function drawNikka(timeStamp){
@@ -2358,14 +2377,42 @@ function drawNikka(timeStamp){
     context.fillText("Deck loaded: " + deckLoaded, screenWidth/2, 128);
     if(deckLoaded){
         let d = srs.decks[0];
+        console.log(d);
         if(d.progressData === null){
             context.fillText("No progress data for the daily deck! Go ahead and start making progress by studying!", screenWidth/2, 156);
         } else {
-            context.fillText("Studied daily deck for "+progressData.daysStudied, screenWidth/2, 156);
+            context.fillText("Studied daily deck for "+d.progressData.daysStudied, screenWidth/2, 156);
         }
     }
-    if(srs.decks[0])
+
     context.fillText("Deck loaded: " + deckLoaded, screenWidth/2, 128);
+}
+
+sceneDefinitions.push({
+    name: "nikka",
+    update: updateNikka,
+    draw: drawNikka,
+    buttons: [loveButton,backToHomeButton,studyDeckButton],
+});
+
+/********************************* Deck study scene *************************************/
+
+function updateDeckStudy(timeStamp){
+    if(scene.cardResult === "pass"){
+        srs.submitCardResult(true);
+        scene.currentCard = srs.serveNextCard();
+        scene.showBack = false;
+        scene.cardResult = "pending";
+    } else if(scene.cardResult === "fail"){
+        srs.submitCardResult(false);
+        scene.currentCard = srs.serveNextCard();
+        scene.showBack = false;
+        scene.cardResult = "pending";
+    }
+    if(scene.currentCard === null){
+        srs.finishDeckStudySession();
+        scene.cardResult = "no card";
+    }
 }
 
 function drawDeckStudy(timeStamp){
@@ -2401,8 +2448,35 @@ function drawDeckStudy(timeStamp){
     /*if(scene.cardResult === "fail"){
 
     }*/
+}
+
+sceneDefinitions.push({
+    name: "study deck",
+    update: updateDeckStudy,
+    draw: drawDeckStudy,
+    buttons: [loveButton,backToHomeButton,continueButton,failButton,passButton,pauseStudyButton],
+});
+
+/********************************* Zidai sensou scene *************************************/
+
+function updateZidaiSensou(timeStamp){
 
 }
+
+function drawZidaiSensou(timeStamp){
+    context.fillStyle = 'white';
+    context.font = '20px zenMaruRegular';
+    context.textAlign = 'center';
+    context.fillText("Welcome to Xavier's card game!", screenWidth/2, 100);
+    context.fillText("Cards loaded: " + sensouCardsLoaded, screenWidth/2, 128);
+}
+
+sceneDefinitions.push({
+    name: "zidai sensou",
+    update: updateZidaiSensou,
+    draw: drawZidaiSensou,
+    buttons: [loveButton,backToHomeButton],
+});
 
 // Loop that requests animation frames for itself, contains update and draw code that is not unique to any scene and everything else really
 function gameLoop(timeStamp){
@@ -2429,7 +2503,8 @@ function gameLoop(timeStamp){
     }
 
     // Call the update function for the scene
-    switch (scene.name) {
+    sceneDefinitions[scene.index].update(timeStamp);
+    /*switch (scene.name) {
        case "home": updateHome(timeStamp); break;
        case "tatakau": updateTatakau(timeStamp); break;
        case "adventure": updateAdventure(timeStamp); break;
@@ -2437,7 +2512,7 @@ function gameLoop(timeStamp){
        case "nikka": updateNikka(timeStamp); break;
        case "study deck" : updateDeckStudy(timeStamp); break;
        default: throw "Unknown Scene (update): "+scene.name; break;
-    }
+   }*/
 
     // Update particle systems
     for (let i=scene.particleSystems.length-1;i>=0;i--) {
@@ -2541,6 +2616,8 @@ function gameLoop(timeStamp){
     }
 
     // Call the draw function for the scene
+    sceneDefinitions[scene.index].draw(timeStamp);
+    /*
     switch (scene.name) {
        case "home": drawHome(); break;
        case "tatakau": drawTatakau(timeStamp); break;
@@ -2549,7 +2626,7 @@ function gameLoop(timeStamp){
        case "nikka": drawNikka(timeStamp); break;
        case "study deck": drawDeckStudy(timeStamp); break;
        default: throw "Unknown Scene (draw): "+scene.name; break;
-    }
+   }*/
 
     // Draw constant elements
     context.fillStyle = textColor;

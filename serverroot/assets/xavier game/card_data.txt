@@ -1,0 +1,122 @@
+{
+    "cards": [
+        {
+            "name": "Beloved Nobleman",
+            "type": "Unit",
+            "subtypes": [
+                "Civilian"
+            ],
+            "era": "Medieval",
+            "cost": 3,
+            "attack": 0,
+            "defense": 3,
+            "rules": [
+                {
+                    "type": "activated ability",
+                    "speed": 2,
+                    "costs": [
+                        {
+                            type: "expend this"
+                        }
+                    ]
+                    "targets": [
+                        {
+                            "number": 1,
+                            "conditions": [
+                                "unit",
+                                "you control"
+                            ]
+                        }
+                    ]
+                    "effects": [
+                        {
+                            "type": "prevent damage",
+                            "number": 2,
+                            "recipient": 0
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Farmer",
+            "type": "Unit",
+            "subtypes": [
+                "Peasant"
+            ],
+            "era": "Medieval",
+            "cost": 1,
+            "attack": 1,
+            "defense": 1,
+            "rules": []
+        },
+        {
+            "name": "Knight",
+            "type": "Unit",
+            "subtypes": [
+                "Cavalry"
+            ],
+            "era": "Medieval",
+            "cost": 4,
+            "attack": 3,
+            "defense": 3,
+            "rules": [
+                 {
+                    "type": "passive ability",
+                    "effects": [
+                        "type": "stat modifier",
+                        "attack": 1,
+                        "defense": 1,
+                        "recipient": [
+                            "medieval",
+                            "unit",
+                            "you control",
+                            "other",
+                            "this theater"
+                        ]
+                    ]
+                 }
+            ]
+        },
+        {
+            "name": "Respected General",
+            "type": "Unit",
+            "subtypes": [
+                "Officer"
+            ],
+            "era": "Medieval",
+            "cost": 5,
+            "attack": 3,
+            "defense": 4,
+            "rules": [
+                {
+                    "type": "trigger ability",
+                    "trigger conditions": [
+                        {
+                            "type": "enter theater",
+                            "recipient": [
+                                "this",
+                            ]
+                        }
+                    ],
+                    "effects": [
+                        {
+                            "type": "stat modifier",
+                            "length": 1,
+                            "attack": 2,
+                            "defense": 2,
+                            "recipient": [
+                                "medieval",
+                                "unit",
+                                "you control",
+                                "other",
+                                "this theater"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+
+    ]
+}
