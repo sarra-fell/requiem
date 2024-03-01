@@ -115,16 +115,22 @@ function loadTilesets(){
 }
 
 // When cards are loaded it will give us (relative) paths of all the images we need for them
-// Contains objects with fields "path" and "name"
+// Contains objects with fields "path" "smallPath" "name"
 var sensouCardImagePaths = [];
 
 // Dictionary of card name -> card image
 var sensouCardImages = {};
 
+// Dictionary of card name -> small card image
+var sensouSmallCardImages = {};
+
 function loadSensouCardImages(){
     for (const card of sensouCardImagePaths){
         sensouCardImages[card.name] = new Image();
         sensouCardImages[card.name].src = card.path.replace("..","/assets");
+
+        sensouSmallCardImages[card.name] = new Image();
+        sensouSmallCardImages[card.name].src = card.smallPath.replace("..","/assets");
     }
 }
 
@@ -340,6 +346,7 @@ function processSensouCardData(data){
         sensouCardImagePaths.push({
             name: c.name,
             path: "../xavier game/"+c.name+".png",
+            smallPath: "../xavier game/"+c.name+" - small.png",
         });
     }
     loadSensouCardImages();
@@ -415,7 +422,7 @@ function handleSensouCardData() {
     if(this.status == 200) {
         processSensouCardData(this.responseText);
     } else {
-        alert("Handling dict data: Status " + this.status + ". We have failed and you have negative hot men");
+        alert("Handling sensou card data: Status " + this.status + ". We have failed and you have negative hot men");
     }
 }
 
@@ -525,9 +532,9 @@ let secondsPassed=0;
 let oldTimeStamp=performance.now();
 
 // Variables and constants related to graphics below
-let textColor = "white";
 let bgColor = "black";
-const screenWidth = 1200, screenHeight = 950;
+let textColor = "white";
+const screenWidth = 1250, screenHeight = 950;
 
 // Complex shapes like this can be created with tools, although it may be better to use an image instead
 const heartPath = new Path2D('M24.85,10.126c2.018-4.783,6.628-8.125,11.99-8.125c7.223,0,12.425,6.179,13.079,13.543 c0,0,0.353,1.828-0.424,5.119c-1.058,4.482-3.545,8.464-6.898,11.503L24.85,48L7.402,32.165c-3.353-3.038-5.84-7.021-6.898-11.503 c-0.777-3.291-0.424-5.119-0.424-5.119C0.734,8.179,5.936,2,13.159,2C18.522,2,22.832,5.343,24.85,10.126z');
@@ -996,7 +1003,7 @@ const wrapText = function(ctx, text, y, maxWidth, lineHeight, parseFileText = fa
     return lineArray;
 }
 
-// Tooltip to show reading and meaning of jp words. Probably will be other types of tooltips much later
+// Tooltip used in multiple scenes to show reading and meaning of jp words. Probably will be other types of tooltips much later
 function drawTooltip() {
     let draw = function(titleColor,titleText,bodyText){
         let wrappedText = wrapText(context, bodyText, mouseY+74, 360, 16);
@@ -1069,7 +1076,6 @@ function registerConditionTooltips(){
             conditionLine += condition.name;
         }
     }
-
 }
 
 // Useful function for particle generation, returns unit vector of random direction
@@ -1079,22 +1085,21 @@ function randomUnitVector(mod=1,shift=0) {
     return [Math.cos(randomAngle),Math.sin(randomAngle),randomAngle];
 }
 
-/*
-    Particle system code !!!
-
-    I have made a bunch of stuff here, some of it useful some of it less useful, but all in a vacuum to improve my programming
-and hopefully be able to implement better eye candy into my projects. The way we handle draw particle/new particle functions
-needs to be reworked
-*/
+/********************************
+*
+*    Particle system code !!!
+*
+*        I have made a bunch of stuff here, some of it useful some of it less useful, but all in a vacuum to improve my programming
+*    and hopefully be able to implement better eye candy into my projects. The way we handle draw particle/new particle functions
+*    needs to be reworked
+*
+**************************************/
 
 // Composites a draw function for a particle system, returns a function that draws particles
 //when inside a particleSystem object, with the following options:
 //
 // particleShape: "round" "square"
 // distributionShape: "round" "square"
-/*function createParticlesFunctions(particleShape, particleDistribution){
-
-}*/
 
 // Particle systems functions, only to be called when inside a particle system!
 let drawParticlesTypeZero = function(timeStamp){
@@ -1115,7 +1120,7 @@ let drawParticlesTypeOne = function(timeStamp){
         context.fillStyle = 'hsla('+p.hue+','+p.saturation+'%,'+p.lightness+'%,'+(p.createTime-timeStamp+this.particleLifespan)/this.particleLifespan+')';
         //context.beginPath();
         context.fillRect(p.x, p.y, p.size, p.size);
-        //context.fill();
+        //context.fill();``
     }
 } // Draw particles square
 
@@ -1224,12 +1229,22 @@ let newParticleTypeThree = function(timeStamp){
             accX: (Math.random()-0.5)*this.particleSpeed*2, accY: (Math.random()-0.5)*this.particleSpeed*2};
 } // Distributes particles in circle with uniform magnitude and random acceleration
 
+let newParticleFunctions = [newParticleTypeZero,newParticleTypeOne,newParticleTypeTwo,newParticleTypeThree];
+let drawParticleFunctions = [drawParticlesTypeZero,drawParticlesTypeOne,drawParticlesTypeTwo];
+
 // Takes in an object to be able to make use of named parameters, returns a particle system object
 function createParticleSystem(
-    {x=600, y=600, hue=0, saturation=100, lightness=50, particlesPerSec=50, drawParticles=drawParticlesTypeOne,
+    {x=-1000, y=-1000, hue=0, saturation=100, lightness=50, particlesPerSec=50, drawParticles=drawParticlesTypeOne,
     newParticle=newParticleTypeZero, temporary=false, specialDrawLocation=false,
     particleSize=7, particleLifespan=1000, mod=1, shift=0, systemLifespan=Infinity, createTime=0,
     gravity=0, particleSpeed=50, particlesLeft=Infinity, particleAcceleration=0} = {}) {
+
+    if(typeof drawParticles === "number"){
+        drawParticles = drawParticleFunctions[drawParticles];
+    }
+    if(typeof newParticle === "number"){
+        newParticle = newParticleFunctions[newParticle];
+    }
     let sys = {
         x: x, y: y, hue: hue, saturation: saturation, lightness: lightness,
         particlesPerSec: particlesPerSec, drawParticles: drawParticles, newParticle: newParticle, particleAcceleration: particleAcceleration,
@@ -1252,7 +1267,7 @@ let bestParticleSystem = createParticleSystem({
     particleSize: 7, particleLifespan: 1000,
     particles: [], timeOfLastCreate: -1,
 };*/
-let worstParticleSystem = createParticleSystem();
+let worstParticleSystem = createParticleSystem({x: 600, y: 600});
 /*let silliestParticleSystem = {
     x: 600, y:700, hue: 290, particlesPerSec: 160, drawParticles: drawParticlesTypeZero, newParticle: newParticleTypeOne,
     particleSize: 3, particleLifespan: 1700,
@@ -1269,7 +1284,7 @@ let wonkiestParticleSystem = createParticleSystem({
     particleSize: 12, particleLifespan: 3500, mod: 0.1, shift: 1.4, particleSpeed: 250, gravity: 100
 });
 let playerParticleSystem = createParticleSystem({
-    x: -1000, y: -1000, hue: 205, particlesPerSec: 80, drawParticles: drawParticlesTypeOne, newParticle: newParticleTypeOne,
+    hue: 205, particlesPerSec: 80, drawParticles: drawParticlesTypeOne, newParticle: newParticleTypeOne,
     particleSize: 5, particleLifespan: 1500,
     particles: [], timeOfLastCreate: -1,
 });
@@ -1318,271 +1333,8 @@ function updateParticleSystem(sys,fps,timeStamp){
     sys.particles = newArray;
 }
 
-// for performance testing
-/*for (let i=0;i<30;i++){
-    scene.particleSystems.push({
-            x: 60+i*28, y:100, hue: 290, particlesPerSec: 144,
-            particles: [], timeOfLastCreate: -1,
-    });
-}*/
-
 /*
-    Adventure mode specfic functions go here.
-*/
-
-// Called when dialogue begins
-function initializeDialogue(category, scenario, timeStamp){
-    scene.dialogue = {
-        startTime: timeStamp,
-        currentLine: 0,
-        textLines: dialogueFileData[category][scenario].textLines,
-        lineInfo: dialogueFileData[category][scenario].lineInfo,
-        playerDirection: currentDirection,
-        cinematic: null,
-    };
-
-    if(scene.dialogue.lineInfo[0] !== undefined && scene.dialogue.lineInfo[0].dysymbolia !== undefined){
-        scene.dialogue.cinematic = {
-            type: "dysymbolia",
-            startTime: timeStamp,
-            info: scene.dialogue.lineInfo.dysymbolia,
-        }
-    }
-}
-
-// Draws text one word at a time to be able to finely control what is written, designed to be a version of wrapText with much more features,
-//  including utilizing and managing its own particle systems
-
-// Uses the dialogue object in the scene to figure out what to write.
-function drawDialogueText(x, y, maxWidth, lineHeight) {
-    let d = scene.dialogue;
-    // First cuts up the dialogue text
-    let words = d.textLines[d.currentLine].replace(/playerName/g,scene.player.name).split(' ');
-
-    let testLine = ''; // This will store the text when we add a word, to test if it's too long
-    let lineArray = []; // Array of the individual words, a new array is a new line
-    // The words are arrays with text, x, and y and are all to be drawn at the end
-
-    let currentX = x; // x coordinate in which to draw the next word
-    let currentY = y; // y coordinate in which to draw the next word
-
-    for(var i = 0; i < words.length; i++) {
-        // Create a test line, and measure it..
-        testLine += `${words[i]} `;
-
-        let metrics = context.measureText(testLine);
-        // If the width of this test line is more than the max width
-        if (metrics.width > maxWidth && i > 0) {
-            // Then the line is finished, start a new line by increasing the line height, resetting the x value,
-            //  and resetting the test line
-            currentY += lineHeight;
-            currentX = x;
-            testLine = `${words[i]} `;
-            metrics = context.measureText(testLine)
-        }
-
-        lineArray.push([words[i],currentX,currentY]);
-        currentX = x + metrics.width;
-        /*
-        // If we never reach the full max width, then there is only one line.. so push it into the lineArray so we return something
-        if(i === words.length - 1) {
-            lineArray.push([line, y]);
-        }*/
-    }
-    // Defer certain words until later because of graphics reasons
-    let deferredWords = [];
-
-    // Now get around to actually writing the text
-    for(const word of lineArray){
-        if(word[0].includes("hungry")){
-            let re = new RegExp(`(hungry)`);
-            let splitText = word[0].split(re);
-            currentX = word[1];
-
-
-            for(const text of splitText){
-                if(text==="hungry"){
-                    context.save();
-                    context.fillStyle = "#d66b00";
-                    context.fillText(text,currentX,word[2]);
-                    //console.log(text,currentX,word[2]);
-                    currentX += context.measureText(text).width;
-                    context.restore();
-                } else {
-                    context.fillText(text,currentX,word[2]);
-                    currentX += context.measureText(text).width;
-                }
-            }
-            continue;
-        } else if(d.cinematic !== null){
-            if(d.cinematic.type === "dysymbolia"){
-                if(word[0].includes(d.cinematic.info[0])){
-                    let re = new RegExp(`(${d.cinematic.info[0]})`);
-                    let splitText = word[0].split(re);
-                    currentX = word[1];
-
-                    for(const text of splitText){
-                        if(text===d.cinematic.info[0]){
-                            deferredWords.push([text,currentX,word[2]]);
-                            currentX += context.measureText(text).width;
-                        } else {
-                            context.fillText(text,currentX,word[2]);
-                            currentX += context.measureText(text).width;
-                        }
-                    }
-                    continue;
-                }
-            }
-        }
-        context.fillText(word[0],word[1],word[2]);
-    }
-
-    for(const word of deferredWords){
-        let fontSize = Math.floor(16*scene.sizeMod);
-        d.cinematic.particleSystem.x = word[1]+fontSize/2;
-        d.cinematic.particleSystem.y = word[2]-fontSize/2;
-        d.cinematic.particleSystem.drawParticles();
-
-        context.save();
-        if(d.cinematic.info[2] === "black"){
-            context.fillStyle = "#909090";
-        }
-
-        context.font = `${fontSize}px zenMaruBlack`;
-        context.fillText(word[0],word[1],word[2]);
-        context.restore();
-    }
-}
-
-// Draws a tile
-function drawTile(type, src, x, y, bitrate = 16){
-    context.drawImage(tilesets.tilesetImages[type], src[0], src[1], bitrate, bitrate, x, y, bitrate*scene.sizeMod+1, bitrate*scene.sizeMod+1);
-}
-
-// Draws a character
-function drawCharacter(character, src, x, y){
-    context.imageSmoothingEnabled = true;
-    let size = characterBitrates[character]*scene.sizeMod;
-    let image = characterSpritesheets[character];
-    if(typeof image === "object"){
-        context.drawImage(image, src[0], src[1], characterBitrates[character], characterBitrates[character], x, y, size, size);
-    } else {
-        console.warn("drawCharacter: Expected object got " + typeof image + ", also you have negative hot men.");
-    }
-    context.imageSmoothingEnabled = false;
-}
-
-// Draws an inanimate object
-function drawInanimate(inanimate, x, y) {
-    let size = 16*scene.sizeMod;
-    let image = null;
-    let srcX = 0;
-    let srcY = 0;
-    let bitrate = 16;
-    if(inanimate.id === "Door"){
-        image = houseTileset;
-        srcX = 16*3;
-        if(inanimate.state === "closed"){
-            srcY = 16*1;
-        } else if (inanimate.state === "half-closed"){
-            srcY = 16*3;
-        } else if (inanimate.state === "half-open"){
-            srcY = 16*2;
-        } else if (inanimate.state === "open"){
-            srcY = 16*0;
-        } else {
-            console.alert("drawInanimate: Got unexpected door state: "+ inanimate.state);
-        }
-    } else {
-        throw "Unknown inanimate type: " + inanimate.id;
-    }
-
-    if(typeof image === "object"){
-        context.drawImage(image, srcX*scene.sizeMod, srcY*scene.sizeMod, bitrate, bitrate, x, y, size*2, size*2);
-    } else {
-        console.warn("drawInanimate: Expected object got " + typeof image + ", also you have negative hot men.");
-    }
-}
-
-// Draws a sensou card.
-// Size is either width for "width" mode or height for "height" mode
-function drawSensouCard(card,x,y,size,mode) {
-    context.imageSmoothingEnabled = true;
-    let img = sensouCardImages[card];
-    if(mode === "width"){
-        let scale = size/img.width;
-        context.drawImage(img, x, y, size, scale*img.height);
-    } else if (mode === "height"){
-        let scale = size/img.height;
-        context.drawImage(img, x, y, scale*img.width, size);
-    } else {
-        context.drawImage(img, x, y);
-    }
-    context.imageSmoothingEnabled = false;
-}
-
-// Checks if a tile is marked for collision or not. Scene must be adventure scene.
-// checkAdjacent to be set to "up" "left" "right" or "down" or to be left undefined
-// - if defined, checks that adjacent tile instead of the one directly indicated by the x and y
-// Returns:
-// null for no collision, "bounds" for level boundary collision, returns the num of the collision tile if collision tile, or
-//returns the reference to the entity object that was collided for entity collision
-function isCollidingOnTile(x, y, checkAdjacent = false){
-    let lev = levels[scene.levelNum];
-    if(checkAdjacent){
-        if(checkAdjacent === "down"){
-            y+=32;
-        } else if(checkAdjacent === "left"){
-            x-=32;
-        } else if(checkAdjacent === "right"){
-            x+=32;
-        } else if(checkAdjacent === "up"){
-            y-=32;
-        }
-    }
-    // First check world bounds
-    if (x < 0 || y < 0 || x > (lev.gridWidth-1)*32 || y > (lev.gridHeight-1)*32){
-        return "bounds";
-    }
-
-
-    // Currently this local function does not need to exist, but I thought it might have needed to
-    const getTileNum = function(x,y){return ((x/32) % lev.gridWidth) + (y/32)*lev.gridWidth;}
-    let tileNum = getTileNum(x,y);
-    if(tileNum>lev.collisions.length || tileNum<0){
-        throw "Something is wrong with tile collision dumb bitch";
-    } else if (lev.collisions[tileNum]!==0){
-        return lev.collisions[tileNum];
-    } else {
-        for(let i in lev.entities) {
-
-            if (lev.entities[i].px[0]*2===x && lev.entities[i].px[1]*2===y){
-                return lev.entities[i];
-            }
-        }
-    }
-    return null;
-}
-
-// Changes the area (level) in adventure mode
-// Takes the Iid of the area to be changed to because thats what the level neighbours are identified by
-// Or level name works too
-function changeArea(iid,changePlayerLocation = false){
-    for(let i in levels){
-        if(levels[i].iid === iid || levels[i].identifier === iid){
-            scene.levelNum = i;
-            if(changePlayerLocation){
-                scene.player.location = levels[i].defaultLocation;
-                scene.player.graphicLocation = levels[i].defaultLocation;
-            }
-            return;
-        }
-    }
-    throw "changeArea: New area not found: " + iid;
-}
-
-/*
-    The high level control procedures begin here
+    Scene procedures begin here
 */
 
 // Called upon scene change and initializes
@@ -1600,7 +1352,6 @@ function initializeScene(sceneName){
         }
     }
 
-    bgColor = 'Black';
     if (sceneName === "home"){
         scene.particleSystems = homeParticleSystems;
 
@@ -1614,7 +1365,6 @@ function initializeScene(sceneName){
         scene.levelNum = 0;
         scene.sizeMod = 1.4;
         scene.blur = 0;
-        //showDevInfo = false;
 
         // Stores all player and progress info for adventure (as long as its information that would be worth saving between sessions)
         scene.player = {
@@ -1645,13 +1395,18 @@ function initializeScene(sceneName){
             finishedWaterScene: false,
             finishedFruitScene: false,
             finishedCloudScene: false,
-            finishedMonsterScene: false,
+            finishedDungeonScene: false,
             finishedNightScene: false,
+            finishedFirstRandomDysymboliaScene: false,
+            finishedFivePowerScene: false,
             numFinishedTutorialScenes: 0,
         }
 
         scene.worldX = 80;
         scene.worldY = 20;
+
+        // The number of characters displayed per second
+        scene.defaultTextSpeed = 240;
 
         // Counts the minutes elapsed from 0:00 in the day, for now it goes up 1 every second
         scene.currentGameClock = 900;
@@ -1668,7 +1423,8 @@ function initializeScene(sceneName){
         // Object that holds dialogue data
         scene.dialogue = null;
         /* scene.dialogue is null when there is no current dialogue, or an object with these properties:
-            startTime (number)
+            startTime (number) time dialogue started
+            lineStartTime (number) time the current line started
             currentLine (number of the current index for faces and lines to be displayed)
             faces (array)
             lines (array)
@@ -1975,27 +1731,308 @@ sceneDefinitions.push({
 
 /********************************* Adventure scene *************************************/
 
+// Called when dialogue begins
+function initializeDialogue(category, scenario, timeStamp){
+    scene.dialogue = {
+        startTime: timeStamp,
+        lineStartTime: timeStamp,
+        currentLine: 0,
+        textLines: dialogueFileData[category][scenario].textLines,
+        lineInfo: dialogueFileData[category][scenario].lineInfo,
+        playerDirection: currentDirection,
+        cinematic: null,
+    };
+
+    if(scene.dialogue.lineInfo[0] !== undefined && scene.dialogue.lineInfo[0].dysymbolia !== undefined){
+        scene.dialogue.cinematic = {
+            type: "dysymbolia",
+            startTime: timeStamp,
+            info: scene.dialogue.lineInfo.dysymbolia,
+        }
+    }
+
+    // If player was moving when dialogue started, deal with it
+    if(scene.movingDirection!==null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
+        scene.movingDirection = null;
+        scene.player.graphicLocation = scene.player.location;
+        scene.player.src[0]=32;
+        scene.whichFoot = (scene.whichFoot+1)%2;
+    }
+}
+
+// Draws text one word at a time to be able to finely control what is written, designed to be a version of wrapText with much more features,
+//  including utilizing and managing its own particle systems
+
+// Uses the dialogue object in the scene to figure out what to write.
+function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp) {
+    let d = scene.dialogue;
+    // First cuts up the dialogue text
+    let words = d.textLines[d.currentLine].replace(/playerName/g,scene.player.name).split(' ');
+
+    let testLine = ''; // This will store the text when we add a word, to test if it's too long
+    let lineArray = []; // Array of the individual words, a new array is a new line
+    // The words are arrays with text, x, and y and are all to be drawn at the end
+
+    let currentX = x; // x coordinate in which to draw the next word
+    let currentY = y; // y coordinate in which to draw the next word
+
+    let textSpeed = d.lineInfo[d.currentLine].textSpeed
+    if(textSpeed === undefined){
+        textSpeed = scene.defaultTextSpeed;
+    }
+    let displayNumCharacters = Math.floor((timeStamp-d.lineStartTime)*(textSpeed/1000));
+    let currentlyDisplayedCharacters = 0;
+
+    context.textAlign = 'left';
+
+    for(var i = 0; i < words.length; i++) {
+        // Create a test line, and measure it..
+        testLine += `${words[i]} `;
+
+        let metrics = context.measureText(testLine);
+        // If the width of this test line is more than the max width
+        if (metrics.width > maxWidth && i > 0) {
+            // Then the line is finished, start a new line by increasing the line height, resetting the x value,
+            //  and resetting the test line
+            currentY += lineHeight;
+            currentX = x;
+            testLine = `${words[i]} `;
+            metrics = context.measureText(testLine)
+        }
+
+        lineArray.push([words[i],currentX,currentY]);
+        currentX = x + metrics.width;
+        /*
+        // If we never reach the full max width, then there is only one line.. so push it into the lineArray so we return something
+        if(i === words.length - 1) {
+            lineArray.push([line, y]);
+        }*/
+    }
+    // Defer certain words until later because of graphics reasons
+    let deferredWords = [];
+
+    // Now get around to actually writing the text
+    for(const word of lineArray){
+        if(currentlyDisplayedCharacters + word[0].length <= displayNumCharacters){
+            currentlyDisplayedCharacters += word[0].length;
+        } else {
+            if(currentlyDisplayedCharacters === displayNumCharacters){
+                break;
+            } else {
+                word[0] = word[0].slice(0, displayNumCharacters - currentlyDisplayedCharacters);
+                currentlyDisplayedCharacters += word[0].length;
+            }
+        }
+        if(word[0].includes("hungry")){
+            let re = new RegExp(`(hungry)`);
+            let splitText = word[0].split(re);
+            currentX = word[1];
+
+
+            for(const text of splitText){
+                if(text==="hungry"){
+                    context.save();
+                    context.fillStyle = "#d66b00";
+                    context.fillText(text,currentX,word[2]);
+                    //console.log(text,currentX,word[2]);
+                    currentX += context.measureText(text).width;
+                    context.restore();
+                } else {
+                    context.fillText(text,currentX,word[2]);
+                    currentX += context.measureText(text).width;
+                }
+            }
+            continue;
+        } else if(d.cinematic !== null){
+            if(d.cinematic.type === "dysymbolia"){
+                if(word[0].includes(d.cinematic.info[0])){
+                    let re = new RegExp(`(${d.cinematic.info[0]})`);
+                    let splitText = word[0].split(re);
+                    currentX = word[1];
+
+                    for(const text of splitText){
+                        if(text===d.cinematic.info[0]){
+                            deferredWords.push([text,currentX,word[2]]);
+                            currentX += context.measureText(text).width;
+                        } else {
+                            context.fillText(text,currentX,word[2]);
+                            currentX += context.measureText(text).width;
+                        }
+                    }
+                    continue;
+                }
+            }
+        }
+        context.fillText(word[0],word[1],word[2]);
+    }
+
+    for (const word of deferredWords) {
+        let fontSize = Math.floor(16*scene.sizeMod);
+        d.cinematic.particleSystem.x = word[1]+fontSize/2;
+        d.cinematic.particleSystem.y = word[2]-fontSize/2;
+        d.cinematic.particleSystem.drawParticles(performance.now());
+
+        context.save();
+        context.fillStyle = d.cinematic.info[2];
+        context.font = `${fontSize}px zenMaruBlack`;
+        context.fillText(word[0],word[1],word[2]);
+        context.restore();
+    }
+}
+
+// Draws a tile
+function drawTile(type, src, x, y, bitrate = 16){
+    context.drawImage(tilesets.tilesetImages[type], src[0], src[1], bitrate, bitrate, x, y, bitrate*scene.sizeMod+1, bitrate*scene.sizeMod+1);
+}
+
+// Draws a character
+function drawCharacter(character, src, x, y){
+    context.imageSmoothingEnabled = true;
+    let size = characterBitrates[character]*scene.sizeMod;
+    let image = characterSpritesheets[character];
+    if(typeof image === "object"){
+        context.drawImage(image, src[0], src[1], characterBitrates[character], characterBitrates[character], x, y, size, size);
+    } else {
+        console.warn("drawCharacter: Expected object got " + typeof image + ", also you have negative hot men.");
+    }
+    context.imageSmoothingEnabled = false;
+}
+
+// Draws an inanimate object
+function drawInanimate(inanimate, x, y) {
+    let size = 16*scene.sizeMod;
+    let image = null;
+    let srcX = 0;
+    let srcY = 0;
+    let bitrate = 16;
+    if(inanimate.id === "Door"){
+        image = houseTileset;
+        srcX = 16*3;
+        if(inanimate.state === "closed"){
+            srcY = 16*1;
+        } else if (inanimate.state === "half-closed"){
+            srcY = 16*3;
+        } else if (inanimate.state === "half-open"){
+            srcY = 16*2;
+        } else if (inanimate.state === "open"){
+            srcY = 16*0;
+        } else {
+            console.alert("drawInanimate: Got unexpected door state: "+ inanimate.state);
+        }
+    } else {
+        throw "Unknown inanimate type: " + inanimate.id;
+    }
+
+    if(typeof image === "object"){
+        context.drawImage(image, srcX*scene.sizeMod, srcY*scene.sizeMod, bitrate, bitrate, x, y, size*2, size*2);
+    } else {
+        console.warn("drawInanimate: Expected object got " + typeof image + ", also you have negative hot men.");
+    }
+}
+
+// Checks if a tile is marked for collision or not. Scene must be adventure scene.
+// checkAdjacent to be set to "up" "left" "right" or "down" or to be left undefined
+// - if defined, checks that adjacent tile instead of the one directly indicated by the x and y
+// Returns:
+// null for no collision, "bounds" for level boundary collision, returns the num of the collision tile if collision tile, or
+//returns the reference to the entity object that was collided for entity collision
+function isCollidingOnTile(x, y, checkAdjacent = false){
+    let lev = levels[scene.levelNum];
+    if(checkAdjacent){
+        if(checkAdjacent === "down"){
+            y+=32;
+        } else if(checkAdjacent === "left"){
+            x-=32;
+        } else if(checkAdjacent === "right"){
+            x+=32;
+        } else if(checkAdjacent === "up"){
+            y-=32;
+        }
+    }
+    // First check world bounds
+    if (x < 0 || y < 0 || x > (lev.gridWidth-1)*32 || y > (lev.gridHeight-1)*32){
+        return "bounds";
+    }
+
+    // Currently this local function does not need to exist, but I thought it might have needed to
+    const getTileNum = function(x,y){return ((x/32) % lev.gridWidth) + (y/32)*lev.gridWidth;}
+    let tileNum = getTileNum(x,y);
+    if(tileNum>lev.collisions.length || tileNum<0){
+        throw "Something is wrong with tile collision dumb bitch";
+    } else if (lev.collisions[tileNum]!==0){
+        return lev.collisions[tileNum];
+    } else {
+        for(let i in lev.entities) {
+
+            if (lev.entities[i].px[0]*2===x && lev.entities[i].px[1]*2===y){
+                return lev.entities[i];
+            }
+        }
+    }
+    return null;
+}
+
+// Changes the area (level) in adventure mode
+// Takes the Iid of the area to be changed to because thats what the level neighbours are identified by
+// Or level name works too
+function changeArea(iid,changePlayerLocation = false){
+    for(let i in levels){
+        if(levels[i].iid === iid || levels[i].identifier === iid){
+            scene.levelNum = i;
+            if(changePlayerLocation){
+                scene.player.location = levels[i].defaultLocation;
+                scene.player.graphicLocation = levels[i].defaultLocation;
+            }
+            return;
+        }
+    }
+    throw "changeArea: New area not found: " + iid;
+}
+
 function updateAdventure(timeStamp){
     let lev = levels[scene.levelNum];
+
+    // Update in-game time
+    scene.currentGameClock = (280+Math.floor((timeStamp-scene.timeOfSceneChange)/1000))%1440;
+
+    // Handle dialogue
     if(scene.dialogue !== null){
-        if(scene.movingDirection!==null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
-            scene.movingDirection = null;
-            scene.player.graphicLocation = scene.player.location;
-            scene.player.src[0]=32;
-            scene.whichFoot = (scene.whichFoot+1)%2;
-        }
+
+        // Handle cinematic
         if(scene.dialogue.cinematic !== null){
             if(scene.dialogue.cinematic.type === "dysymbolia"){
                 let timeElapsed = timeStamp-scene.dialogue.cinematic.startTime;
-                if(timeElapsed < 5000){
-                    scene.blur = timeElapsed/1000;
+                if(timeElapsed < 2500){
+                    scene.blur = timeElapsed/500;
                 } else {
                     scene.blur = 5;
                 }
                 //console.log(scene.blur);
             }
+            if(scene.dialogue.cinematic.inputStartTime !== null){
+                if(scene.inputting){
+                    if(scene.finishedInputting){
+                        if(scene.dialogue.cinematic.info[1].includes(scene.textEntered)){
+                            scene.dialogue.cinematic.result = "pass";
+                        } else {
+                            scene.dialogue.cinematic.result = "fail";
+                        }
+                        scene.inputting = false;
+                        scene.textEntered = "";
+                    }
+                } else {
+                    // should do some animeation stuff before ending cinematic but for now...
+                    scene.blur = 0;
+                    if(scene.dialogue.cinematic.result === "pass") {
+                        scene.player.power = Math.min(scene.player.powerSoftcap,scene.player.power+1);
+                    }
+                    initializeDialogue("scenes","post dysymbolia "+scene.player.numFinishedTutorialScenes,timeStamp);
+                }
+            }
         }
+        // If there isnt a cinematic theres nothing to handle about the dialogue in update phase
     } else {
+        // If not in dialogue, handle movement
         if(currentDirection === "down"){
             scene.player.src = [32,0];
         } else if (currentDirection === "left") {
@@ -2005,7 +2042,7 @@ function updateAdventure(timeStamp){
         } else if(currentDirection === "up"){
             scene.player.src = [32,32*3];
         }
-        if(scene.movingDirection===null && scene.dialogue === null){
+        if(scene.movingDirection===null){
             if(currentDirection === "down" && downPressed){
                 let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"down");
                 if(collision===null){
@@ -2085,32 +2122,32 @@ function updateAdventure(timeStamp){
         if(scene.dialogue !== null){
             if(scene.dialogue.cinematic === null){
                 if(scene.dialogue.textLines.length > scene.dialogue.currentLine+1){
+                    scene.dialogue.lineStartTime = timeStamp;
                     scene.dialogue.currentLine++;
-                    if(scene.dialogue.lineInfo[scene.dialogue.currentLine] !== undefined && scene.dialogue.lineInfo[scene.dialogue.currentLine].dysymbolia !== undefined){
+                    let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine]
+                    if(lineInfo !== undefined && lineInfo.dysymbolia !== undefined){
+                        let specialParticleSystem = lineInfo.particleSystem;
+                        specialParticleSystem.specialDrawLocation = true;
 
-                        let hue,saturation,lightness;
-                        if(scene.dialogue.lineInfo[scene.dialogue.currentLine].dysymbolia[2]==='black'){
-                            hue = [0,185],saturation=[0,79],lightness=[0,80];
-                        }
-                        scene.particleSystems.push(createParticleSystem({
-                            x: -600, y:-700, hue: hue, saturation: saturation, lightness: lightness,
-                            particlesPerSec: 20, drawParticles: drawParticlesTypeZero, newParticle: newParticleTypeOne,
-                            particleSize: 4, particleLifespan: 800, specialDrawLocation: true
-                        }));
+                        scene.particleSystems.push(createParticleSystem(specialParticleSystem));
+
                         scene.dialogue.cinematic = {
                             type: "dysymbolia",
                             startTime: timeStamp,
-                            info: scene.dialogue.lineInfo[scene.dialogue.currentLine].dysymbolia,
+                            info: lineInfo.dysymbolia,
                             inputStartTime: null,
-                            particleSystem: scene.particleSystems[scene.particleSystems.length-1]
+                            particleSystem: scene.particleSystems[scene.particleSystems.length-1],
+                            result: null,
                         };
                     }
                 } else {
                     currentDirection = scene.dialogue.playerDirection;
                     scene.dialogue = null;
                 }
-            } else if(scene.dialogue.inputStartTime === null){
-                scene.dialogue.inputStartTime = timeStamp;
+            } else if(scene.dialogue.cinematic.inputStartTime === null){
+                scene.dialogue.cinematic.inputStartTime = timeStamp;
+                scene.inputting = true;
+                scene.finishedInputting = false;
             }
         } else {
             let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],currentDirection);
@@ -2130,7 +2167,22 @@ function updateAdventure(timeStamp){
                 }
             } else if(collision === 1){
                 note = `Talking with the water instead of hot guy...`;
-            } else if(collision === 7){
+                if(scene.player.finishedWaterScene){
+                    initializeDialogue("world","water",timeStamp);
+                } else {
+                    initializeDialogue("scenes","tutorial water scene",timeStamp);
+                    scene.player.finishedWaterScene = true;
+                    scene.player.numFinishedTutorialScenes++;
+                }
+            } else if(collision === 3){
+                if(scene.player.finishedFruitScene){
+                    initializeDialogue("world","fruit tree",timeStamp);
+                } else {
+                    initializeDialogue("scenes","tutorial fruit scene",timeStamp);
+                    scene.player.finishedFruitScene = true;
+                    scene.player.numFinishedTutorialScenes++;
+                }
+            }else if(collision === 7){
                 if(scene.player.finishedCloudScene){
                     initializeDialogue("world","clouds",timeStamp);
                 } else {
@@ -2141,15 +2193,17 @@ function updateAdventure(timeStamp){
             } else if(collision === 9){
                 console.log(lev.stairDestination);
                 changeArea(lev.stairDestination,true);
+                if(lev.stairDestination === "Floating_Island_Dungeon_0" && !scene.player.finishedDungeonScene){
+                    initializeDialogue("scenes","tutorial dungon scene",timeStamp);
+                    scene.player.finishedDungeonScene = true;
+                    scene.player.numFinishedTutorialScenes++;
+                }
             } else {
                 note = `Stop being lonely and talk to a hot guy already...`;
             }
         }
         zClicked = false;
     }
-
-    // Update in-game time
-    scene.currentGameClock = (280+Math.floor((timeStamp-scene.timeOfSceneChange)/1000))%1440;
 }
 
 function drawAdventure(timeStamp){
@@ -2238,21 +2292,10 @@ function drawAdventure(timeStamp){
 
     }
     drawCharacter("witch",scene.player.src,scene.worldX+scene.player.graphicLocation[0]*scene.sizeMod,scene.worldY+scene.player.graphicLocation[1]*scene.sizeMod);
-    //context.restore();
 
     // Draw foreground elements
     for (const dt of deferredTiles){
         drawTile(dt.tilesetNum, dt.tile.src, scene.worldX+dt.tile.px[0]*scene.sizeMod, scene.worldY+dt.tile.px[1]*scene.sizeMod, 32);
-    }
-
-    if (scene.blur > 0) {
-        context.filter = `blur(${scene.blur}px)`;
-        // The canvas can draw itself lol
-        context.drawImage(canvas,
-            scene.worldX, scene.worldY, scene.worldX+18*16*2*scene.sizeMod, scene.worldY+18*16*2*scene.sizeMod,
-            scene.worldX, scene.worldY, scene.worldX+18*16*2*scene.sizeMod, scene.worldY+18*16*2*scene.sizeMod,
-         );
-        context.filter = "none";
     }
 
     // Apply time of day brightness effect
@@ -2274,16 +2317,21 @@ function drawAdventure(timeStamp){
     }
     context.fillRect(scene.worldX, scene.worldY, w*scene.sizeMod, h*scene.sizeMod);
 
+    let applyBlur = function(){
+        if (scene.blur > 0) {
+            context.filter = `blur(${scene.blur}px)`;
+            // The canvas can draw itself lol
+            context.drawImage(canvas,
+                scene.worldX, scene.worldY, scene.worldX+18*16*2*scene.sizeMod, scene.worldY+18*16*2*scene.sizeMod,
+                scene.worldX, scene.worldY, scene.worldX+18*16*2*scene.sizeMod, scene.worldY+18*16*2*scene.sizeMod,
+             );
+            context.filter = "none";
+        }
+    }
 
     // Draw dialogue
     if(scene.dialogue !== null){
-        // Draw dysymbolia input elements
-        if(scene.dialogue.cinematic !== null){
-            if(scene.dialogue.cinematic.inputStartTime !== null){
-                context.fillStyle = textColor;
-                context.font = `${Math.floor(20*scene.sizeMod)}px zenMaruRegular`;
-            }
-        }
+
         context.fillStyle = 'hsl(0, 100%, 0%, 78%)';
         context.beginPath();
         context.roundRect(scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, w*scene.sizeMod, scene.sizeMod*96);
@@ -2294,6 +2342,18 @@ function drawAdventure(timeStamp){
         context.fillStyle = textColor;
         context.font = `${Math.floor(16*scene.sizeMod)}px zenMaruRegular`;
 
+        if(scene.dialogue.cinematic !== null){
+            if(scene.dialogue.cinematic.inputStartTime !== null){
+                // draw shaded circle pre-blur
+                context.fillStyle = 'hsl(0, 100%, 0%, 60%)';
+                context.beginPath();
+                context.arc(scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2, 180, 0, 2 * Math.PI);
+                context.fill();
+            }
+        }
+
+        context.fillStyle = textColor;
+
         // Draw differently depending on player vs non-player vs no image
         const drawDialogueForPlayer = function(facesImage){
             /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], (scene.worldY+h*scene.sizeMod-72*scene.sizeMod), (w*scene.sizeMod-124*scene.sizeMod), 20*scene.sizeMod, true);
@@ -2302,8 +2362,10 @@ function drawAdventure(timeStamp){
                 // item[1] is the y coordinate to fill the text at
                 context.fillText(item[0], (96+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
             });*/
-            drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod);
             context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
+            applyBlur();
+            drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp);
+
         };
         const drawDialogueForNonPlayer = function(facesImage){
             /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-144*scene.sizeMod, 20*scene.sizeMod, true);
@@ -2312,11 +2374,12 @@ function drawAdventure(timeStamp){
                 // item[1] is the y coordinate to fill the text at
                 context.fillText(item[0], (16+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
             });*/
-            drawDialogueText((16+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-144*scene.sizeMod,20*scene.sizeMod);
             context.save();
             context.scale(-1,1);
             context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, -1*(scene.worldX+w*scene.sizeMod), scene.worldY+h*scene.sizeMod-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
             context.restore();
+            applyBlur();
+            drawDialogueText((16+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-144*scene.sizeMod,20*scene.sizeMod,timeStamp);
         };
         const drawDialogueForNobody = function(){
             /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-40*scene.sizeMod, 20*scene.sizeMod, true);
@@ -2325,7 +2388,8 @@ function drawAdventure(timeStamp){
                 // item[1] is the y coordinate to fill the text at
                 context.fillText(item[0], (16+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
             });*/
-            drawDialogueText((16+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-40*scene.sizeMod,20*scene.sizeMod);
+            applyBlur();
+            drawDialogueText((16+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-40*scene.sizeMod,20*scene.sizeMod,timeStamp);
         };
         context.imageSmoothingEnabled = true;
         if(faceCharacter==="Gladius"){
@@ -2338,6 +2402,23 @@ function drawAdventure(timeStamp){
             drawDialogueForNobody();
         }
         context.imageSmoothingEnabled = false;
+
+        if(scene.dialogue.cinematic !== null){
+            if(scene.dialogue.cinematic.inputStartTime !== null){
+
+                // Draw dysymbolia input elements post blur
+                context.fillStyle = 'hsl(0, 100%, 100%, 80%)';
+                context.font = `${Math.floor(20*scene.sizeMod)}px zenMaruRegular`;
+                context.textAlign = 'center';
+                context.fillText("Enter keyword:", scene.worldX + w*scene.sizeMod/2, scene.worldY + (h-100)*scene.sizeMod/2);
+
+                context.fillStyle = scene.dialogue.cinematic.info[2];
+                context.fillText(scene.dialogue.cinematic.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+100)*scene.sizeMod/2);
+
+                context.fillStyle = "white";
+                context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2);
+            }
+        }
     }
 
     // Draw the right part of the screen
@@ -2518,20 +2599,87 @@ sceneDefinitions.push({
 
 /********************************* Zidai sensou scene *************************************/
 
+// Draws a sensou card.
+// Size is either width for "width" mode or height for "height" mode
+function drawSensouCard(card,x,y,size,mode) {
+    if(mode === "width"){
+        let img;
+        if(size>270){
+            img = sensouCardImages[card];
+        } else {
+            img = sensouSmallCardImages[card];
+        }
+        let scale = size/img.width;
+        context.drawImage(img, x, y, size, scale*img.height);
+    } else if (mode === "height"){
+        let img;
+        if(size>400){
+            img = sensouCardImages[card];
+        } else {
+            img = sensouSmallCardImages[card];
+        }
+        let scale = size/img.height;
+        context.drawImage(img, x, y, scale*img.width, size);
+    } else {
+        img = sensouCardImages[card];
+        context.drawImage(img, x, y);
+    }
+}
+
 function updateZidaiSensou(timeStamp){
 
 }
 
+function drawSensouBoard(){
+    let gradient;
+
+    gradient = context.createRadialGradient(screenHeight/2+150, screenWidth/2-150, 120, screenHeight/2+150, screenWidth/2-150, 180);
+    gradient.addColorStop(0, "white");
+    gradient.addColorStop(1, "hsla(0, 100%, 0%, 0)");
+
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, screenWidth, screenHeight);
+
+    gradient = context.createLinearGradient(0, screenHeight/2 - 60, 0, screenHeight/2 + 60);
+
+    // Add three color stops
+    gradient.addColorStop(0, "hsla(0, 100%, 0%, 0)");
+    gradient.addColorStop(0.25, "white");
+    gradient.addColorStop(0.75, "white");
+    gradient.addColorStop(1, "hsla(0, 100%, 0%, 0)");
+
+    // Set the fill style and draw a rectangle
+    context.fillStyle = gradient;
+    context.fillRect(0, screenHeight/2 - 60, screenWidth, 120);
+}
+
 function drawZidaiSensou(timeStamp){
-    context.fillStyle = 'white';
+    /*context.fillStyle = 'white';
     context.font = '20px zenMaruRegular';
     context.textAlign = 'center';
     context.fillText("Welcome to Xavier's card game!", screenWidth/2, 100);
     context.fillText("Cards loaded: " + sensouCardsLoaded, screenWidth/2, 128);
 
-    context.scale(0.2,0.2);
-    drawSensouCard("Knight",10,10,234,"no");
-    context.setTransform(1, 0, 0, 1, 0, 0);
+    drawSensouCard("Knight",10,10,150,"width");*/
+
+    drawSensouBoard();
+
+
+    // Create a linear gradient
+    /*
+    const gradient = context.createLinearGradient(20, 0, 220, 0);
+
+    // Add three color stops
+    gradient.addColorStop(0, "green");
+    gradient.addColorStop(0.5, "cyan");
+    gradient.addColorStop(1, "green");
+
+    // Set the fill style and draw a rectangle
+    context.fillStyle = gradient;
+    context.fillRect(20, 20, 260, 100);*/
+
+
+
 }
 
 sceneDefinitions.push({
@@ -2567,15 +2715,6 @@ function gameLoop(timeStamp){
 
     // Call the update function for the scene
     sceneDefinitions[scene.index].update(timeStamp);
-    /*switch (scene.name) {
-       case "home": updateHome(timeStamp); break;
-       case "tatakau": updateTatakau(timeStamp); break;
-       case "adventure": updateAdventure(timeStamp); break;
-       case "card creation": updateCardCreation(timeStamp); break;
-       case "nikka": updateNikka(timeStamp); break;
-       case "study deck" : updateDeckStudy(timeStamp); break;
-       default: throw "Unknown Scene (update): "+scene.name; break;
-   }*/
 
     // Update particle systems
     for (let i=scene.particleSystems.length-1;i>=0;i--) {
@@ -2680,16 +2819,6 @@ function gameLoop(timeStamp){
 
     // Call the draw function for the scene
     sceneDefinitions[scene.index].draw(timeStamp);
-    /*
-    switch (scene.name) {
-       case "home": drawHome(); break;
-       case "tatakau": drawTatakau(timeStamp); break;
-       case "adventure": drawAdventure(timeStamp); break;
-       case "card creation": drawCardCreation(timeStamp); break;
-       case "nikka": drawNikka(timeStamp); break;
-       case "study deck": drawDeckStudy(timeStamp); break;
-       default: throw "Unknown Scene (draw): "+scene.name; break;
-   }*/
 
     // Draw constant elements
     context.fillStyle = textColor;

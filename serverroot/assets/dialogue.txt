@@ -2,12 +2,33 @@
     "scenes": {
         "tutorial water scene": {
             "textLines": [
-                "This water looks fresh enough. I better drink up before I die from dehydration."
+                "This water looks fresh enough. Its not like I'm going to be able to get a drink anywhere else so I might as well drink now.",
+                "Here goes.",
+                ".................... *gulp* .......... *gulp* .........................................",
+                "Suprisingly good 水. This might not be so bad of a place."
             ],
             "lineInfo": [
                 {
                     "face": "player",
-                    "faceNum": 0
+                    "faceNum": 2
+                },
+                {
+                    "face": "player",
+                    "faceNum": 4
+                },
+                {
+                    "textSpeed": 30
+                },
+                {
+                    "face": "player",
+                    "faceNum": 0,
+                    "textSpeed": 120,
+                    "dysymbolia": ["水",["water","mizu"],"hsl(200, 100%, 80%)","water"],
+                    "particleSystem": {
+                        "hue": [135], "saturation": [58], "lightness": [68],
+                        "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
+                        "particleSize": 6, "particleLifespan": 600
+                    }
                 }
             ]
         },
@@ -24,7 +45,53 @@
                 {
                     "face": "player",
                     "faceNum": 4,
-                    "dysymbolia": ["雲","clouds","black"]
+                    "dysymbolia": ["雲",["cloud","clouds","kumo"],"#737373","clouds"],
+                    "particleSystem": {
+                            "hue": [0,0], "saturation": [0,0], "lightness": [100,85],
+                            "particlesPerSec": 30, "drawParticles": 0, "newParticle": 1,
+                            "particleSize": 8, "particleLifespan": 700
+                    }
+                }
+            ]
+        },
+        "tutorial fruit scene": {
+
+        },
+        "tutorial dungeon scene": {
+
+        },
+        "tutorial night scene": {
+
+        },
+        "post dysymbolia 1": {
+            "textLines": [
+                "Ow... that stung, what was that? It felt like some force was interfering with my thoughts.",
+                "I should keep looking around the island."
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 9
+                },
+                {
+                    "face": "player",
+                    "faceNum": 2
+                }
+            ]
+        },
+        "post dysymbolia 2": {
+            "textLines": [
+                "It happened again... I have a feeling its going to keep happening.",
+                "I should keep looking around the island."
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 9
+                },
+                {
+                    "face": "player",
+                    "faceNum": 2
                 }
             ]
         },
@@ -40,10 +107,18 @@
                 "Let's look around for now, at least a little bit."
             ],
             "lineInfo": [
-                {},
-                {},
-                {},
-                {},
+                {
+                    "textSpeed": 100000
+                },
+                {
+                    "textSpeed": 100000
+                },
+                {
+                    "textSpeed": 100000
+                },
+                {
+
+                },
                 {
                     "face": "player",
                     "faceNum": 9
@@ -89,12 +164,23 @@
     "worldDialogue": {
         "clouds": {
             "textLines": [
-                "I wonder how far up this is in the sky..."
+                "I wonder how far up this is in the sky? It's impossible to tell from here."
             ],
             "lineInfo": [
                 {
                     "face": "player",
                     "faceNum": 4
+                }
+            ]
+        },
+        "water": {
+            "textLines": [
+                "The bristling water is beautiful. I've got a lot of other things to worry about than that right now though."
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 1
                 }
             ]
         }
