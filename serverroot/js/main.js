@@ -1750,14 +1750,6 @@ function initializeDialogue(category, scenario, timeStamp){
             info: scene.dialogue.lineInfo.dysymbolia,
         }
     }
-
-    // If player was moving when dialogue started, deal with it
-    if(scene.movingDirection!==null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
-        scene.movingDirection = null;
-        scene.player.graphicLocation = scene.player.location;
-        scene.player.src[0]=32;
-        scene.whichFoot = (scene.whichFoot+1)%2;
-    }
 }
 
 // Draws text one word at a time to be able to finely control what is written, designed to be a version of wrapText with much more features,
@@ -1997,6 +1989,13 @@ function updateAdventure(timeStamp){
 
     // Handle dialogue
     if(scene.dialogue !== null){
+        // If player was moving when dialogue started, make sure to end it when its time to end it
+        if(scene.movingDirection !== null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
+            scene.movingDirection = null;
+            scene.player.graphicLocation = scene.player.location;
+            scene.player.src[0]=32;
+            scene.whichFoot = (scene.whichFoot+1)%2;
+        }
 
         // Handle cinematic
         if(scene.dialogue.cinematic !== null){
@@ -2009,7 +2008,7 @@ function updateAdventure(timeStamp){
                 }
                 //console.log(scene.blur);
             }
-            if(scene.dialogue.cinematic.inputStartTime !== null){
+            if(scene.dialogue.cinematic.phaseStartTime !== null){
                 if(scene.inputting){
                     if(scene.finishedInputting){
                         if(scene.dialogue.cinematic.info[1].includes(scene.textEntered)){
@@ -2018,15 +2017,17 @@ function updateAdventure(timeStamp){
                             scene.dialogue.cinematic.result = "fail";
                         }
                         scene.inputting = false;
-                        scene.textEntered = "";
+                        scene.dialogue.cinematic.phaseStartTime = timeStamp;
                     }
                 } else {
-                    // should do some animeation stuff before ending cinematic but for now...
-                    scene.blur = 0;
-                    if(scene.dialogue.cinematic.result === "pass") {
-                        scene.player.power = Math.min(scene.player.powerSoftcap,scene.player.power+1);
+                    if(scene.dialogue.cinematic.finished){
+                        scene.blur = 0;
+                        scene.textEntered = "";
+                        if(scene.dialogue.cinematic.result === "pass") {
+                            scene.player.power = Math.min(scene.player.powerSoftcap,scene.player.power+1);
+                        }
+                        initializeDialogue("scenes","post dysymbolia "+scene.player.numFinishedTutorialScenes,timeStamp);
                     }
-                    initializeDialogue("scenes","post dysymbolia "+scene.player.numFinishedTutorialScenes,timeStamp);
                 }
             }
         }
@@ -2108,14 +2109,6 @@ function updateAdventure(timeStamp){
         }
     }
     if(xClicked){
-        /*if(scene.dialogue !== null){
-            if(scene.dialogue.lines.length > scene.dialogue.currentLine+1){
-                scene.dialogue.currentLine++;
-            } else {
-                currentDirection = scene.dialogue.playerDirection;
-                scene.dialogue = null;
-            }
-        }*/
         xClicked = false;
     }
     if(zClicked){
@@ -2135,8 +2128,9 @@ function updateAdventure(timeStamp){
                             type: "dysymbolia",
                             startTime: timeStamp,
                             info: lineInfo.dysymbolia,
-                            inputStartTime: null,
+                            phaseStartTime: null,
                             particleSystem: scene.particleSystems[scene.particleSystems.length-1],
+                            finished: false,
                             result: null,
                         };
                     }
@@ -2144,8 +2138,8 @@ function updateAdventure(timeStamp){
                     currentDirection = scene.dialogue.playerDirection;
                     scene.dialogue = null;
                 }
-            } else if(scene.dialogue.cinematic.inputStartTime === null){
-                scene.dialogue.cinematic.inputStartTime = timeStamp;
+            } else if(scene.dialogue.cinematic.phaseStartTime === null){
+                scene.dialogue.cinematic.phaseStartTime = timeStamp;
                 scene.inputting = true;
                 scene.finishedInputting = false;
             }
@@ -2182,7 +2176,7 @@ function updateAdventure(timeStamp){
                     scene.player.finishedFruitScene = true;
                     scene.player.numFinishedTutorialScenes++;
                 }
-            }else if(collision === 7){
+            } else if(collision === 7){
                 if(scene.player.finishedCloudScene){
                     initializeDialogue("world","clouds",timeStamp);
                 } else {
@@ -2343,7 +2337,7 @@ function drawAdventure(timeStamp){
         context.font = `${Math.floor(16*scene.sizeMod)}px zenMaruRegular`;
 
         if(scene.dialogue.cinematic !== null){
-            if(scene.dialogue.cinematic.inputStartTime !== null){
+            if(scene.dialogue.cinematic.phaseStartTime !== null){
                 // draw shaded circle pre-blur
                 context.fillStyle = 'hsl(0, 100%, 0%, 60%)';
                 context.beginPath();
@@ -2404,7 +2398,8 @@ function drawAdventure(timeStamp){
         context.imageSmoothingEnabled = false;
 
         if(scene.dialogue.cinematic !== null){
-            if(scene.dialogue.cinematic.inputStartTime !== null){
+            let c = scene.dialogue.cinematic;
+            if(c.phaseStartTime !== null){
 
                 // Draw dysymbolia input elements post blur
                 context.fillStyle = 'hsl(0, 100%, 100%, 80%)';
@@ -2412,11 +2407,40 @@ function drawAdventure(timeStamp){
                 context.textAlign = 'center';
                 context.fillText("Enter keyword:", scene.worldX + w*scene.sizeMod/2, scene.worldY + (h-100)*scene.sizeMod/2);
 
-                context.fillStyle = scene.dialogue.cinematic.info[2];
-                context.fillText(scene.dialogue.cinematic.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+100)*scene.sizeMod/2);
+                if(c.result === null){
+                    context.fillStyle = c.info[2];
+                    context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+100)*scene.sizeMod/2);
 
-                context.fillStyle = "white";
-                context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2);
+                    context.fillStyle = "white";
+                    context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2);
+
+                    /*
+                    context.textAlign = 'left';
+                    let inputTextWidth = context.measureText(scene.textEntered).width;
+                    context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2 - inputTextWidth/2, scene.worldY + h*scene.sizeMod/2 + 50);
+                    */
+                } else {
+                    // Play the animation for dysymbolia text colliding
+                    let animationDuration = 2000;
+                    let animationProgress = (timeStamp - c.phaseStartTime)/animationDuration;
+                    if (animationProgress >= 1){
+                        scene.particleSystems.push(createParticleSystem({x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+                        c.finished = true;
+                    } else {
+                        context.textAlign = 'center';
+                        let inputTextWidth = context.measureText(scene.textEntered).width;
+                        let xMod = Math.sin(Math.PI/2*Math.max(1 - animationProgress*2,0.1));
+                        let currentX = scene.worldX + w*scene.sizeMod/2 - (inputTextWidth/2)*xMod;
+                        let yMod = Math.sin(Math.PI/2*Math.min(2 - animationProgress*2,1));
+                        for(let i=0;i<scene.textEntered.length;i+=1){
+                            let charWidth = context.measureText(scene.textEntered[i]).width;
+                            context.fillText(scene.textEntered[i], currentX + xMod*charWidth/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
+                            currentX += charWidth * xMod;
+                        }
+                        context.fillStyle = c.info[2];
+                        context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 + 50*yMod)*scene.sizeMod/2);
+                    }
+                }
             }
         }
     }
@@ -2777,18 +2801,6 @@ function gameLoop(timeStamp){
     context.fillStyle = bgColor;
     context.fillRect(-1000, -1000, screenWidth+2000, screenHeight+2000);
 
-    let particleCount = 0;
-
-    // Draw particle systems if they are not drawn somewhere else
-    for (let x in scene.particleSystems) {
-        let sys = scene.particleSystems[x];
-        if(!sys.specialDrawLocation){
-            sys.drawParticles(timeStamp);
-        }
-
-        particleCount+=sys.particles.length;
-    }
-
     // Draw the active buttons as it is not specifc to scene
     for (let x in scene.buttons) {
         let b = scene.buttons[x];
@@ -2819,6 +2831,18 @@ function gameLoop(timeStamp){
 
     // Call the draw function for the scene
     sceneDefinitions[scene.index].draw(timeStamp);
+
+    let particleCount = 0;
+
+    // Draw particle systems if they are not drawn somewhere else
+    for (let x in scene.particleSystems) {
+        let sys = scene.particleSystems[x];
+        if(!sys.specialDrawLocation){
+            sys.drawParticles(timeStamp);
+        }
+
+        particleCount+=sys.particles.length;
+    }
 
     // Draw constant elements
     context.fillStyle = textColor;
