@@ -184,5 +184,24 @@
                 }
             ]
         }
+    },
+    "randomDysymbolia": {
+        "auto": {
+            "textLines": [
+                "It's coming.",
+                ""
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 9
+                },
+                {
+                    "face": "player",
+                    "faceNum": 9,
+                    "randomDysymbolia": true
+                }
+            ]
+        }
     }
 }

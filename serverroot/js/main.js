@@ -165,6 +165,7 @@ var dialogueFileData = {
     gladius: {},
     world: {},
     scenes: {},
+    randomDysymbolia: {},
 };
 
 // Loads the data !!!
@@ -174,6 +175,7 @@ function processDialogueData(data) {
 
     dialogueFileData.scenes = dialogueData.scenes;
     dialogueFileData.world = dialogueData.worldDialogue;
+    dialogueFileData.randomDysymbolia = dialogueData.randomDysymbolia;
     dialogueFileData.gladius = dialogueData.characterDialogue.Gladius;
     dialogueFileData.andro = dialogueData.characterDialogue.Andro;
 
@@ -1106,7 +1108,7 @@ let drawParticlesTypeZero = function(timeStamp){
     for (let x in this.particles) {
         let p = this.particles[x];
 
-        context.fillStyle = 'hsla('+p.hue+','+p.saturation+'%,'+p.lightness+'%,'+(p.createTime-timeStamp+this.particleLifespan)/this.particleLifespan+')';
+        context.fillStyle = 'hsla('+p.hue+','+p.saturation+'%,'+p.lightness+'%,'+this.startingAlpha*((p.createTime-timeStamp+this.particleLifespan)/this.particleLifespan)+')';
         context.beginPath();
         context.arc(p.x, p.y, p.size, 0, 2 * Math.PI);
         context.fill();
@@ -1196,6 +1198,7 @@ let newParticleTypeTwo = function(timeStamp){
     let v = randomUnitVector(this.mod, this.shift);
     // If hue is array get a random color from there
     let h=this.hue,s=this.saturation,l=this.lightness;
+    let x=this.x,y=this.y;
 
     // Get random color from array
     if(typeof this.hue === "object"){
@@ -1205,7 +1208,11 @@ let newParticleTypeTwo = function(timeStamp){
         s = this.saturation[randomIndex];
         l = this.lightness[randomIndex];
     }
-    return {x: this.x, y: this.y, hue: h, saturation: s, lightness: l, size: this.particleSize,
+    if(this.sourceType === "line"){
+        x = Math.random() * (this.x[1]-this.x[0]) + this.x[0];
+        y = Math.random() * (this.y[1]-this.y[0]) + this.y[0];
+    }
+    return {x: x, y: y, hue: h, saturation: s, lightness: l, size: this.particleSize,
             createTime: timeStamp, destroyTime: timeStamp+this.particleLifespan,
             velX: v[0]*this.particleSpeed*Math.random(), velY: v[1]*this.particleSpeed*Math.random(),
             accX: 0, accY: 0};
@@ -1234,10 +1241,11 @@ let drawParticleFunctions = [drawParticlesTypeZero,drawParticlesTypeOne,drawPart
 
 // Takes in an object to be able to make use of named parameters, returns a particle system object
 function createParticleSystem(
-    {x=-1000, y=-1000, hue=0, saturation=100, lightness=50, particlesPerSec=50, drawParticles=drawParticlesTypeOne,
+    {x=-1000, y=-1000, hue=0, saturation=100, lightness=50, startingAlpha=1, particlesPerSec=50, drawParticles=drawParticlesTypeOne,
     newParticle=newParticleTypeZero, temporary=false, specialDrawLocation=false,
     particleSize=7, particleLifespan=1000, mod=1, shift=0, systemLifespan=Infinity, createTime=0,
-    gravity=0, particleSpeed=50, particlesLeft=Infinity, particleAcceleration=0} = {}) {
+    gravity=0, particleSpeed=50, particlesLeft=Infinity, particleAcceleration=0,
+    sourceType="point"} = {}) {
 
     if(typeof drawParticles === "number"){
         drawParticles = drawParticleFunctions[drawParticles];
@@ -1246,7 +1254,7 @@ function createParticleSystem(
         newParticle = newParticleFunctions[newParticle];
     }
     let sys = {
-        x: x, y: y, hue: hue, saturation: saturation, lightness: lightness,
+        x: x, y: y, sourceType: sourceType, hue: hue, saturation: saturation, lightness: lightness, startingAlpha: startingAlpha,
         particlesPerSec: particlesPerSec, drawParticles: drawParticles, newParticle: newParticle, particleAcceleration: particleAcceleration,
         particleSize: particleSize, particleLifespan: particleLifespan, systemLifespan: systemLifespan, mod: mod, shift: shift,
         createTime: createTime, particles: [], timeOfLastCreate: -1, createNewParticles: true, temporary: temporary,
@@ -1289,9 +1297,10 @@ let playerParticleSystem = createParticleSystem({
     particles: [], timeOfLastCreate: -1,
 });
 let evilestParticleSystem = createParticleSystem({
-    x: 200, y:700, hue: 0, saturation: 0, lightness: 100,
-    particlesPerSec: 30, drawParticles: drawParticlesTypeZero, newParticle: newParticleTypeTwo,
-    particleSize: 7, particleLifespan: 1000, mod: 0.5, shift: 0, particleSpeed: 150, gravity: -200
+    x: [150,200], y:[700,700], hue: 0, saturation: 0, lightness: 100, startingAlpha: 0.5,
+    particlesPerSec: 50, drawParticles: drawParticlesTypeZero, newParticle: newParticleTypeTwo,
+    particleSize: 7, particleLifespan: 1000, mod: 0.7, shift: 1.8, particleSpeed: 150, gravity: -200,
+    sourceType: "line",
 });
 
 let homeParticleSystems = [evilestParticleSystem,bestParticleSystem,worstParticleSystem,silliestParticleSystem,wonkiestParticleSystem,playerParticleSystem];
@@ -1397,7 +1406,7 @@ function initializeScene(sceneName){
 
             // Measured in in-game seconds. -1 means there is a current dysymbolia event
             // it will stay at 0 if one cannot currently happen and it is waiting for the next opportunity to start
-            timeUntilDysymbolia: 120,
+            timeUntilDysymbolia: 60,
             //hunger: 75, maxHunger: 100,
             conditions: [
                 {
@@ -1768,13 +1777,13 @@ function initializeDialogue(category, scenario, timeStamp){
         cinematic: null,
     };
 
-    if(scene.dialogue.lineInfo[0] !== undefined && scene.dialogue.lineInfo[0].dysymbolia !== undefined){
+    /*if(scene.dialogue.lineInfo[0] !== undefined && scene.dialogue.lineInfo[0].dysymbolia !== undefined){
         scene.dialogue.cinematic = {
             type: "dysymbolia",
             startTime: timeStamp,
             info: scene.dialogue.lineInfo.dysymbolia,
         }
-    }
+    }*/
 }
 
 // Draws text one word at a time to be able to finely control what is written, designed to be a version of wrapText with much more features,
@@ -2013,9 +2022,11 @@ function updateAdventure(timeStamp){
     let newTime = (280+Math.floor((timeStamp-scene.timeOfSceneChange)/1000))%1440;
 
     // If a second went by, update everything that needs to be updated by the second
-    if(newTime > scene.currentGameClock){
+    if(newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439)){
         if(scene.player.timeUntilDysymbolia > 0){
             scene.player.timeUntilDysymbolia-=1;
+        } else if (scene.dialogue === null){
+            initializeDialogue("randomDysymbolia","auto",timeStamp);
         }
         scene.currentGameClock = newTime;
     }
@@ -2032,6 +2043,7 @@ function updateAdventure(timeStamp){
 
         // Handle cinematic
         if(scene.dialogue.cinematic !== null){
+            // Handle within scene dysynbolia
             if(scene.dialogue.cinematic.type === "dysymbolia"){
                 let timeElapsed = timeStamp-scene.dialogue.cinematic.startTime;
                 if(timeElapsed < 2500){
@@ -2039,47 +2051,51 @@ function updateAdventure(timeStamp){
                 } else {
                     scene.blur = 5;
                 }
-                //console.log(scene.blur);
-            }
-            if(scene.dialogue.cinematic.phaseStartTime !== null){
-                if(scene.inputting){
-                    if(scene.finishedInputting){
-                        if(scene.dialogue.cinematic.info[1].includes(scene.textEntered)){
-                            scene.dialogue.cinematic.result = "pass";
-                        } else {
-                            scene.dialogue.cinematic.result = "fail";
+                // If the inputting phase has began, handle update
+                if(scene.dialogue.cinematic.phaseStartTime !== null){
+                    if(scene.inputting){
+                        // If input entered
+                        if(scene.finishedInputting){
+                            if(scene.dialogue.cinematic.info[1].includes(scene.textEntered)){
+                                scene.dialogue.cinematic.result = "pass";
+                            } else {
+                                scene.dialogue.cinematic.result = "fail";
+                            }
+                            scene.inputting = false;
+                            scene.dialogue.cinematic.phaseStartTime = timeStamp;
+                            scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine].replaceAll(scene.dialogue.cinematic.info[0],scene.dialogue.cinematic.info[3]);
                         }
-                        scene.inputting = false;
-                        scene.dialogue.cinematic.phaseStartTime = timeStamp;
-                        scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine].replaceAll(scene.dialogue.cinematic.info[0],scene.dialogue.cinematic.info[3]);
-                    }
-                } else {
-                    if(scene.dialogue.cinematic.finished){
-                        scene.blur = 0;
-                        scene.textEntered = "";
-                        if(scene.dialogue.cinematic.result === "pass") {
-                            scene.player.power = Math.min(scene.player.powerSoftcap,scene.player.power+1);
-                        } else {
-                            // TODO: make taking damage a function that checks death and stuff lol
-                            scene.player.hp -= 3;
-                            scene.activeDamage = {
-                                // If startFrame is positive, there is currently active damage.
-                                startFrame: timeStamp,
+                    } else {
+                        // If animation finished
+                        if(scene.dialogue.cinematic.finished){
+                            scene.blur = 0;
+                            scene.textEntered = "";
+                            if(scene.dialogue.cinematic.result === "pass") {
+                                scene.player.power = Math.min(scene.player.powerSoftcap,scene.player.power+1);
+                            } else {
+                                // TODO: make taking damage a function that checks death and stuff lol
+                                scene.player.hp -= 3;
+                                scene.activeDamage = {
+                                    // If startFrame is positive, there is currently active damage.
+                                    startFrame: timeStamp,
 
-                                // Duration of the current damage
-                                duration: 1,
+                                    // Duration of the current damage
+                                    duration: 1,
 
-                                // How much the screen was shaken by
-                                offset: [0,0],
+                                    // How much the screen was shaken by
+                                    offset: [0,0],
 
-                                // Last time the screen was shaken to not shake every single frame
-                                timeOfLastShake: -1,
-                            };
+                                    // Last time the screen was shaken to not shake every single frame
+                                    timeOfLastShake: -1,
+                                };
+                            }
+                            scene.player.timeUntilDysymbolia = 60;
+                            initializeDialogue("scenes","post dysymbolia "+scene.player.numFinishedTutorialScenes,timeStamp);
                         }
-                        initializeDialogue("scenes","post dysymbolia "+scene.player.numFinishedTutorialScenes,timeStamp);
                     }
                 }
             }
+
         }
         // If there isnt a cinematic theres nothing to handle about the dialogue in update phase
     } else {
@@ -2162,17 +2178,26 @@ function updateAdventure(timeStamp){
         xClicked = false;
     }
     if(zClicked){
+        // Handle dialogue update on z press
         if(scene.dialogue !== null){
             if(scene.dialogue.cinematic === null){
-                if(scene.dialogue.textLines.length > scene.dialogue.currentLine+1){
+                if(scene.dialogue.textLines.length <= scene.dialogue.currentLine+1){
+                    // Finish dialogue if no more line
+                    currentDirection = scene.dialogue.playerDirection;
+                    scene.dialogue = null;
+                } else {
+                    // Otherwise advance line
                     scene.dialogue.lineStartTime = timeStamp;
                     scene.dialogue.currentLine++;
                     let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine]
+
+                    // Check for a cinematic on the next line, then start it if there is one
                     if(lineInfo !== undefined && lineInfo.dysymbolia !== undefined){
                         let specialParticleSystem = lineInfo.particleSystem;
                         specialParticleSystem.specialDrawLocation = true;
 
                         scene.particleSystems.push(createParticleSystem(specialParticleSystem));
+                        scene.player.timeUntilDysymbolia = -1;
 
                         scene.dialogue.cinematic = {
                             type: "dysymbolia",
@@ -2183,17 +2208,20 @@ function updateAdventure(timeStamp){
                             finished: false,
                             result: null,
                         };
+                    } else if (lineInfo !== undefined && lineInfo.randomDysymbolia !== undefined){
+                        scene.dialogue.cinematic = {
+                            type: "random dysymbolia",
+                            startTime: timeStamp,
+                            finished: false,
+                        };
                     }
-                } else {
-                    currentDirection = scene.dialogue.playerDirection;
-                    scene.dialogue = null;
                 }
-            } else if(scene.dialogue.cinematic.phaseStartTime === null){
+            } else if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseStartTime === null){
                 scene.dialogue.cinematic.phaseStartTime = timeStamp;
                 scene.inputting = true;
                 scene.finishedInputting = false;
             }
-        } else {
+        } else { // If no dialogue, check for object interaction via collision
             let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],currentDirection);
             if(collision !== null && typeof collision === "object"){
                 note = `Talking with ${collision.id}!`;
@@ -2600,12 +2628,54 @@ function drawAdventure(timeStamp){
     let conditionLine = "Conditions: "
     for(let i in scene.player.conditions){
         const condition = scene.player.conditions[i];
+        context.font = '18px zenMaruMedium';
+        let conditionX = scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText(conditionLine).width;
+        let conditionY = scene.worldY+220
+
+        // Handle special drawing for the dysymbolia condition
+        if(condition.name === "Dysymbolia" && scene.player.timeUntilDysymbolia < 30){
+            context.font = `18px zenMaruBlack`;
+            if(condition.particleSystem === null){
+                condition.particleSystem = createParticleSystem({
+                    x: [conditionX,conditionX+context.measureText(condition.name).width], y:[conditionY,conditionY], hue: 0, saturation: 0, lightness: 100, startingAlpha: 0.005,
+                    particlesPerSec: 50, drawParticles: drawParticlesTypeZero, newParticle: newParticleTypeTwo,
+                    particleSize: 5, particleLifespan: 450, mod: 1.2, shift: 1.3, particleSpeed: 120, gravity: -300,
+                    sourceType: "line", specialDrawLocation: true,
+                });
+                scene.particleSystems.push(condition.particleSystem);
+            }
+            let ps = condition.particleSystem;
+            if(scene.player.timeUntilDysymbolia > -1){
+                let advancement = (30 - scene.player.timeUntilDysymbolia)/30;
+                ps.startingAlpha = advancement/2;
+                ps.particleLifespan = 250 + 300*advancement;
+                ps.particlesPerSec = 40 + 30*advancement;
+                ps.particleSize = 5 + 5*advancement;
+                ps.particleSpeed = 60 + 200*advancement;
+                ps.lightness = 100;
+
+                condition.color = `hsl(0,0%,${scene.player.timeUntilDysymbolia*(10/3)}%)`;
+            } else {
+                let advancement = 1;
+                ps.startingAlpha = 1;
+                ps.particleLifespan = 250 + 300*advancement;
+                ps.particlesPerSec = 40 + 30*advancement;
+                ps.particleSize = 5 + 5*advancement;
+                ps.particleSpeed = 60 + 200*advancement;
+
+                ps.lightness = 0;
+
+                condition.color = `hsl(0,0%,100%)`;
+            }
+            condition.particleSystem.drawParticles(performance.now());
+        }
+
         context.fillStyle = condition.color;
         if(i < scene.player.conditions.length-1){
-            context.fillText(condition.name+", ", scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText(conditionLine).width, scene.worldY+220);
+            context.fillText(condition.name+", ", conditionX, scene.worldY+220);
             conditionLine += condition.name+", ";
         } else {
-            context.fillText(condition.name, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText(conditionLine).width, scene.worldY+220);
+            context.fillText(condition.name, conditionX, scene.worldY+220);
         }
     }
 }
