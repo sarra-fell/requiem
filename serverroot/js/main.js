@@ -433,6 +433,30 @@ sensouCardClient.onload = handleSensouCardData;
 sensouCardClient.open("GET", "assets/xavier game/card_data.txt");
 sensouCardClient.send();
 
+// Now the item information that we hardcode because why not
+// Has information for all the items in the game
+// Not to be modified
+let itemInfo = [
+    {
+        name: "Love Fruit",
+        desc: "A mysterious fruit shaped like a heart. Like everything else on this floating island, it looks too good to be true. Heals $healAmount$ HP when consumed, and like any other food, cures hunger.",
+        type: "Consumable",
+        subtypes: ["food"],
+        stack: true,
+        imageLocationInfo: ["tile",0,[32,64]],
+        effects: [
+            {
+                type: "heal",
+                baseAmount: 10,
+            },
+            {
+                type: "satiation",
+                amount: "regular",
+            }
+        ],
+    }
+]
+
 /*
     Load our assets before doing anything else !!
 */
@@ -1053,7 +1077,16 @@ function drawTooltip() {
     } else if (tooltipBox.type === "condition"){
         const condition = tooltipBox.condition;
         context.font = '20px zenMaruBlack';
-        draw(condition.color,condition.name,condition.desc);
+        let splitDesc = condition.desc.split("$");
+        let parsedDesc = "";
+        for(let i in splitDesc){
+            if(splitDesc[i] === "timeUntilDysymbolia"){
+                parsedDesc = parsedDesc + `${scene.player.timeUntilDysymbolia} seconds`;
+            } else {
+                parsedDesc = parsedDesc + splitDesc[i];
+            }
+        }
+        draw(condition.color,condition.name,parsedDesc);
     }
 }
 
@@ -1414,7 +1447,7 @@ function initializeScene(sceneName){
                     jpName: "ディシンボリア",
                     type: "Curse",
                     color: "white",
-                    desc: "Character sees visions of a distant world. Next in ??:??, or ????.",
+                    desc: "Character sees visions of a distant world. Next in $timeUntilDysymbolia$, or when ???.",
                     particleSystem: null, // Becomes a particle system when one needs to be drawn behind it
                 },
                 {
@@ -1425,6 +1458,7 @@ function initializeScene(sceneName){
                     desc: "Character is hungry. Healing from most sources is reduced."
                 }
             ],
+            inventory: [0,"none","none","none","none"], // First 5 items are the hotbar
 
             finishedWaterScene: false,
             finishedFruitScene: false,
@@ -1925,7 +1959,7 @@ function drawCharacter(character, src, x, y){
 }
 
 // Draws an inanimate object
-function drawInanimate(inanimate, x, y) {
+/*function drawInanimate(inanimate, x, y) {
     let size = 16*scene.sizeMod;
     let image = null;
     let srcX = 0;
@@ -1953,6 +1987,14 @@ function drawInanimate(inanimate, x, y) {
         context.drawImage(image, srcX*scene.sizeMod, srcY*scene.sizeMod, bitrate, bitrate, x, y, size*2, size*2);
     } else {
         console.warn("drawInanimate: Expected object got " + typeof image + ", also you have negative hot men.");
+    }
+}*/
+
+function drawItemIcon(itemId,x,y){
+    let info = itemInfo[itemId];
+
+    if(info.imageLocationInfo[0] === "tile"){
+        drawTile(info.imageLocationInfo[1],info.imageLocationInfo[2],x,y);
     }
 }
 
@@ -2024,7 +2066,7 @@ function updateAdventure(timeStamp){
     // If a second went by, update everything that needs to be updated by the second
     if(newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439)){
         if(scene.player.timeUntilDysymbolia > 0){
-            scene.player.timeUntilDysymbolia-=1;
+            //scene.player.timeUntilDysymbolia-=1;
         } else if (scene.dialogue === null){
             initializeDialogue("randomDysymbolia","auto",timeStamp);
         }
@@ -2437,11 +2479,11 @@ function drawAdventure(timeStamp){
         context.font = `${Math.floor(16*scene.sizeMod)}px zenMaruRegular`;
 
         if(scene.dialogue.cinematic !== null){
-            if(scene.dialogue.cinematic.phaseStartTime !== null){
+            if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseStartTime !== null){
                 // draw shaded circle pre-blur
-                context.fillStyle = 'hsl(0, 100%, 0%, 60%)';
+                context.fillStyle = 'hsl(0, 100%, 0%, 20%)';
                 context.beginPath();
-                context.arc(scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2, 180, 0, 2 * Math.PI);
+                context.arc(scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2 - 10, 160, 0, 2 * Math.PI);
                 context.fill();
             }
         }
@@ -2602,9 +2644,27 @@ function drawAdventure(timeStamp){
     context.font = '15px zenMaruRegular';
     context.fillText("No learned abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+320);
 
+    context.font = '20px zenMaruMedium';
+    context.fillText("Inventory", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+660);
+
+    // Draw inventory hotbar
+    for(let i=0;i<5;i++){
+        context.lineWidth = 2;
+        context.strokeStyle = 'hsla(270, 60%, 75%, 0.6)';
+        context.beginPath();
+        context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i, scene.worldY+690, 45, 45, 3);
+        context.stroke();
+
+        if(scene.player.inventory[i] === 0){
+            drawItemIcon(0,scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,scene.worldY+690)
+        }
+    }
+
+    // Make underlines
     context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
     context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 80, scene.worldY+65, 300-160, 2);
     context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 100, scene.worldY+290, 300-200, 2);
+    context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 100, scene.worldY+675, 300-200, 2);
 
     context.font = '24px zenMaruRegular';
     context.textAlign = 'center';
