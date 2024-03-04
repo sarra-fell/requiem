@@ -1288,8 +1288,13 @@ let playerParticleSystem = createParticleSystem({
     particleSize: 5, particleLifespan: 1500,
     particles: [], timeOfLastCreate: -1,
 });
+let evilestParticleSystem = createParticleSystem({
+    x: 200, y:700, hue: 0, saturation: 0, lightness: 100,
+    particlesPerSec: 30, drawParticles: drawParticlesTypeZero, newParticle: newParticleTypeTwo,
+    particleSize: 7, particleLifespan: 1000, mod: 0.5, shift: 0, particleSpeed: 150, gravity: -200
+});
 
-let homeParticleSystems = [bestParticleSystem,worstParticleSystem,silliestParticleSystem,wonkiestParticleSystem,playerParticleSystem];
+let homeParticleSystems = [evilestParticleSystem,bestParticleSystem,worstParticleSystem,silliestParticleSystem,wonkiestParticleSystem,playerParticleSystem];
 
 function updateParticleSystem(sys,fps,timeStamp){
     // Add all the particles we will keep to this array, to avoid using splice to remove particles
@@ -1365,6 +1370,19 @@ function initializeScene(sceneName){
         scene.levelNum = 0;
         scene.sizeMod = 1.4;
         scene.blur = 0;
+        scene.activeDamage = {
+            // If startFrame is positive, there is currently active damage.
+            startFrame: -1,
+
+            // Duration of the current damage
+            duration: 0,
+
+            // How much the screen was shaken by
+            offset: [0,0],
+
+            // Last time the screen was shaken to not shake every single frame
+            timeOfLastShake: -1,
+        };
 
         // Stores all player and progress info for adventure (as long as its information that would be worth saving between sessions)
         scene.player = {
@@ -1375,14 +1393,20 @@ function initializeScene(sceneName){
             level: 1,
             hp: 40, maxHp: 40,
             power: 0, powerSoftcap: 5,
+            dysymboliaActive: true,
+
+            // Measured in in-game seconds. -1 means there is a current dysymbolia event
+            // it will stay at 0 if one cannot currently happen and it is waiting for the next opportunity to start
+            timeUntilDysymbolia: 120,
             //hunger: 75, maxHunger: 100,
             conditions: [
                 {
                     name: "Dysymbolia",
                     jpName: "ディシンボリア",
                     type: "Curse",
-                    color: "black",
-                    desc: "Character sees visions of a distant world. Next in ??:??, or ????."
+                    color: "white",
+                    desc: "Character sees visions of a distant world. Next in ??:??, or ????.",
+                    particleSystem: null, // Becomes a particle system when one needs to be drawn behind it
                 },
                 {
                     name: "Hunger",
@@ -1392,6 +1416,7 @@ function initializeScene(sceneName){
                     desc: "Character is hungry. Healing from most sources is reduced."
                 }
             ],
+
             finishedWaterScene: false,
             finishedFruitScene: false,
             finishedCloudScene: false,
@@ -1409,7 +1434,7 @@ function initializeScene(sceneName){
         scene.defaultTextSpeed = 240;
 
         // Counts the minutes elapsed from 0:00 in the day, for now it goes up 1 every second
-        scene.currentGameClock = 900;
+        scene.currentGameClock = -1;
 
         // True when the player is currently moving to the tile they are "at" and the walking animation is playing
         scene.moving = false;
@@ -1985,7 +2010,15 @@ function updateAdventure(timeStamp){
     let lev = levels[scene.levelNum];
 
     // Update in-game time
-    scene.currentGameClock = (280+Math.floor((timeStamp-scene.timeOfSceneChange)/1000))%1440;
+    let newTime = (280+Math.floor((timeStamp-scene.timeOfSceneChange)/1000))%1440;
+
+    // If a second went by, update everything that needs to be updated by the second
+    if(newTime > scene.currentGameClock){
+        if(scene.player.timeUntilDysymbolia > 0){
+            scene.player.timeUntilDysymbolia-=1;
+        }
+        scene.currentGameClock = newTime;
+    }
 
     // Handle dialogue
     if(scene.dialogue !== null){
@@ -2018,6 +2051,7 @@ function updateAdventure(timeStamp){
                         }
                         scene.inputting = false;
                         scene.dialogue.cinematic.phaseStartTime = timeStamp;
+                        scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine].replaceAll(scene.dialogue.cinematic.info[0],scene.dialogue.cinematic.info[3]);
                     }
                 } else {
                     if(scene.dialogue.cinematic.finished){
@@ -2025,6 +2059,22 @@ function updateAdventure(timeStamp){
                         scene.textEntered = "";
                         if(scene.dialogue.cinematic.result === "pass") {
                             scene.player.power = Math.min(scene.player.powerSoftcap,scene.player.power+1);
+                        } else {
+                            // TODO: make taking damage a function that checks death and stuff lol
+                            scene.player.hp -= 3;
+                            scene.activeDamage = {
+                                // If startFrame is positive, there is currently active damage.
+                                startFrame: timeStamp,
+
+                                // Duration of the current damage
+                                duration: 1,
+
+                                // How much the screen was shaken by
+                                offset: [0,0],
+
+                                // Last time the screen was shaken to not shake every single frame
+                                timeOfLastShake: -1,
+                            };
                         }
                         initializeDialogue("scenes","post dysymbolia "+scene.player.numFinishedTutorialScenes,timeStamp);
                     }
@@ -2205,6 +2255,28 @@ function drawAdventure(timeStamp){
     // world width and height
     let w = lev.gridWidth*scene.tileSize+1;
     let h = lev.gridHeight*scene.tileSize+1;
+
+    // Apply damage shake
+    if(scene.activeDamage.startFrame > 0){
+        let ad = scene.activeDamage;
+        let secondsLeft = ad.duration - (timeStamp - ad.startFrame)/1000;
+        if(secondsLeft <= 0){
+            scene.activeDamage = {
+                startFrame: -1,
+                duration: 0,
+                offset: [0,0],
+                timeOfLastShake: -1
+            };
+        } else {
+            if(timeStamp - ad.timeOfLastShake > 30){
+                // Randomize a new offset, -10 to 10 pixels per second
+                ad.offset = [(Math.random()-0.5)*20*secondsLeft,(Math.random()-0.5)*20*secondsLeft];
+                ad.timeOfLastShake = timeStamp;
+            }
+            context.save();
+            context.translate(ad.offset[0],ad.offset[1]);
+        }
+    }
 
     // Draw tile layers
     let deferredTiles = [];
@@ -2424,10 +2496,40 @@ function drawAdventure(timeStamp){
                     let animationDuration = 2000;
                     let animationProgress = (timeStamp - c.phaseStartTime)/animationDuration;
                     if (animationProgress >= 1){
-                        scene.particleSystems.push(createParticleSystem({x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+                        if(c.result === "pass"){
+                            // Green particle system
+                            scene.particleSystems.push(createParticleSystem({hue:120,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+                        } else {
+                            // Red particle system
+                            scene.particleSystems.push(createParticleSystem({hue:0,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+                        }
+
                         c.finished = true;
+                    } else if (c.result === "pass") {
+                        context.fillStyle = "white";
+                        let inputTextWidth = context.measureText(scene.textEntered).width;
+                        let xMod = Math.sin((Math.PI/2)*Math.max(1 - animationProgress*2,0.1));
+                        let currentX = scene.worldX + w*scene.sizeMod/2 - (inputTextWidth/2)*xMod;
+                        let yMod = Math.sin((Math.PI/2)*Math.min(2 - animationProgress*2,1));
+                        if(xMod === Math.sin((Math.PI/2)*0.1)){
+                            // Instead of drawing the input string, draw it as the kanji
+                            context.fillStyle = c.info[2];
+                            context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
+                        } else {
+                            // Draw it the same way as the fail animation
+                            for(let i=0;i<scene.textEntered.length;i+=1){
+                                let charWidth = context.measureText(scene.textEntered[i]).width;
+                                context.fillText(scene.textEntered[i], currentX + xMod*charWidth/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
+                                currentX += charWidth * xMod;
+                            }
+                            context.fillStyle = c.info[2];
+                        }
+
+
+                        context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 + 50*yMod)*scene.sizeMod/2);
                     } else {
-                        context.textAlign = 'center';
+                        // Play the fail animation
+                        context.fillStyle = "white";
                         let inputTextWidth = context.measureText(scene.textEntered).width;
                         let xMod = Math.sin(Math.PI/2*Math.max(1 - animationProgress*2,0.1));
                         let currentX = scene.worldX + w*scene.sizeMod/2 - (inputTextWidth/2)*xMod;
@@ -2443,6 +2545,15 @@ function drawAdventure(timeStamp){
                 }
             }
         }
+    }
+
+    // Apply damage redness and finish shake
+    if(scene.activeDamage.startFrame > 0){
+        let ad = scene.activeDamage;
+        let secondsLeft = ad.duration - (timeStamp - ad.startFrame)/1000;
+        context.fillStyle = `hsla(0, 100%, 50%, ${0.2*secondsLeft})`
+        context.fillRect(scene.worldX,scene.worldY,w*scene.sizeMod,h*scene.sizeMod);
+        context.restore();
     }
 
     // Draw the right part of the screen
