@@ -85,7 +85,8 @@
                         "hue": [0], "saturation": [30], "lightness": [80],
                         "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
                         "particleSize": 4, "particleLifespan": 1400, "particleSpeed": 20
-                    }
+                    },
+                    "addItem": 0
                 }
             ]
         },

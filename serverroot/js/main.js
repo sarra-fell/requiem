@@ -439,21 +439,17 @@ sensouCardClient.send();
 let itemInfo = [
     {
         name: "Love Fruit",
-        desc: "A mysterious fruit shaped like a heart. Like everything else on this floating island, it looks too good to be true. Heals $healAmount$ HP when consumed, and like any other food, cures hunger.",
+        desc: "A mysterious fruit shaped like a heart. Like everything else on this floating island, it looks too good to be true. Heals $healAmount$ HP when consumed, and like any other food, cures hunger. (Double click to use items!).",
         type: "Consumable",
+        color: "red",
         subtypes: ["food"],
         stack: true,
         imageLocationInfo: ["tile",0,[32,64]],
-        effects: [
-            {
-                type: "heal",
-                baseAmount: 10,
-            },
-            {
-                type: "satiation",
-                amount: "regular",
-            }
-        ],
+        effectList: ["heal","satiate"],
+        effects: {
+            healAmount: 10,
+            satiation: "normal",
+        }
     }
 ]
 
@@ -784,7 +780,7 @@ the player pressed enter
 let downPressed=false,upPressed=false,leftPressed=false,rightPressed=false;
 
 // variables set to be true by input event listeners and set back to false after being handled by scene update
-let zClicked=false,xClicked=false;
+let zClicked=false,xClicked=false,doubleClicked=false;
 
 // for player movement
 let currentDirection = null;
@@ -856,8 +852,7 @@ window.addEventListener('mousemove',function(e) {
     mouseY = Math.floor(e.y - rect.y);
 
     //check if was hovered on button so we can change color!
-    for (let x in scene.buttons) {
-        let b = scene.buttons[x];
+    for (const b of scene.buttons) {
         if(!mouseDown){
             if (mouseX >= b.x &&         // right of the left edge AND
             mouseX <= b.x + b.width &&    // left of the right edge AND
@@ -873,7 +868,7 @@ window.addEventListener('mousemove',function(e) {
 
     if(scene.currentTooltip === null){
         //check if we hovered over a tooltip
-        for (let i in scene.tooltipBoxes) {
+        for (let i=0;i<scene.tooltipBoxes.length;i++) {
             let t = scene.tooltipBoxes[i];
             if (mouseX >= t.x &&         // right of the left edge AND
             mouseX <= t.x + t.width &&    // left of the right edge AND
@@ -958,7 +953,11 @@ window.addEventListener('click',function(e) {
             b.color = b.neutralColor;
         }
     }
-    scene.particleSystems.push(createParticleSystem({x:mouseX, y:mouseY, temporary:true, particlesLeft:10, particleSpeed: 150, particleAcceleration: -150, particleLifespan: 1000}));
+    scene.particleSystems.push(createParticleSystem({x:mouseX, y:mouseY, temporary:true, particlesLeft:6, particleSpeed: 120, particleAcceleration: -150, particleLifespan: 600, particleSize: 5}));
+},false);
+
+window.addEventListener('dblclick',function(e) {
+    doubleClicked=true;
 },false);
 
 // Code stolen and modified from https://fjolt.com/article/html-canvas-how-to-wrap-text
@@ -1024,7 +1023,7 @@ const wrapText = function(ctx, text, y, maxWidth, lineHeight, japanese = false) 
     return lineArray;
 }
 
-// Tooltip used in multiple scenes to show reading and meaning of jp words. Probably will be other types of tooltips much later
+// Draws the current tooltip
 function drawTooltip() {
     let draw = function(titleColor,titleText,bodyText,jp = false){
         let wrappedText = wrapText(context, bodyText, mouseY+74, 360, 16, jp);
@@ -1092,29 +1091,18 @@ function drawTooltip() {
             }
         }
         draw(condition.color,condition.name,parsedDesc);
-    }
-}
-
-// Register the tooltop boxes for the player's coniditons in adventure
-function registerConditionTooltips(){
-    let conditionLine = "Conditions: ";
-    let conditionWord = "";
-    context.font = '18px zenMaruMedium';
-    context.textAlign = 'left';
-    for(let i in scene.player.conditions){
-        const condition = scene.player.conditions[i];
-
-        scene.tooltipBoxes.push({
-            x: scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText(conditionLine).width,
-            y: scene.worldY+220-18,
-            width: context.measureText(condition.name).width, height: 18,
-            type: "condition", condition: condition, spawnTime: 0,
-        });
-        if(i < scene.player.conditions.length-1){
-            conditionLine += condition.name+", ";
-        } else {
-            conditionLine += condition.name;
+    } else if (tooltipBox.type === "item"){
+        let info = itemInfo[tooltipBox.item];
+        let splitDesc = info.desc.split("$");
+        let parsedDesc = "";
+        for(let i in splitDesc){
+            if(splitDesc[i] === "healAmount"){
+                parsedDesc = parsedDesc + `${info.effects.healAmount}`;
+            } else {
+                parsedDesc = parsedDesc + splitDesc[i];
+            }
         }
+        draw(info.color,info.name,parsedDesc);
     }
 }
 
@@ -1507,7 +1495,8 @@ function initializeScene(sceneName){
 
         bgColor = 'rgb(103,131,92)';
         initializeDialogue("scenes","opening scene",scene.timeOfSceneChange);
-        registerConditionTooltips();
+        updateConditionTooltips();
+        updateInventory();
     } else if (sceneName === "study deck"){
         scene.currentCard = srs.serveNextCard();
         scene.showBack = false;
@@ -1539,7 +1528,7 @@ function initializeScene(sceneName){
             }
         }
     }
-    xClicked = zClicked = false;
+    xClicked = zClicked = doubleClicked = false;
 }
 
 /*
@@ -1804,6 +1793,88 @@ sceneDefinitions.push({
 
 /********************************* Adventure scene *************************************/
 
+// Update condition tooltips when condition array is modified
+function updateConditionTooltips(){
+    // Delete existing condition tooltops first
+    for(let i = scene.tooltipBoxes.length-1;i>=0;i--){
+        if(scene.tooltipBoxes[i].type === "condition"){
+            scene.tooltipBoxes.splice(i,1);
+        }
+    }
+
+    let conditionLine = "Conditions: ";
+    let conditionWord = "";
+    context.font = '18px zenMaruMedium';
+    context.textAlign = 'left';
+    for(let i in scene.player.conditions){
+        const condition = scene.player.conditions[i];
+
+        scene.tooltipBoxes.push({
+            x: scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText(conditionLine).width,
+            y: scene.worldY+220-18,
+            width: context.measureText(condition.name).width, height: 18,
+            type: "condition", condition: condition, spawnTime: 0,
+        });
+        if(i < scene.player.conditions.length-1){
+            conditionLine += condition.name+", ";
+        } else {
+            conditionLine += condition.name;
+        }
+    }
+}
+
+// Registers the tooltip boxes for the player's inventory while optionally adding an item in the highest slot
+function updateInventory(addItem = "none"){
+    for(let i = scene.tooltipBoxes.length-1;i>=0;i--){
+        if(scene.tooltipBoxes[i].type === "item"){
+            scene.tooltipBoxes.splice(i,1);
+        }
+    }
+    for(let i=0; i<5; i++){
+        let item = scene.player.inventory[i];
+        if(item !== "none"){
+            scene.tooltipBoxes.push({
+                x: scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,
+                y: scene.worldY+690,
+                width: 45, height: 45,
+                type: "item", item: item, inventoryIndex: i, spawnTime: 0,
+            });
+        } else if(addItem !== "none"){
+            scene.player.inventory[i] = addItem;
+            scene.tooltipBoxes.push({
+                x: scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,
+                y: scene.worldY+690,
+                width: 45, height: 45,
+                type: "item", item: addItem, inventoryIndex: i, spawnTime: 0,
+            });
+            addItem = "none";
+        }
+    }
+}
+
+function useItem(inventoryIndex,particleSysX,particleSysY){
+    let item = scene.player.inventory[inventoryIndex];
+    let info = itemInfo[item];
+
+    for(const eff of info.effectList){
+        if(eff === "heal"){
+            scene.player.hp = Math.min(scene.player.maxHp,scene.player.hp+info.effects.healAmount);
+        } else if (eff === "satiate"){
+            for(let i=scene.player.conditions.length-1;i>=0;i--){
+                if(scene.player.conditions[i].name === "Hunger"){
+                    scene.player.conditions.splice(i,1);
+                    updateConditionTooltips();
+                }
+            }
+        }
+    }
+
+    scene.particleSystems.push(createParticleSystem({hue:120,saturation:100,lightness:50,x:particleSysX, y:particleSysY, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+
+    scene.player.inventory[inventoryIndex] = "none";
+    updateInventory();
+}
+
 // Called when dialogue begins
 function initializeDialogue(category, scenario, timeStamp){
     scene.dialogue = {
@@ -1946,7 +2017,7 @@ function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp) {
 }
 
 // Draws a tile
-function drawTile(type, src, x, y, bitrate = 16){
+function drawTile(type, src, x, y, bitrate = 32){
     context.drawImage(tilesets.tilesetImages[type], src[0], src[1], bitrate, bitrate, x, y, bitrate*scene.sizeMod+1, bitrate*scene.sizeMod+1);
 }
 
@@ -2236,6 +2307,9 @@ function updateAdventure(timeStamp){
                     // Otherwise advance line
                     scene.dialogue.lineStartTime = timeStamp;
                     scene.dialogue.currentLine++;
+                    if(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem !== undefined){
+                        updateInventory(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem);
+                    }
                     let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine]
 
                     // Check for a cinematic on the next line, then start it if there is one
@@ -2331,6 +2405,16 @@ function updateAdventure(timeStamp){
             }
         }
         zClicked = false;
+    }
+    if(doubleClicked){
+        if(scene.currentTooltip!== null){
+            let tooltip = scene.tooltipBoxes[scene.currentTooltip.index];
+            if(tooltip.type === "item"){
+                useItem(tooltip.inventoryIndex,tooltip.x + tooltip.width/2,tooltip.y + tooltip.height/2);
+                scene.currentTooltip = null;
+            }
+        }
+        doubleClicked = false;
     }
 }
 
@@ -2670,7 +2754,7 @@ function drawAdventure(timeStamp){
         context.stroke();
 
         if(scene.player.inventory[i] === 0){
-            drawItemIcon(0,scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,scene.worldY+690)
+            drawItemIcon(0,scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,scene.worldY+690);
         }
     }
 
