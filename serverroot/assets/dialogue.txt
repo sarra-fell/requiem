@@ -23,7 +23,7 @@
                     "face": "player",
                     "faceNum": 0,
                     "textSpeed": 120,
-                    "dysymbolia": ["水",["water","mizu"],"hsl(200, 100%, 80%)","water"],
+                    "dysymbolia": ["水",["water","mizu"],"hsl(200, 100%, 80%)","water","水"],
                     "particleSystem": {
                         "hue": [135], "saturation": [58], "lightness": [68],
                         "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
@@ -45,7 +45,7 @@
                 {
                     "face": "player",
                     "faceNum": 4,
-                    "dysymbolia": ["雲",["cloud","clouds","kumo"],"#737373","clouds"],
+                    "dysymbolia": ["雲",["cloud","clouds","kumo"],"#737373","clouds","雲"],
                     "particleSystem": {
                             "hue": [0,0], "saturation": [0,0], "lightness": [100,85],
                             "particlesPerSec": 30, "drawParticles": 0, "newParticle": 1,
@@ -55,13 +55,67 @@
             ]
         },
         "tutorial fruit scene": {
-
+            "textLines": [
+                "What a beautiful looking fruit. What a shame that it's in such a suspicious pla-",
+                "*groooooooooooooowl*",
+                "..............",
+                "... Alright fine, I'll take 一つ."
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 0
+                },
+                {
+                    "face": "player",
+                    "faceNum": 9,
+                    "textSpeed": 12
+                },
+                {
+                    "face": "player",
+                    "faceNum": 2,
+                    "textSpeed": 30
+                },
+                {
+                    "face": "player",
+                    "faceNum": 5,
+                    "textSpeed": 30,
+                    "dysymbolia": ["一",["one"],"white","one","一つ"],
+                    "particleSystem": {
+                        "hue": [0], "saturation": [30], "lightness": [80],
+                        "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
+                        "particleSize": 4, "particleLifespan": 1400, "particleSpeed": 20
+                    }
+                }
+            ]
         },
         "tutorial dungeon scene": {
-
-        },
-        "tutorial night scene": {
-
+            "textLines": [
+                "Here it is... the dark, suspicious stairs. Just what I needed. I guess I should probably go down there though, there might be something important.",
+                "Who knows, maybe even a person, this place looks tended to after all.",
+                "It can't be that bad, let's just take a peep. You can do it, you can do it, you can do it...",
+                "Abort, abort, abort, have to run... why did it have to be this close to the entrance???"
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 4
+                },
+                {
+                    "face": "player",
+                    "faceNum": 0
+                },
+                {
+                    "face": "player",
+                    "faceNum": 13,
+                    "areaChange": "Floating_Island_Dungeon_0"
+                },
+                {
+                    "face": "player",
+                    "faceNum": 10,
+                    "cinematic": "tutorial dungeon scene"
+                }
+            ]
         },
         "post dysymbolia 1": {
             "textLines": [
@@ -82,6 +136,22 @@
         "post dysymbolia 2": {
             "textLines": [
                 "It happened again... I have a feeling its going to keep happening.",
+                "I should keep looking around the island."
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 9
+                },
+                {
+                    "face": "player",
+                    "faceNum": 2
+                }
+            ]
+        },
+        "post dysymbolia 3": {
+            "textLines": [
+                "That hurt as usual, there has to be something that'll help me around here though.",
                 "I should keep looking around the island."
             ],
             "lineInfo": [
@@ -183,13 +253,47 @@
                     "faceNum": 1
                 }
             ]
+        },
+        "sunflower": {
+            "textLines": [
+                "A lone sunflower in a place like this? Looks amazingly healthy but no seeds, strange.",
+                "................",
+                "No painful thought-interference this time? Thats a relief, but I wonder what causes it..."
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 1
+                },
+                {
+                    "face": "player",
+                    "faceNum": 5,
+                    "textSpeed": 30,
+                    "conditional": ["numCompletedTutorialScenes",">",1]
+                },
+                {
+                    "face": "player",
+                    "faceNum": 2
+                }
+            ]
+        },
+        "fruit_tree": {
+            "textLines": [
+                "I'll leave the rest of these alone for now, somehow I have a feeling someone will be mad."
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 1
+                }
+            ]
         }
     },
     "randomDysymbolia": {
         "auto": {
             "textLines": [
                 "It's coming.",
-                ""
+                "This is where the random dysymbolia would go if I made it yet, its kind of the whole entire point of the game and teaches you all the kanji and kana you need, but its really important and i'm still not sure exactly how it should go lol."
             ],
             "lineInfo": [
                 {
@@ -198,7 +302,7 @@
                 },
                 {
                     "face": "player",
-                    "faceNum": 9,
+                    "faceNum": 15,
                     "randomDysymbolia": true
                 }
             ]

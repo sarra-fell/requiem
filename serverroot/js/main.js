@@ -963,7 +963,7 @@ window.addEventListener('click',function(e) {
 
 // Code stolen and modified from https://fjolt.com/article/html-canvas-how-to-wrap-text
 // Japanese text doesnt have spaces so we just split it anywhere, rough but easy solution
-const wrapText = function(ctx, text, y, maxWidth, lineHeight, parseFileText = false, japanese = false) {
+const wrapText = function(ctx, text, y, maxWidth, lineHeight, japanese = false) {
     // @description: wrapText wraps HTML canvas text onto a canvas of fixed width
     // @param ctx - the context for the canvas we want to wrap text on
     // @param text - the text we want to wrap.
@@ -971,11 +971,6 @@ const wrapText = function(ctx, text, y, maxWidth, lineHeight, parseFileText = fa
     // @param maxWidth - the width at which we want line breaks to begin - i.e. the maximum width of the canvas.
     // @param lineHeight - the height of each line, so we can space them below each other.
     // @returns an array of [ lineText, x, y ] for all lines
-
-    // Not by original author: Added parseFileText, which parses certain things out before using the text
-    if(parseFileText){
-        text = text.replace(/playerName/g,scene.player.name)
-    }
 
     // First, start by splitting all of our text into words, but splitting it into an array split by spaces
     let wordBreak = ' ';
@@ -1031,8 +1026,8 @@ const wrapText = function(ctx, text, y, maxWidth, lineHeight, parseFileText = fa
 
 // Tooltip used in multiple scenes to show reading and meaning of jp words. Probably will be other types of tooltips much later
 function drawTooltip() {
-    let draw = function(titleColor,titleText,bodyText){
-        let wrappedText = wrapText(context, bodyText, mouseY+74, 360, 16);
+    let draw = function(titleColor,titleText,bodyText,jp = false){
+        let wrappedText = wrapText(context, bodyText, mouseY+74, 360, 16, jp);
 
         const boxX = mouseX+12;
         const boxY = mouseY+12;
@@ -1077,11 +1072,21 @@ function drawTooltip() {
     } else if (tooltipBox.type === "condition"){
         const condition = tooltipBox.condition;
         context.font = '20px zenMaruBlack';
+        if(condition.name === "Dysymbolia"){
+            if(scene.player.timeUntilDysymbolia === 0){
+                draw(condition.color,condition.name,"Character sees visions of a distant world. Next imminent.");
+                return;
+            } else if(scene.player.timeUntilDysymbolia < 0){
+                draw(condition.color,condition.name,"ここが貴方のいるべき場所じゃない。戻ってください。", true);
+                return;
+            }
+        }
+
         let splitDesc = condition.desc.split("$");
         let parsedDesc = "";
         for(let i in splitDesc){
             if(splitDesc[i] === "timeUntilDysymbolia"){
-                parsedDesc = parsedDesc + `${scene.player.timeUntilDysymbolia} seconds`;
+                parsedDesc = parsedDesc + `${scene.player.timeUntilDysymbolia}`;
             } else {
                 parsedDesc = parsedDesc + splitDesc[i];
             }
@@ -1474,7 +1479,7 @@ function initializeScene(sceneName){
         scene.worldY = 20;
 
         // The number of characters displayed per second
-        scene.defaultTextSpeed = 240;
+        scene.defaultTextSpeed = 200;
 
         // Counts the minutes elapsed from 0:00 in the day, for now it goes up 1 every second
         scene.currentGameClock = -1;
@@ -2066,7 +2071,7 @@ function updateAdventure(timeStamp){
     // If a second went by, update everything that needs to be updated by the second
     if(newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439)){
         if(scene.player.timeUntilDysymbolia > 0){
-            //scene.player.timeUntilDysymbolia-=1;
+            scene.player.timeUntilDysymbolia-=1;
         } else if (scene.dialogue === null){
             initializeDialogue("randomDysymbolia","auto",timeStamp);
         }
@@ -2105,7 +2110,7 @@ function updateAdventure(timeStamp){
                             }
                             scene.inputting = false;
                             scene.dialogue.cinematic.phaseStartTime = timeStamp;
-                            scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine].replaceAll(scene.dialogue.cinematic.info[0],scene.dialogue.cinematic.info[3]);
+                            scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine].replaceAll(scene.dialogue.cinematic.info[4],scene.dialogue.cinematic.info[3]);
                         }
                     } else {
                         // If animation finished
@@ -2251,6 +2256,7 @@ function updateAdventure(timeStamp){
                             result: null,
                         };
                     } else if (lineInfo !== undefined && lineInfo.randomDysymbolia !== undefined){
+                        scene.player.timeUntilDysymbolia = -1;
                         scene.dialogue.cinematic = {
                             type: "random dysymbolia",
                             startTime: timeStamp,
@@ -2262,6 +2268,10 @@ function updateAdventure(timeStamp){
                 scene.dialogue.cinematic.phaseStartTime = timeStamp;
                 scene.inputting = true;
                 scene.finishedInputting = false;
+            } else if(scene.dialogue.cinematic.type === "random dysymbolia"){
+                currentDirection = scene.dialogue.playerDirection;
+                scene.player.timeUntilDysymbolia = 60;
+                scene.dialogue = null;
             }
         } else { // If no dialogue, check for object interaction via collision
             let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],currentDirection);
@@ -2290,7 +2300,7 @@ function updateAdventure(timeStamp){
                 }
             } else if(collision === 3){
                 if(scene.player.finishedFruitScene){
-                    initializeDialogue("world","fruit tree",timeStamp);
+                    initializeDialogue("world","fruit_tree",timeStamp);
                 } else {
                     initializeDialogue("scenes","tutorial fruit scene",timeStamp);
                     scene.player.finishedFruitScene = true;
@@ -2304,13 +2314,17 @@ function updateAdventure(timeStamp){
                     scene.player.finishedCloudScene = true;
                     scene.player.numFinishedTutorialScenes++;
                 }
+            } else if(collision === 8){
+                initializeDialogue("world","sunflower",timeStamp);
             } else if(collision === 9){
                 console.log(lev.stairDestination);
-                changeArea(lev.stairDestination,true);
-                if(lev.stairDestination === "Floating_Island_Dungeon_0" && !scene.player.finishedDungeonScene){
-                    initializeDialogue("scenes","tutorial dungon scene",timeStamp);
+                //changeArea(lev.stairDestination,true);
+                if(lev.stairDestination === "Floating_Island_Dungeon_0" && scene.player.finishedDungeonScene){
+                    initializeDialogue("scenes","tutorial dungeon scene",timeStamp);
                     scene.player.finishedDungeonScene = true;
                     scene.player.numFinishedTutorialScenes++;
+                } else {
+                    changeArea(lev.stairDestination,true);
                 }
             } else {
                 note = `Stop being lonely and talk to a hot guy already...`;
@@ -2539,7 +2553,7 @@ function drawAdventure(timeStamp){
         }
         context.imageSmoothingEnabled = false;
 
-        if(scene.dialogue.cinematic !== null){
+        if(scene.dialogue.cinematic !== null && scene.dialogue.cinematic.type === "dysymbolia"){
             let c = scene.dialogue.cinematic;
             if(c.phaseStartTime !== null){
 
@@ -2550,7 +2564,7 @@ function drawAdventure(timeStamp){
                 context.fillText("Enter keyword:", scene.worldX + w*scene.sizeMod/2, scene.worldY + (h-100)*scene.sizeMod/2);
 
                 if(c.result === null){
-                    context.fillStyle = c.info[2];
+                    context.fillStyle = "white";
                     context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+100)*scene.sizeMod/2);
 
                     context.fillStyle = "white";
