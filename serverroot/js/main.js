@@ -1448,7 +1448,7 @@ function initializeScene(sceneName){
                     jpName: "空腹",
                     type: "Standard condition",
                     color: "#d66b00",
-                    desc: "Character is hungry. Healing from most sources is reduced."
+                    desc: "Character is hungry. Healing from most non-food sources are reduced."
                 }
             ],
             inventory: [0,"none","none","none","none"], // First 5 items are the hotbar
@@ -1470,7 +1470,7 @@ function initializeScene(sceneName){
         scene.defaultTextSpeed = 200;
 
         // Counts the minutes elapsed from 0:00 in the day, for now it goes up 1 every second
-        scene.currentGameClock = -1;
+        scene.currentGameClock = 280;
 
         // True when the player is currently moving to the tile they are "at" and the walking animation is playing
         scene.moving = false;
@@ -1482,7 +1482,6 @@ function initializeScene(sceneName){
         scene.whichFoot = 0;
 
         // Object that holds dialogue data
-        scene.dialogue = null;
         /* scene.dialogue is null when there is no current dialogue, or an object with these properties:
             startTime (number) time dialogue started
             lineStartTime (number) time the current line started
@@ -1492,11 +1491,35 @@ function initializeScene(sceneName){
             playerDirection (string) for maintaining currentDirection regardless of fiding with controls
             cinematic (object) when any kind of special scene is playing during a dialogue. when not null the dialogue will not be continued with the z button
         */
+        scene.dialogue = null;
+
+        scene.menuOpened = false;
+
+        // Game time is paused during dialogue, dysymbolia, and when menu is opened.
+        // THis allows time to be updated appropriately when we have the timestamp and ingame time of the last pause
+        scene.timeOfLastUnpause = scene.timeOfSceneChange;
+        scene.gameClockOfLastPause = 280;
+
 
         bgColor = 'rgb(103,131,92)';
         initializeDialogue("scenes","opening scene",scene.timeOfSceneChange);
         updateConditionTooltips();
         updateInventory();
+
+        // Button for opening in-game menu
+        scene.buttons.push({
+            x:scene.worldX+18*16*scene.sizeMod*2 +160, y:scene.worldY+750, width:50, height:30,
+            neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+            text: "Menu", font: '13px zenMaruRegular', fontSize: 13,
+            onClick: function() {
+                scene.menuOpened = !scene.menuOpened;
+                if(scene.menuOpened){
+                    scene.gameClockOfLastPause = scene.currentGameClock;
+                } else {
+                    scene.timeOfLastUnpause = performance.now();
+                }
+            }
+        });
     } else if (sceneName === "study deck"){
         scene.currentCard = srs.serveNextCard();
         scene.showBack = false;
@@ -1886,7 +1909,7 @@ function initializeDialogue(category, scenario, timeStamp){
         playerDirection: currentDirection,
         cinematic: null,
     };
-
+    scene.gameClockOfLastPause = scene.currentGameClock;
     /*if(scene.dialogue.lineInfo[0] !== undefined && scene.dialogue.lineInfo[0].dysymbolia !== undefined){
         scene.dialogue.cinematic = {
             type: "dysymbolia",
@@ -2134,295 +2157,334 @@ function changeArea(iid,changePlayerLocation = false){
 }
 
 function updateAdventure(timeStamp){
-    let lev = levels[scene.levelNum];
-
     // Update in-game time
-    let newTime = (280+Math.floor((timeStamp-scene.timeOfSceneChange)/1000))%1440;
+    let newTime = (scene.gameClockOfLastPause+Math.floor((timeStamp-scene.timeOfLastUnpause)/1000))%1440;
 
     // If a second went by, update everything that needs to be updated by the second
-    if(newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439)){
+    if(scene.dialogue === null && !scene.menuOpened && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
         if(scene.player.timeUntilDysymbolia > 0){
             scene.player.timeUntilDysymbolia-=1;
-        } else if (scene.dialogue === null){
+        } else {
             initializeDialogue("randomDysymbolia","auto",timeStamp);
         }
         scene.currentGameClock = newTime;
     }
 
-    // Handle dialogue
-    if(scene.dialogue !== null){
-        // If player was moving when dialogue started, make sure to end it when its time to end it
-        if(scene.movingDirection !== null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
-            scene.movingDirection = null;
-            scene.player.graphicLocation = scene.player.location;
-            scene.player.src[0]=32;
-            scene.whichFoot = (scene.whichFoot+1)%2;
-        }
+    const updateWorldScreen = function(){
+        let lev = levels[scene.levelNum];
 
-        // Handle cinematic
-        if(scene.dialogue.cinematic !== null){
-            // Handle within scene dysynbolia
-            if(scene.dialogue.cinematic.type === "dysymbolia"){
-                let timeElapsed = timeStamp-scene.dialogue.cinematic.startTime;
-                if(timeElapsed < 2500){
-                    scene.blur = timeElapsed/500;
-                } else {
-                    scene.blur = 5;
-                }
-                // If the inputting phase has began, handle update
-                if(scene.dialogue.cinematic.phaseStartTime !== null){
-                    if(scene.inputting){
-                        // If input entered
-                        if(scene.finishedInputting){
-                            if(scene.dialogue.cinematic.info[1].includes(scene.textEntered)){
-                                scene.dialogue.cinematic.result = "pass";
-                            } else {
-                                scene.dialogue.cinematic.result = "fail";
-                            }
-                            scene.inputting = false;
-                            scene.dialogue.cinematic.phaseStartTime = timeStamp;
-                            scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine].replaceAll(scene.dialogue.cinematic.info[4],scene.dialogue.cinematic.info[3]);
-                        }
-                    } else {
-                        // If animation finished
-                        if(scene.dialogue.cinematic.finished){
-                            scene.blur = 0;
-                            scene.textEntered = "";
-                            if(scene.dialogue.cinematic.result === "pass") {
-                                scene.player.power = Math.min(scene.player.powerSoftcap,scene.player.power+1);
-                            } else {
-                                // TODO: make taking damage a function that checks death and stuff lol
-                                scene.player.hp -= 3;
-                                scene.activeDamage = {
-                                    // If startFrame is positive, there is currently active damage.
-                                    startFrame: timeStamp,
 
-                                    // Duration of the current damage
-                                    duration: 1,
 
-                                    // How much the screen was shaken by
-                                    offset: [0,0],
-
-                                    // Last time the screen was shaken to not shake every single frame
-                                    timeOfLastShake: -1,
-                                };
-                            }
-                            scene.player.timeUntilDysymbolia = 60;
-                            initializeDialogue("scenes","post dysymbolia "+scene.player.numFinishedTutorialScenes,timeStamp);
-                        }
-                    }
-                }
-            }
-
-        }
-        // If there isnt a cinematic theres nothing to handle about the dialogue in update phase
-    } else {
-        // If not in dialogue, handle movement
-        if(currentDirection === "down"){
-            scene.player.src = [32,0];
-        } else if (currentDirection === "left") {
-            scene.player.src = [32,32];
-        } else if(currentDirection === "right"){
-            scene.player.src = [32,32*2];
-        } else if(currentDirection === "up"){
-            scene.player.src = [32,32*3];
-        }
-        if(scene.movingDirection===null){
-            if(currentDirection === "down" && downPressed){
-                let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"down");
-                if(collision===null){
-                    scene.player.location[1]+=32;
-                    scene.movingDirection = "down";
-                    scene.startedMovingTime = timeStamp;
-                } else if (collision === "bounds"){
-                    for(const n of levels[scene.levelNum].neighbours){
-                        if(n.dir === "s"){
-                            changeArea(n.levelIid);
-                            scene.player.location[1]=-32;
-                        }
-                    }
-                }
-            } else if(currentDirection === "left" && leftPressed){
-                let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"left");
-                if(collision===null){
-                    scene.player.location[0]-=32;
-                    scene.movingDirection = "left";
-                    scene.startedMovingTime = timeStamp;
-                } else if (collision === "bounds"){
-                    for(const n of levels[scene.levelNum].neighbours){
-                        if(n.dir === "w"){
-                            changeArea(n.levelIid);
-                            scene.player.location[0]=18*32;
-                        }
-                    }
-                }
-            } else if(currentDirection === "right" && rightPressed){
-                let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"right");
-                if(collision===null){
-                    scene.player.location[0]+=32;
-                    scene.movingDirection = "right";
-                    scene.startedMovingTime = timeStamp;
-                } else if (collision === "bounds"){
-                    for(const n of levels[scene.levelNum].neighbours){
-                        if(n.dir === "e"){
-                            changeArea(n.levelIid);
-                            scene.player.location[0]=-32;
-                        }
-                    }
-                }
-            } else if(currentDirection === "up" && upPressed){
-                let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"up");
-                if(collision===null){
-                    scene.player.location[1]-=32;
-                    scene.movingDirection = "up";
-                    scene.startedMovingTime = timeStamp;
-                } else if (collision === "bounds"){
-                    for(const n of levels[scene.levelNum].neighbours){
-                        if(n.dir === "n"){
-                            changeArea(n.levelIid);
-                            scene.player.location[1]=18*32;
-                        }
-                    }
-                }
-            }
-        } else if(movingAnimationDuration + scene.startedMovingTime < timeStamp){
-            scene.movingDirection = null;
-            scene.player.graphicLocation = scene.player.location;
-            scene.player.src[0]=32;
-            scene.whichFoot = (scene.whichFoot+1)%2;
-        }
-    }
-    if(xClicked){
-        xClicked = false;
-    }
-    if(zClicked){
-        // Handle dialogue update on z press
+        // Handle dialogue
         if(scene.dialogue !== null){
-            if(scene.dialogue.cinematic === null){
-                if(scene.dialogue.textLines.length <= scene.dialogue.currentLine+1){
-                    // Finish dialogue if no more line
+            // If player was moving when dialogue started, make sure to end it when its time to end it
+            if(scene.movingDirection !== null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
+                scene.movingDirection = null;
+                scene.player.graphicLocation = scene.player.location;
+                scene.player.src[0]=32;
+                scene.whichFoot = (scene.whichFoot+1)%2;
+            }
+
+            // Handle cinematic
+            if(scene.dialogue.cinematic !== null){
+                // Handle within scene dysynbolia
+                if(scene.dialogue.cinematic.type === "dysymbolia"){
+                    let timeElapsed = timeStamp-scene.dialogue.cinematic.startTime;
+                    if(timeElapsed < 2500){
+                        scene.blur = timeElapsed/500;
+                    } else {
+                        scene.blur = 5;
+                    }
+                    // If the inputting phase has began, handle update
+                    if(scene.dialogue.cinematic.phaseStartTime !== null){
+                        if(scene.inputting){
+                            // If input entered
+                            if(scene.finishedInputting){
+                                if(scene.dialogue.cinematic.info[1].includes(scene.textEntered)){
+                                    scene.dialogue.cinematic.result = "pass";
+                                } else {
+                                    scene.dialogue.cinematic.result = "fail";
+                                }
+                                scene.inputting = false;
+                                scene.dialogue.cinematic.phaseStartTime = timeStamp;
+                                scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine].replaceAll(scene.dialogue.cinematic.info[4],scene.dialogue.cinematic.info[3]);
+                            }
+                        } else {
+                            // If animation finished
+                            if(scene.dialogue.cinematic.finished){
+                                scene.blur = 0;
+                                scene.textEntered = "";
+                                if(scene.dialogue.cinematic.result === "pass") {
+                                    scene.player.power = Math.min(scene.player.powerSoftcap,scene.player.power+1);
+                                } else {
+                                    // TODO: make taking damage a function that checks death and stuff lol
+                                    scene.player.hp -= 3;
+                                    scene.activeDamage = {
+                                        // If startFrame is positive, there is currently active damage.
+                                        startFrame: timeStamp,
+
+                                        // Duration of the current damage
+                                        duration: 1,
+
+                                        // How much the screen was shaken by
+                                        offset: [0,0],
+
+                                        // Last time the screen was shaken to not shake every single frame
+                                        timeOfLastShake: -1,
+                                    };
+                                }
+                                scene.player.timeUntilDysymbolia = 60;
+                                initializeDialogue("scenes","post dysymbolia "+scene.player.numFinishedTutorialScenes,timeStamp);
+                            }
+                        }
+                    }
+                }
+
+            }
+            // If there isnt a cinematic theres nothing to handle about the dialogue in update phase
+        } else {
+            // If not in dialogue, handle movement
+            if(currentDirection === "down"){
+                scene.player.src = [32,0];
+            } else if (currentDirection === "left") {
+                scene.player.src = [32,32];
+            } else if(currentDirection === "right"){
+                scene.player.src = [32,32*2];
+            } else if(currentDirection === "up"){
+                scene.player.src = [32,32*3];
+            }
+            if(scene.movingDirection===null){
+                if(currentDirection === "down" && downPressed){
+                    let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"down");
+                    if(collision===null){
+                        scene.player.location[1]+=32;
+                        scene.movingDirection = "down";
+                        scene.startedMovingTime = timeStamp;
+                    } else if (collision === "bounds"){
+                        for(const n of levels[scene.levelNum].neighbours){
+                            if(n.dir === "s"){
+                                changeArea(n.levelIid);
+                                scene.player.location[1]=-32;
+                            }
+                        }
+                    }
+                } else if(currentDirection === "left" && leftPressed){
+                    let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"left");
+                    if(collision===null){
+                        scene.player.location[0]-=32;
+                        scene.movingDirection = "left";
+                        scene.startedMovingTime = timeStamp;
+                    } else if (collision === "bounds"){
+                        for(const n of levels[scene.levelNum].neighbours){
+                            if(n.dir === "w"){
+                                changeArea(n.levelIid);
+                                scene.player.location[0]=18*32;
+                            }
+                        }
+                    }
+                } else if(currentDirection === "right" && rightPressed){
+                    let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"right");
+                    if(collision===null){
+                        scene.player.location[0]+=32;
+                        scene.movingDirection = "right";
+                        scene.startedMovingTime = timeStamp;
+                    } else if (collision === "bounds"){
+                        for(const n of levels[scene.levelNum].neighbours){
+                            if(n.dir === "e"){
+                                changeArea(n.levelIid);
+                                scene.player.location[0]=-32;
+                            }
+                        }
+                    }
+                } else if(currentDirection === "up" && upPressed){
+                    let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"up");
+                    if(collision===null){
+                        scene.player.location[1]-=32;
+                        scene.movingDirection = "up";
+                        scene.startedMovingTime = timeStamp;
+                    } else if (collision === "bounds"){
+                        for(const n of levels[scene.levelNum].neighbours){
+                            if(n.dir === "n"){
+                                changeArea(n.levelIid);
+                                scene.player.location[1]=18*32;
+                            }
+                        }
+                    }
+                }
+            } else if(movingAnimationDuration + scene.startedMovingTime < timeStamp){
+                scene.movingDirection = null;
+                scene.player.graphicLocation = scene.player.location;
+                scene.player.src[0]=32;
+                scene.whichFoot = (scene.whichFoot+1)%2;
+            }
+        }
+        if(xClicked){
+            xClicked = false;
+        }
+        if(zClicked){
+            // Handle dialogue update on z press
+            if(scene.dialogue !== null){
+                if(scene.dialogue.cinematic === null){
+                    if(scene.dialogue.textLines.length <= scene.dialogue.currentLine+1){
+                        // Finish dialogue if no more line
+                        currentDirection = scene.dialogue.playerDirection;
+                        scene.dialogue = null;
+                        scene.timeOfLastUnpause = timeStamp;
+                    } else {
+                        // Otherwise advance line
+                        scene.dialogue.lineStartTime = timeStamp;
+                        scene.dialogue.currentLine++;
+                        if(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem !== undefined){
+                            updateInventory(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem);
+                        }
+                        let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine]
+
+                        // Check for a conditional on the next line and evaluate
+                        if(lineInfo !== undefined && lineInfo.conditional !== undefined){
+                            let applyConditionalEffect = function(eff){
+                                if(eff === "end"){
+                                    currentDirection = scene.dialogue.playerDirection;
+                                    scene.dialogue = null;
+                                    scene.timeOfLastUnpause = timeStamp;
+                                } else if (eff === "continue"){
+                                    // do nothing lol
+                                }
+                            }
+                            let conditionalEval = false;
+                            if(lineInfo.conditional === "is wary of scene dysymbolia"){
+                                if(scene.player.numFinishedTutorialScenes > 1){
+                                    conditionalEval = true;
+                                }
+                            }
+                            if(conditionalEval){
+                                applyConditionalEffect(lineInfo.conditionalSuccess);
+                            } else {
+                                applyConditionalEffect(lineInfo.conditionalFail);
+                            }
+                        }
+
+                        // Check for a cinematic on the next line, then start it if there is one
+                        if(lineInfo !== undefined && lineInfo.dysymbolia !== undefined){
+                            let specialParticleSystem = lineInfo.particleSystem;
+                            specialParticleSystem.specialDrawLocation = true;
+
+                            scene.particleSystems.push(createParticleSystem(specialParticleSystem));
+                            scene.player.timeUntilDysymbolia = -1;
+
+                            scene.dialogue.cinematic = {
+                                type: "dysymbolia",
+                                startTime: timeStamp,
+                                info: lineInfo.dysymbolia,
+                                phaseStartTime: null,
+                                particleSystem: scene.particleSystems[scene.particleSystems.length-1],
+                                finished: false,
+                                result: null,
+                            };
+                        } else if (lineInfo !== undefined && lineInfo.randomDysymbolia !== undefined){
+                            scene.player.timeUntilDysymbolia = -1;
+                            scene.dialogue.cinematic = {
+                                type: "random dysymbolia",
+                                startTime: timeStamp,
+                                finished: false,
+                            };
+                        }
+                    }
+                } else if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseStartTime === null){
+                    scene.dialogue.cinematic.phaseStartTime = timeStamp;
+                    scene.inputting = true;
+                    scene.finishedInputting = false;
+                } else if(scene.dialogue.cinematic.type === "random dysymbolia"){
                     currentDirection = scene.dialogue.playerDirection;
+                    scene.player.timeUntilDysymbolia = 60;
                     scene.dialogue = null;
-                } else {
-                    // Otherwise advance line
-                    scene.dialogue.lineStartTime = timeStamp;
-                    scene.dialogue.currentLine++;
-                    if(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem !== undefined){
-                        updateInventory(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem);
+                    scene.timeOfLastUnpause = timeStamp;
+                }
+            } else { // If no dialogue, check for object interaction via collision
+                let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],currentDirection);
+                if(collision !== null && typeof collision === "object"){
+                    note = `Talking with ${collision.id}!`;
+                    if(currentDirection === "down"){
+                        collision.src[1] = spritesheetOrientationPosition.up * 32;
+                    } else if (currentDirection === "right"){
+                        collision.src[1] = spritesheetOrientationPosition.left * 32;
+                    } else if (currentDirection === "left"){
+                        collision.src[1] = spritesheetOrientationPosition.right * 32;
+                    } else {
+                        collision.src[1] = spritesheetOrientationPosition.down * 32;
                     }
-                    let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine]
-
-                    // Check for a cinematic on the next line, then start it if there is one
-                    if(lineInfo !== undefined && lineInfo.dysymbolia !== undefined){
-                        let specialParticleSystem = lineInfo.particleSystem;
-                        specialParticleSystem.specialDrawLocation = true;
-
-                        scene.particleSystems.push(createParticleSystem(specialParticleSystem));
-                        scene.player.timeUntilDysymbolia = -1;
-
-                        scene.dialogue.cinematic = {
-                            type: "dysymbolia",
-                            startTime: timeStamp,
-                            info: lineInfo.dysymbolia,
-                            phaseStartTime: null,
-                            particleSystem: scene.particleSystems[scene.particleSystems.length-1],
-                            finished: false,
-                            result: null,
-                        };
-                    } else if (lineInfo !== undefined && lineInfo.randomDysymbolia !== undefined){
-                        scene.player.timeUntilDysymbolia = -1;
-                        scene.dialogue.cinematic = {
-                            type: "random dysymbolia",
-                            startTime: timeStamp,
-                            finished: false,
-                        };
+                    if(collision.type==="character"){
+                        initializeDialogue(collision.id.toLowerCase(),"initial",timeStamp);
                     }
+                } else if(collision === 1){
+                    note = `Talking with the water instead of hot guy...`;
+                    if(scene.player.finishedWaterScene){
+                        initializeDialogue("world","water",timeStamp);
+                    } else {
+                        initializeDialogue("scenes","tutorial water scene",timeStamp);
+                        scene.player.finishedWaterScene = true;
+                        scene.player.numFinishedTutorialScenes++;
+                    }
+                } else if(collision === 3){
+                    if(scene.player.finishedFruitScene){
+                        initializeDialogue("world","fruit_tree",timeStamp);
+                    } else {
+                        initializeDialogue("scenes","tutorial fruit scene",timeStamp);
+                        scene.player.finishedFruitScene = true;
+                        scene.player.numFinishedTutorialScenes++;
+                    }
+                } else if(collision === 7){
+                    if(scene.player.finishedCloudScene){
+                        initializeDialogue("world","clouds",timeStamp);
+                    } else {
+                        initializeDialogue("scenes","tutorial cloud scene",timeStamp);
+                        scene.player.finishedCloudScene = true;
+                        scene.player.numFinishedTutorialScenes++;
+                    }
+                } else if(collision === 8){
+                    initializeDialogue("world","sunflower",timeStamp);
+                } else if(collision === 9){
+                    console.log(lev.stairDestination);
+                    //changeArea(lev.stairDestination,true);
+                    if(lev.stairDestination === "Floating_Island_Dungeon_0" && scene.player.finishedDungeonScene){
+                        initializeDialogue("scenes","tutorial dungeon scene",timeStamp);
+                        scene.player.finishedDungeonScene = true;
+                        scene.player.numFinishedTutorialScenes++;
+                    } else {
+                        changeArea(lev.stairDestination,true);
+                    }
+                } else {
+                    note = `Stop being lonely and talk to a hot guy already...`;
                 }
-            } else if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseStartTime === null){
-                scene.dialogue.cinematic.phaseStartTime = timeStamp;
-                scene.inputting = true;
-                scene.finishedInputting = false;
-            } else if(scene.dialogue.cinematic.type === "random dysymbolia"){
-                currentDirection = scene.dialogue.playerDirection;
-                scene.player.timeUntilDysymbolia = 60;
-                scene.dialogue = null;
             }
-        } else { // If no dialogue, check for object interaction via collision
-            let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],currentDirection);
-            if(collision !== null && typeof collision === "object"){
-                note = `Talking with ${collision.id}!`;
-                if(currentDirection === "down"){
-                    collision.src[1] = spritesheetOrientationPosition.up * 32;
-                } else if (currentDirection === "right"){
-                    collision.src[1] = spritesheetOrientationPosition.left * 32;
-                } else if (currentDirection === "left"){
-                    collision.src[1] = spritesheetOrientationPosition.right * 32;
-                } else {
-                    collision.src[1] = spritesheetOrientationPosition.down * 32;
-                }
-                if(collision.type==="character"){
-                    initializeDialogue(collision.id.toLowerCase(),"initial",timeStamp);
-                }
-            } else if(collision === 1){
-                note = `Talking with the water instead of hot guy...`;
-                if(scene.player.finishedWaterScene){
-                    initializeDialogue("world","water",timeStamp);
-                } else {
-                    initializeDialogue("scenes","tutorial water scene",timeStamp);
-                    scene.player.finishedWaterScene = true;
-                    scene.player.numFinishedTutorialScenes++;
-                }
-            } else if(collision === 3){
-                if(scene.player.finishedFruitScene){
-                    initializeDialogue("world","fruit_tree",timeStamp);
-                } else {
-                    initializeDialogue("scenes","tutorial fruit scene",timeStamp);
-                    scene.player.finishedFruitScene = true;
-                    scene.player.numFinishedTutorialScenes++;
-                }
-            } else if(collision === 7){
-                if(scene.player.finishedCloudScene){
-                    initializeDialogue("world","clouds",timeStamp);
-                } else {
-                    initializeDialogue("scenes","tutorial cloud scene",timeStamp);
-                    scene.player.finishedCloudScene = true;
-                    scene.player.numFinishedTutorialScenes++;
-                }
-            } else if(collision === 8){
-                initializeDialogue("world","sunflower",timeStamp);
-            } else if(collision === 9){
-                console.log(lev.stairDestination);
-                //changeArea(lev.stairDestination,true);
-                if(lev.stairDestination === "Floating_Island_Dungeon_0" && scene.player.finishedDungeonScene){
-                    initializeDialogue("scenes","tutorial dungeon scene",timeStamp);
-                    scene.player.finishedDungeonScene = true;
-                    scene.player.numFinishedTutorialScenes++;
-                } else {
-                    changeArea(lev.stairDestination,true);
-                }
-            } else {
-                note = `Stop being lonely and talk to a hot guy already...`;
-            }
+            zClicked = false;
         }
-        zClicked = false;
-    }
-    if(doubleClicked){
-        if(scene.currentTooltip!== null){
-            let tooltip = scene.tooltipBoxes[scene.currentTooltip.index];
-            if(tooltip.type === "item"){
-                useItem(tooltip.inventoryIndex,tooltip.x + tooltip.width/2,tooltip.y + tooltip.height/2);
-                scene.currentTooltip = null;
+        if(doubleClicked){
+            if(scene.currentTooltip!== null){
+                let tooltip = scene.tooltipBoxes[scene.currentTooltip.index];
+                if(tooltip.type === "item"){
+                    useItem(tooltip.inventoryIndex,tooltip.x + tooltip.width/2,tooltip.y + tooltip.height/2);
+                    scene.currentTooltip = null;
+                }
             }
+            doubleClicked = false;
         }
-        doubleClicked = false;
+    }; // Update world screen function ends here
+
+    const updateMenuScreen = function(){
+        zClicked = xClicked = doubleClicked = false;
+    };
+
+    if(scene.menuOpened){
+        updateMenuScreen();
+    } else {
+        updateWorldScreen();
     }
 }
 
 function drawAdventure(timeStamp){
-    let lev = levels[scene.levelNum];
     // world width and height
-    let w = lev.gridWidth*scene.tileSize+1;
-    let h = lev.gridHeight*scene.tileSize+1;
+    let w = 18*scene.tileSize+1;
+    let h = 18*scene.tileSize+1;
 
     // Apply damage shake
     if(scene.activeDamage.startFrame > 0){
@@ -2446,273 +2508,287 @@ function drawAdventure(timeStamp){
         }
     }
 
-    // Draw tile layers
-    let deferredTiles = [];
-    for (let i=lev.tileLayers.length-1;i>=0;i--) {
-        let layer = lev.tileLayers[i];
-        if(layer.name === "Grass_Biome_Things_Tiles" || layer.name === "Bridge_Tiles"){
-            for (let t of layer.tiles){
-                if(tilesets.tilesetTileInfo[i].Front[t.t]){
-                    deferredTiles.push({tilesetNum: i, tile: t});
-                } else {
-                    drawTile(i, t.src, scene.worldX+t.px[0]*scene.sizeMod, scene.worldY+t.px[1]*scene.sizeMod, 32);
+    const drawWorldScreen = function(){
+        let lev = levels[scene.levelNum];
+
+        // Draw tile layers
+        let deferredTiles = [];
+        for (let i=lev.tileLayers.length-1;i>=0;i--) {
+            let layer = lev.tileLayers[i];
+            if(layer.name === "Grass_Biome_Things_Tiles" || layer.name === "Bridge_Tiles"){
+                for (let t of layer.tiles){
+                    if(tilesets.tilesetTileInfo[i].Front[t.t]){
+                        deferredTiles.push({tilesetNum: i, tile: t});
+                    } else {
+                        drawTile(i, t.src, scene.worldX+t.px[0]*scene.sizeMod, scene.worldY+t.px[1]*scene.sizeMod, 32);
+                    }
+                }
+            } else if(layer.name === "Water_Tiles") {
+                for (let t of layer.tiles){
+                    drawTile(i, [32*Math.floor( (timeStamp/400) % 4),0], scene.worldX+t.px[0]*scene.sizeMod, scene.worldY+t.px[1]*scene.sizeMod, 32);
+                }
+            } else {
+                for (let t of layer.tiles){
+                    let bitrate = 32;
+                    drawTile(i, t.src, scene.worldX+t.px[0]*(32/bitrate)*scene.sizeMod, scene.worldY+t.px[1]*(32/bitrate)*scene.sizeMod, bitrate);
                 }
             }
-        } else if(layer.name === "Water_Tiles") {
-            for (let t of layer.tiles){
-                drawTile(i, [32*Math.floor( (timeStamp/400) % 4),0], scene.worldX+t.px[0]*scene.sizeMod, scene.worldY+t.px[1]*scene.sizeMod, 32);
-            }
-        } else {
-            for (let t of layer.tiles){
-                let bitrate = 32;
-                drawTile(i, t.src, scene.worldX+t.px[0]*(32/bitrate)*scene.sizeMod, scene.worldY+t.px[1]*(32/bitrate)*scene.sizeMod, bitrate);
-            }
-        }
-    }
-
-    context.font = '16px zenMaruRegular';
-    context.fillStyle = textColor;
-    context.fillText("Press Z to interact",scene.worldX+100, scene.worldY+30+h*scene.sizeMod);
-    context.font = '20px zenMaruMedium';
-    context.fillStyle = 'black';
-    let hours = Math.floor(scene.currentGameClock/60);
-    let minutes = Math.floor(scene.currentGameClock%60);
-    if(hours === 0){hours = 24;}
-    if(hours>12){
-        if(minutes<10){
-            context.fillText(`${hours-12}:0${minutes} PM`,scene.worldX+15, scene.worldY+30);
-        } else {
-            context.fillText(`${hours-12}:${minutes} PM`,scene.worldX+15, scene.worldY+30);
-        }
-    } else {
-        if(minutes<10){
-            context.fillText(`${hours}:0${minutes} AM`,scene.worldX+15, scene.worldY+30);
-        } else {
-            context.fillText(`${hours}:${minutes} AM`,scene.worldX+15, scene.worldY+30);
-        }
-    }
-
-    // Draw player
-    if(scene.movingDirection !== null){
-        // Between 0 and 1 where 0 is the very beginning and 1 is finished
-        let animationCompletion = (timeStamp - scene.startedMovingTime)/movingAnimationDuration;
-
-        if(animationCompletion > 0.25 && animationCompletion < 0.75){
-            scene.player.src = [scene.whichFoot*2*32,spritesheetOrientationPosition[scene.movingDirection]*32];
-        } else {
-            scene.player.src = [32,spritesheetOrientationPosition[scene.movingDirection]*32];
         }
 
-        if(scene.movingDirection === "up"){
-            scene.player.graphicLocation = [scene.player.location[0],scene.player.location[1]+scene.tileSize*(1-animationCompletion)];
-        } else if(scene.movingDirection === "left"){
-            scene.player.graphicLocation = [scene.player.location[0]+scene.tileSize*(1-animationCompletion),scene.player.location[1]];
-        } else if(scene.movingDirection === "right"){
-            scene.player.graphicLocation = [scene.player.location[0]-scene.tileSize*(1-animationCompletion),scene.player.location[1]];
-        } else if(scene.movingDirection === "down"){
-            scene.player.graphicLocation = [scene.player.location[0],scene.player.location[1]-scene.tileSize*(1-animationCompletion)];
-        }
-    }
-
-    for (let i in lev.entities){
-        const e = lev.entities[i];
-        if(e.type === "character"){
-            drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*scene.sizeMod*2+scene.worldX,e.px[1]*scene.sizeMod*2+scene.worldY);
-        } else if(e.type === "location"){
-            // do nothing
-        } else {
-            drawInanimate(e,e.px[0]*2+scene.worldX,e.px[1]*2+scene.worldY);
-        }
-
-    }
-    drawCharacter("witch",scene.player.src,scene.worldX+scene.player.graphicLocation[0]*scene.sizeMod,scene.worldY+scene.player.graphicLocation[1]*scene.sizeMod);
-
-    // Draw foreground elements
-    for (const dt of deferredTiles){
-        drawTile(dt.tilesetNum, dt.tile.src, scene.worldX+dt.tile.px[0]*scene.sizeMod, scene.worldY+dt.tile.px[1]*scene.sizeMod, 32);
-    }
-
-    // Apply time of day brightness effect
-    let maximumDarkness = 0.4
-    if(hours >= 19 || hours < 5){
-        context.fillStyle = `hsla(0, 0%, 0%, ${maximumDarkness})`;
-    } else if(hours >= 7 && hours < 17){
-        context.fillStyle = `hsla(0, 0%, 0%, 0)`;
-    } else if(hours < 7){
-        // Sunrise. Starts at 5 AM (game clock 300) finishes at 7 AM (game clock 420)
-        let phase = 0.5 + (scene.currentGameClock-300)/120
-        let a = ((maximumDarkness/2) * Math.sin(Math.PI*phase))+maximumDarkness/2;
-        context.fillStyle = `hsla(0, 0%, 0%, ${a})`;
-    } else if(hours >= 17){
-        // Sunrise. Starts at 5 PM (game clock 1020) finishes at 7 PM (game clock 1140)
-        let phase = 1.5 + (scene.currentGameClock-300)/120
-        let a = ((maximumDarkness/2) * Math.sin(Math.PI*phase))+maximumDarkness/2;
-        context.fillStyle = `hsla(0, 0%, 0%, ${a})`;
-    }
-    context.fillRect(scene.worldX, scene.worldY, w*scene.sizeMod, h*scene.sizeMod);
-
-    let applyBlur = function(){
-        if (scene.blur > 0) {
-            context.filter = `blur(${scene.blur}px)`;
-            // The canvas can draw itself lol
-            context.drawImage(canvas,
-                scene.worldX, scene.worldY, scene.worldX+18*16*2*scene.sizeMod, scene.worldY+18*16*2*scene.sizeMod,
-                scene.worldX, scene.worldY, scene.worldX+18*16*2*scene.sizeMod, scene.worldY+18*16*2*scene.sizeMod,
-             );
-            context.filter = "none";
-        }
-    }
-
-    // Draw dialogue
-    if(scene.dialogue !== null){
-
-        context.fillStyle = 'hsl(0, 100%, 0%, 78%)';
-        context.beginPath();
-        context.roundRect(scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, w*scene.sizeMod, scene.sizeMod*96);
-        context.fill();
-
-        const faceCharacter = scene.dialogue.lineInfo[scene.dialogue.currentLine].face;
-        const faceNum = scene.dialogue.lineInfo[scene.dialogue.currentLine].faceNum;
+        context.font = '16px zenMaruRegular';
         context.fillStyle = textColor;
-        context.font = `${Math.floor(16*scene.sizeMod)}px zenMaruRegular`;
-
-        if(scene.dialogue.cinematic !== null){
-            if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseStartTime !== null){
-                // draw shaded circle pre-blur
-                context.fillStyle = 'hsl(0, 100%, 0%, 20%)';
-                context.beginPath();
-                context.arc(scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2 - 10, 160, 0, 2 * Math.PI);
-                context.fill();
+        context.fillText("Press Z to interact",scene.worldX+100, scene.worldY+30+h*scene.sizeMod);
+        context.font = '20px zenMaruMedium';
+        context.fillStyle = 'black';
+        let hours = Math.floor(scene.currentGameClock/60);
+        let minutes = Math.floor(scene.currentGameClock%60);
+        if(hours === 0){hours = 24;}
+        if(hours>12){
+            if(minutes<10){
+                context.fillText(`${hours-12}:0${minutes} PM`,scene.worldX+15, scene.worldY+30);
+            } else {
+                context.fillText(`${hours-12}:${minutes} PM`,scene.worldX+15, scene.worldY+30);
+            }
+        } else {
+            if(minutes<10){
+                context.fillText(`${hours}:0${minutes} AM`,scene.worldX+15, scene.worldY+30);
+            } else {
+                context.fillText(`${hours}:${minutes} AM`,scene.worldX+15, scene.worldY+30);
             }
         }
 
-        context.fillStyle = textColor;
+        // Draw player
+        if(scene.movingDirection !== null){
+            // Between 0 and 1 where 0 is the very beginning and 1 is finished
+            let animationCompletion = (timeStamp - scene.startedMovingTime)/movingAnimationDuration;
 
-        // Draw differently depending on player vs non-player vs no image
-        const drawDialogueForPlayer = function(facesImage){
-            /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], (scene.worldY+h*scene.sizeMod-72*scene.sizeMod), (w*scene.sizeMod-124*scene.sizeMod), 20*scene.sizeMod, true);
-            wrappedText.forEach(function(item) {
-                // item[0] is the text
-                // item[1] is the y coordinate to fill the text at
-                context.fillText(item[0], (96+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
-            });*/
-            context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
-            applyBlur();
-            drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp);
+            if(animationCompletion > 0.25 && animationCompletion < 0.75){
+                scene.player.src = [scene.whichFoot*2*32,spritesheetOrientationPosition[scene.movingDirection]*32];
+            } else {
+                scene.player.src = [32,spritesheetOrientationPosition[scene.movingDirection]*32];
+            }
 
-        };
-        const drawDialogueForNonPlayer = function(facesImage){
-            /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-144*scene.sizeMod, 20*scene.sizeMod, true);
-            wrappedText.forEach(function(item) {
-                // item[0] is the text
-                // item[1] is the y coordinate to fill the text at
-                context.fillText(item[0], (16+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
-            });*/
-            context.save();
-            context.scale(-1,1);
-            context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, -1*(scene.worldX+w*scene.sizeMod), scene.worldY+h*scene.sizeMod-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
-            context.restore();
-            applyBlur();
-            drawDialogueText((16+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-144*scene.sizeMod,20*scene.sizeMod,timeStamp);
-        };
-        const drawDialogueForNobody = function(){
-            /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-40*scene.sizeMod, 20*scene.sizeMod, true);
-            wrappedText.forEach(function(item) {
-                // item[0] is the text
-                // item[1] is the y coordinate to fill the text at
-                context.fillText(item[0], (16+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
-            });*/
-            applyBlur();
-            drawDialogueText((16+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-40*scene.sizeMod,20*scene.sizeMod,timeStamp);
-        };
-        context.imageSmoothingEnabled = true;
-        if(faceCharacter==="Gladius"){
-            drawDialogueForNonPlayer(characterFaces.gladius);
-        } else if (faceCharacter==="Andro"){
-            drawDialogueForNonPlayer(characterFaces.andro);
-        } else if (faceCharacter==="player"){
-            drawDialogueForPlayer(characterFaces.witch);
-        } else {
-            drawDialogueForNobody();
+            if(scene.movingDirection === "up"){
+                scene.player.graphicLocation = [scene.player.location[0],scene.player.location[1]+scene.tileSize*(1-animationCompletion)];
+            } else if(scene.movingDirection === "left"){
+                scene.player.graphicLocation = [scene.player.location[0]+scene.tileSize*(1-animationCompletion),scene.player.location[1]];
+            } else if(scene.movingDirection === "right"){
+                scene.player.graphicLocation = [scene.player.location[0]-scene.tileSize*(1-animationCompletion),scene.player.location[1]];
+            } else if(scene.movingDirection === "down"){
+                scene.player.graphicLocation = [scene.player.location[0],scene.player.location[1]-scene.tileSize*(1-animationCompletion)];
+            }
         }
-        context.imageSmoothingEnabled = false;
 
-        if(scene.dialogue.cinematic !== null && scene.dialogue.cinematic.type === "dysymbolia"){
-            let c = scene.dialogue.cinematic;
-            if(c.phaseStartTime !== null){
+        for (let i in lev.entities){
+            const e = lev.entities[i];
+            if(e.type === "character"){
+                drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*scene.sizeMod*2+scene.worldX,e.px[1]*scene.sizeMod*2+scene.worldY);
+            } else if(e.type === "location"){
+                // do nothing
+            } else {
+                drawInanimate(e,e.px[0]*2+scene.worldX,e.px[1]*2+scene.worldY);
+            }
 
-                // Draw dysymbolia input elements post blur
-                context.fillStyle = 'hsl(0, 100%, 100%, 80%)';
-                context.font = `${Math.floor(20*scene.sizeMod)}px zenMaruRegular`;
-                context.textAlign = 'center';
-                context.fillText("Enter keyword:", scene.worldX + w*scene.sizeMod/2, scene.worldY + (h-100)*scene.sizeMod/2);
+        }
+        drawCharacter("witch",scene.player.src,scene.worldX+scene.player.graphicLocation[0]*scene.sizeMod,scene.worldY+scene.player.graphicLocation[1]*scene.sizeMod);
 
-                if(c.result === null){
-                    context.fillStyle = "white";
-                    context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+100)*scene.sizeMod/2);
+        // Draw foreground elements
+        for (const dt of deferredTiles){
+            drawTile(dt.tilesetNum, dt.tile.src, scene.worldX+dt.tile.px[0]*scene.sizeMod, scene.worldY+dt.tile.px[1]*scene.sizeMod, 32);
+        }
 
-                    context.fillStyle = "white";
-                    context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2);
+        // Apply time of day brightness effect
+        let maximumDarkness = 0.4
+        if(hours >= 19 || hours < 5){
+            context.fillStyle = `hsla(0, 0%, 0%, ${maximumDarkness})`;
+        } else if(hours >= 7 && hours < 17){
+            context.fillStyle = `hsla(0, 0%, 0%, 0)`;
+        } else if(hours < 7){
+            // Sunrise. Starts at 5 AM (game clock 300) finishes at 7 AM (game clock 420)
+            let phase = 0.5 + (scene.currentGameClock-300)/120
+            let a = ((maximumDarkness/2) * Math.sin(Math.PI*phase))+maximumDarkness/2;
+            context.fillStyle = `hsla(0, 0%, 0%, ${a})`;
+        } else if(hours >= 17){
+            // Sunrise. Starts at 5 PM (game clock 1020) finishes at 7 PM (game clock 1140)
+            let phase = 1.5 + (scene.currentGameClock-300)/120
+            let a = ((maximumDarkness/2) * Math.sin(Math.PI*phase))+maximumDarkness/2;
+            context.fillStyle = `hsla(0, 0%, 0%, ${a})`;
+        }
+        context.fillRect(scene.worldX, scene.worldY, w*scene.sizeMod, h*scene.sizeMod);
 
-                    /*
-                    context.textAlign = 'left';
-                    let inputTextWidth = context.measureText(scene.textEntered).width;
-                    context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2 - inputTextWidth/2, scene.worldY + h*scene.sizeMod/2 + 50);
-                    */
-                } else {
-                    // Play the animation for dysymbolia text colliding
-                    let animationDuration = 2000;
-                    let animationProgress = (timeStamp - c.phaseStartTime)/animationDuration;
-                    if (animationProgress >= 1){
-                        if(c.result === "pass"){
-                            // Green particle system
-                            scene.particleSystems.push(createParticleSystem({hue:120,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
-                        } else {
-                            // Red particle system
-                            scene.particleSystems.push(createParticleSystem({hue:0,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
-                        }
+        let applyBlur = function(){
+            if (scene.blur > 0) {
+                context.filter = `blur(${scene.blur}px)`;
+                // The canvas can draw itself lol
+                context.drawImage(canvas,
+                    scene.worldX, scene.worldY, scene.worldX+18*16*2*scene.sizeMod, scene.worldY+18*16*2*scene.sizeMod,
+                    scene.worldX, scene.worldY, scene.worldX+18*16*2*scene.sizeMod, scene.worldY+18*16*2*scene.sizeMod,
+                 );
+                context.filter = "none";
+            }
+        }
 
-                        c.finished = true;
-                    } else if (c.result === "pass") {
+        // Draw dialogue
+        if(scene.dialogue !== null){
+
+            context.fillStyle = 'hsl(0, 100%, 0%, 78%)';
+            context.beginPath();
+            context.roundRect(scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, w*scene.sizeMod, scene.sizeMod*96);
+            context.fill();
+
+            const faceCharacter = scene.dialogue.lineInfo[scene.dialogue.currentLine].face;
+            const faceNum = scene.dialogue.lineInfo[scene.dialogue.currentLine].faceNum;
+            context.fillStyle = textColor;
+            context.font = `${Math.floor(16*scene.sizeMod)}px zenMaruRegular`;
+
+            if(scene.dialogue.cinematic !== null){
+                if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseStartTime !== null){
+                    // draw shaded circle pre-blur
+                    context.fillStyle = 'hsl(0, 100%, 0%, 20%)';
+                    context.beginPath();
+                    context.arc(scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2 - 10, 160, 0, 2 * Math.PI);
+                    context.fill();
+                }
+            }
+
+            context.fillStyle = textColor;
+
+            // Draw differently depending on player vs non-player vs no image
+            const drawDialogueForPlayer = function(facesImage){
+                /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], (scene.worldY+h*scene.sizeMod-72*scene.sizeMod), (w*scene.sizeMod-124*scene.sizeMod), 20*scene.sizeMod, true);
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], (96+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
+                });*/
+                context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
+                applyBlur();
+                drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp);
+
+            };
+            const drawDialogueForNonPlayer = function(facesImage){
+                /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-144*scene.sizeMod, 20*scene.sizeMod, true);
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], (16+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
+                });*/
+                context.save();
+                context.scale(-1,1);
+                context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, -1*(scene.worldX+w*scene.sizeMod), scene.worldY+h*scene.sizeMod-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
+                context.restore();
+                applyBlur();
+                drawDialogueText((16+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-144*scene.sizeMod,20*scene.sizeMod,timeStamp);
+            };
+            const drawDialogueForNobody = function(){
+                /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-40*scene.sizeMod, 20*scene.sizeMod, true);
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], (16+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
+                });*/
+                applyBlur();
+                drawDialogueText((16+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-40*scene.sizeMod,20*scene.sizeMod,timeStamp);
+            };
+            context.imageSmoothingEnabled = true;
+            if(faceCharacter==="Gladius"){
+                drawDialogueForNonPlayer(characterFaces.gladius);
+            } else if (faceCharacter==="Andro"){
+                drawDialogueForNonPlayer(characterFaces.andro);
+            } else if (faceCharacter==="player"){
+                drawDialogueForPlayer(characterFaces.witch);
+            } else {
+                drawDialogueForNobody();
+            }
+            context.imageSmoothingEnabled = false;
+
+            if(scene.dialogue.cinematic !== null && scene.dialogue.cinematic.type === "dysymbolia"){
+                let c = scene.dialogue.cinematic;
+                if(c.phaseStartTime !== null){
+
+                    // Draw dysymbolia input elements post blur
+                    context.fillStyle = 'hsl(0, 100%, 100%, 80%)';
+                    context.font = `${Math.floor(20*scene.sizeMod)}px zenMaruRegular`;
+                    context.textAlign = 'center';
+                    context.fillText("Enter keyword:", scene.worldX + w*scene.sizeMod/2, scene.worldY + (h-100)*scene.sizeMod/2);
+
+                    if(c.result === null){
                         context.fillStyle = "white";
+                        context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+100)*scene.sizeMod/2);
+
+                        context.fillStyle = "white";
+                        context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2);
+
+                        /*
+                        context.textAlign = 'left';
                         let inputTextWidth = context.measureText(scene.textEntered).width;
-                        let xMod = Math.sin((Math.PI/2)*Math.max(1 - animationProgress*2,0.1));
-                        let currentX = scene.worldX + w*scene.sizeMod/2 - (inputTextWidth/2)*xMod;
-                        let yMod = Math.sin((Math.PI/2)*Math.min(2 - animationProgress*2,1));
-                        if(xMod === Math.sin((Math.PI/2)*0.1)){
-                            // Instead of drawing the input string, draw it as the kanji
-                            context.fillStyle = c.info[2];
-                            context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
+                        context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2 - inputTextWidth/2, scene.worldY + h*scene.sizeMod/2 + 50);
+                        */
+                    } else {
+                        // Play the animation for dysymbolia text colliding
+                        let animationDuration = 2000;
+                        let animationProgress = (timeStamp - c.phaseStartTime)/animationDuration;
+                        if (animationProgress >= 1){
+                            if(c.result === "pass"){
+                                // Green particle system
+                                scene.particleSystems.push(createParticleSystem({hue:120,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+                            } else {
+                                // Red particle system
+                                scene.particleSystems.push(createParticleSystem({hue:0,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+                            }
+
+                            c.finished = true;
+                        } else if (c.result === "pass") {
+                            context.fillStyle = "white";
+                            let inputTextWidth = context.measureText(scene.textEntered).width;
+                            let xMod = Math.sin((Math.PI/2)*Math.max(1 - animationProgress*2,0.1));
+                            let currentX = scene.worldX + w*scene.sizeMod/2 - (inputTextWidth/2)*xMod;
+                            let yMod = Math.sin((Math.PI/2)*Math.min(2 - animationProgress*2,1));
+                            if(xMod === Math.sin((Math.PI/2)*0.1)){
+                                // Instead of drawing the input string, draw it as the kanji
+                                context.fillStyle = c.info[2];
+                                context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
+                            } else {
+                                // Draw it the same way as the fail animation
+                                for(let i=0;i<scene.textEntered.length;i+=1){
+                                    let charWidth = context.measureText(scene.textEntered[i]).width;
+                                    context.fillText(scene.textEntered[i], currentX + xMod*charWidth/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
+                                    currentX += charWidth * xMod;
+                                }
+                                context.fillStyle = c.info[2];
+                            }
+
+
+                            context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 + 50*yMod)*scene.sizeMod/2);
                         } else {
-                            // Draw it the same way as the fail animation
+                            // Play the fail animation
+                            context.fillStyle = "white";
+                            let inputTextWidth = context.measureText(scene.textEntered).width;
+                            let xMod = Math.sin(Math.PI/2*Math.max(1 - animationProgress*2,0.1));
+                            let currentX = scene.worldX + w*scene.sizeMod/2 - (inputTextWidth/2)*xMod;
+                            let yMod = Math.sin(Math.PI/2*Math.min(2 - animationProgress*2,1));
                             for(let i=0;i<scene.textEntered.length;i+=1){
                                 let charWidth = context.measureText(scene.textEntered[i]).width;
                                 context.fillText(scene.textEntered[i], currentX + xMod*charWidth/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
                                 currentX += charWidth * xMod;
                             }
                             context.fillStyle = c.info[2];
+                            context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 + 50*yMod)*scene.sizeMod/2);
                         }
-
-
-                        context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 + 50*yMod)*scene.sizeMod/2);
-                    } else {
-                        // Play the fail animation
-                        context.fillStyle = "white";
-                        let inputTextWidth = context.measureText(scene.textEntered).width;
-                        let xMod = Math.sin(Math.PI/2*Math.max(1 - animationProgress*2,0.1));
-                        let currentX = scene.worldX + w*scene.sizeMod/2 - (inputTextWidth/2)*xMod;
-                        let yMod = Math.sin(Math.PI/2*Math.min(2 - animationProgress*2,1));
-                        for(let i=0;i<scene.textEntered.length;i+=1){
-                            let charWidth = context.measureText(scene.textEntered[i]).width;
-                            context.fillText(scene.textEntered[i], currentX + xMod*charWidth/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
-                            currentX += charWidth * xMod;
-                        }
-                        context.fillStyle = c.info[2];
-                        context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 + 50*yMod)*scene.sizeMod/2);
                     }
                 }
             }
         }
+    }; // Draw world screen function ends here
+
+    const drawMenuScreen = function(){
+
+    }
+
+    if(scene.menuOpened){
+        drawMenuScreen();
+    } else {
+        drawWorldScreen();
     }
 
     // Apply damage redness and finish shake
@@ -3140,6 +3216,9 @@ function gameLoop(timeStamp){
     context.fillStyle = bgColor;
     context.fillRect(-1000, -1000, screenWidth+2000, screenHeight+2000);
 
+    // Call the draw function for the scene
+    sceneDefinitions[scene.index].draw(timeStamp);
+
     // Draw the active buttons as it is not specifc to scene
     for (let x in scene.buttons) {
         let b = scene.buttons[x];
@@ -3167,9 +3246,6 @@ function gameLoop(timeStamp){
 
         context.textAlign = "start";
     }
-
-    // Call the draw function for the scene
-    sceneDefinitions[scene.index].draw(timeStamp);
 
     let particleCount = 0;
 

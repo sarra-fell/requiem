@@ -270,7 +270,9 @@
                     "face": "player",
                     "faceNum": 5,
                     "textSpeed": 30,
-                    "conditional": ["numCompletedTutorialScenes",">",1]
+                    "conditional": "is wary of scene dysymbolia",
+                    "conditionalFail": "end",
+                    "conditionalSuccess": "continue"
                 },
                 {
                     "face": "player",

@@ -11,7 +11,7 @@
 	"iid": "cb2aa240-1460-11ee-ba8d-351ab09cf8e1",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 77,
+	"nextUid": 78,
 	"identifierStyle": "Capitalize",
 	"toc": [],
 	"worldLayout": "Free",
@@ -1153,19 +1153,19 @@
 					"entityInstances": [
 						{
 							"__identifier": "Witch",
-							"__grid": [2,9],
+							"__grid": [5,7],
 							"__pivot": [0,0],
 							"__tags": ["location"],
 							"__tile": null,
 							"__smartColor": "#FF00DD",
-							"iid": "c2e05f70-b0a0-11ee-8fd8-6b66067b410d",
+							"iid": "8bc49bb0-d7b0-11ee-a933-9105566273d4",
 							"width": 32,
 							"height": 32,
 							"defUid": 10,
-							"px": [64,288],
+							"px": [160,224],
 							"fieldInstances": [],
-							"__worldX": 64,
-							"__worldY": 288
+							"__worldX": 160,
+							"__worldY": 224
 						}
 					]
 				},
@@ -2763,24 +2763,7 @@
 					"seed": 5707660,
 					"overrideTilesetUid": null,
 					"gridTiles": [],
-					"entityInstances": [
-						{
-							"__identifier": "Gladius",
-							"__grid": [15,2],
-							"__pivot": [0,0],
-							"__tags": ["character"],
-							"__tile": null,
-							"__smartColor": "#EAD4AA",
-							"iid": "bf234400-b0a0-11ee-9101-e97e9f4ae0be",
-							"width": 16,
-							"height": 16,
-							"defUid": 13,
-							"px": [480,64],
-							"fieldInstances": [],
-							"__worldX": 480,
-							"__worldY": 640
-						}
-					]
+					"entityInstances": []
 				},
 				{
 					"__identifier": "Grass_Biome_Things_Tiles",
