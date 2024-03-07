@@ -86,7 +86,7 @@
                         "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
                         "particleSize": 4, "particleLifespan": 1400, "particleSpeed": 20
                     },
-                    "addItem": 0
+                    "takeFruit": true
                 }
             ]
         },

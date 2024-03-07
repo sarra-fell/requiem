@@ -230,7 +230,7 @@ function processLevelData(data) {
         levels[i].gridHeight = collisionLayerData.__cHei;
         for (let j in entityLayerData.entityInstances){
             const e = entityLayerData.entityInstances[j];
-            let entityData = {id: e.__identifier, px: e.px, src: [32,0], type: e.__tags[0]};
+            let entityData = {id: e.__identifier, px: e.px, src: [32,0], type: e.__tags[0],width: e.width,height: e.height};
             for (let k in e.fieldInstances){
                 const field = e.fieldInstances[k];
                 entityData[field.__identifier] = field.__value;
@@ -1899,7 +1899,8 @@ function useItem(inventoryIndex,particleSysX,particleSysY){
 }
 
 // Called when dialogue begins
-function initializeDialogue(category, scenario, timeStamp){
+// Entity index is the index of the entity that is being interacted with in the level
+function initializeDialogue(category, scenario, timeStamp, entityIndex = null){
     scene.dialogue = {
         startTime: timeStamp,
         lineStartTime: timeStamp,
@@ -1908,6 +1909,7 @@ function initializeDialogue(category, scenario, timeStamp){
         lineInfo: dialogueFileData[category][scenario].lineInfo,
         playerDirection: currentDirection,
         cinematic: null,
+        entityIndex: entityIndex
     };
     scene.gameClockOfLastPause = scene.currentGameClock;
     /*if(scene.dialogue.lineInfo[0] !== undefined && scene.dialogue.lineInfo[0].dysymbolia !== undefined){
@@ -2089,6 +2091,67 @@ function drawCharacter(character, src, x, y){
     }
 }*/
 
+// Requires the tileset "Grassy_Biome_Things" and draws a fruit tree given the data stored in the entity about it's fruit
+// Returns array of tiles to defer
+function drawFruitTree(tree,tilesetNum,x,y){
+    let bitrate = 32;
+    let deferredTiles = [];
+    if(tree.hasLeftFruit){
+        deferredTiles.push({
+            tilesetNum: tilesetNum,
+            tile: {
+                src: [bitrate*3,0],
+                px: [x,y]
+            }
+        });
+    } else {
+        deferredTiles.push({
+            tilesetNum: tilesetNum,
+            tile: {
+                src: [bitrate*1,0],
+                px: [x,y]
+            },
+            raw: false,
+        });
+    }
+    if(tree.hasRightFruit){
+        deferredTiles.push({
+            tilesetNum: tilesetNum,
+            tile: {
+                src: [bitrate*4,0],
+                px: [x+bitrate*scene.sizeMod,y]
+            },
+            raw: false,
+        });
+    } else {
+        deferredTiles.push({
+            tilesetNum: tilesetNum,
+            tile: {
+                src: [bitrate*2,0],
+                px: [x+bitrate*scene.sizeMod,y]
+            },
+            raw: false,
+        });
+    }
+    if(tree.hasBottomFruit){
+        drawTile(tilesetNum,[bitrate*3,bitrate],x,y+bitrate*scene.sizeMod);
+        drawTile(tilesetNum,[bitrate*4,bitrate],x+bitrate*scene.sizeMod,y+bitrate*scene.sizeMod);
+    } else {
+        drawTile(tilesetNum,[bitrate*1,bitrate],x,y+bitrate*scene.sizeMod);
+        drawTile(tilesetNum,[bitrate*2,bitrate],x+bitrate*scene.sizeMod,y+bitrate*scene.sizeMod);
+    }
+    return deferredTiles;
+}
+function removeFruit(tree){
+    if(tree.hasBottomFruit){
+        tree.hasBottomFruit = false;
+    } else if(tree.hasLeftFruit){
+        tree.hasLeftFruit = false;
+    } else if(tree.hasRightFruit){
+        tree.hasRightFruit = false;
+    }
+}
+
 function drawItemIcon(itemId,x,y){
     let info = itemInfo[itemId];
 
@@ -2130,9 +2193,19 @@ function isCollidingOnTile(x, y, checkAdjacent = false){
         return lev.collisions[tileNum];
     } else {
         for(let i in lev.entities) {
+            if (lev.entities[i].px[0]<=x && lev.entities[i].px[1]<=y &&
+                lev.entities[i].px[0]+lev.entities[i].width>x && lev.entities[i].px[1]+lev.entities[i].height>y){
 
-            if (lev.entities[i].px[0]*2===x && lev.entities[i].px[1]*2===y){
-                return lev.entities[i];
+                // Fruit tree only counts if you collide with the bottom
+                if(lev.entities[i].id === "Fruit_Tree"){
+                    if (lev.entities[i].px[0]<=x && lev.entities[i].px[1]+32<=y &&
+                        lev.entities[i].px[0]+lev.entities[i].width>x && lev.entities[i].px[1]+lev.entities[i].height>y){
+                        // ok
+                    } else {
+                        continue;
+                    }
+                }
+                return {type: "entity",index: i};
             }
         }
     }
@@ -2337,6 +2410,10 @@ function updateAdventure(timeStamp){
                         if(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem !== undefined){
                             updateInventory(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem);
                         }
+                        if(scene.dialogue.lineInfo[scene.dialogue.currentLine].takeFruit !== undefined){
+                            updateInventory(0);
+                            removeFruit(lev.entities[scene.dialogue.entityIndex]);
+                        }
                         let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine]
 
                         // Check for a conditional on the next line and evaluate
@@ -2402,7 +2479,7 @@ function updateAdventure(timeStamp){
             } else { // If no dialogue, check for object interaction via collision
                 let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],currentDirection);
                 if(collision !== null && typeof collision === "object"){
-                    note = `Talking with ${collision.id}!`;
+                    /*note = `Talking with ${collision.id}!`;
                     if(currentDirection === "down"){
                         collision.src[1] = spritesheetOrientationPosition.up * 32;
                     } else if (currentDirection === "right"){
@@ -2414,6 +2491,16 @@ function updateAdventure(timeStamp){
                     }
                     if(collision.type==="character"){
                         initializeDialogue(collision.id.toLowerCase(),"initial",timeStamp);
+                    }*/
+                    let entity = lev.entities[collision.index];
+                    if(entity.id === "Fruit_Tree" && (entity.hasBottomFruit || entity.hasLeftFruit || entity.hasRightFruit)){
+                        if(scene.player.finishedFruitScene){
+                            initializeDialogue("world","fruit_tree",timeStamp,collision.index);
+                        } else {
+                            initializeDialogue("scenes","tutorial fruit scene",timeStamp,collision.index);
+                            scene.player.finishedFruitScene = true;
+                            scene.player.numFinishedTutorialScenes++;
+                        }
                     }
                 } else if(collision === 1){
                     note = `Talking with the water instead of hot guy...`;
@@ -2458,26 +2545,27 @@ function updateAdventure(timeStamp){
             }
             zClicked = false;
         }
-        if(doubleClicked){
-            if(scene.currentTooltip!== null){
-                let tooltip = scene.tooltipBoxes[scene.currentTooltip.index];
-                if(tooltip.type === "item"){
-                    useItem(tooltip.inventoryIndex,tooltip.x + tooltip.width/2,tooltip.y + tooltip.height/2);
-                    scene.currentTooltip = null;
-                }
-            }
-            doubleClicked = false;
-        }
+
     }; // Update world screen function ends here
 
     const updateMenuScreen = function(){
-        zClicked = xClicked = doubleClicked = false;
+        zClicked = xClicked = false;
     };
 
     if(scene.menuOpened){
         updateMenuScreen();
     } else {
         updateWorldScreen();
+    }
+    if(doubleClicked){
+        if(scene.currentTooltip!== null){
+            let tooltip = scene.tooltipBoxes[scene.currentTooltip.index];
+            if(tooltip.type === "item"){
+                useItem(tooltip.inventoryIndex,tooltip.x + tooltip.width/2,tooltip.y + tooltip.height/2);
+                scene.currentTooltip = null;
+            }
+        }
+        doubleClicked = false;
     }
 }
 
@@ -2512,13 +2600,14 @@ function drawAdventure(timeStamp){
         let lev = levels[scene.levelNum];
 
         // Draw tile layers
+        let deferredRawTiles = [];
         let deferredTiles = [];
         for (let i=lev.tileLayers.length-1;i>=0;i--) {
             let layer = lev.tileLayers[i];
             if(layer.name === "Grass_Biome_Things_Tiles" || layer.name === "Bridge_Tiles"){
                 for (let t of layer.tiles){
                     if(tilesets.tilesetTileInfo[i].Front[t.t]){
-                        deferredTiles.push({tilesetNum: i, tile: t});
+                        deferredRawTiles.push({tilesetNum: i, tile: t});
                     } else {
                         drawTile(i, t.src, scene.worldX+t.px[0]*scene.sizeMod, scene.worldY+t.px[1]*scene.sizeMod, 32);
                     }
@@ -2585,16 +2674,19 @@ function drawAdventure(timeStamp){
                 drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*scene.sizeMod*2+scene.worldX,e.px[1]*scene.sizeMod*2+scene.worldY);
             } else if(e.type === "location"){
                 // do nothing
-            } else {
-                drawInanimate(e,e.px[0]*2+scene.worldX,e.px[1]*2+scene.worldY);
+            } else if(e.id === "Fruit_Tree"){
+                deferredTiles.push(...drawFruitTree(e,0,e.px[0]*scene.sizeMod+scene.worldX,e.px[1]*scene.sizeMod+scene.worldY));
             }
 
         }
         drawCharacter("witch",scene.player.src,scene.worldX+scene.player.graphicLocation[0]*scene.sizeMod,scene.worldY+scene.player.graphicLocation[1]*scene.sizeMod);
 
         // Draw foreground elements
-        for (const dt of deferredTiles){
+        for (const dt of deferredRawTiles){
             drawTile(dt.tilesetNum, dt.tile.src, scene.worldX+dt.tile.px[0]*scene.sizeMod, scene.worldY+dt.tile.px[1]*scene.sizeMod, 32);
+        }
+        for (const dt of deferredTiles){
+            drawTile(dt.tilesetNum, dt.tile.src, dt.tile.px[0], dt.tile.px[1], 32);
         }
 
         // Apply time of day brightness effect
