@@ -108,12 +108,12 @@
                 },
                 {
                     "face": "player",
-                    "faceNum": 13,
-                    "areaChange": "Floating_Island_Dungeon_0"
+                    "faceNum": 13
                 },
                 {
                     "face": "player",
-                    "faceNum": 10,
+                    "faceNum": 9,
+                    "areaChange": "Floating_Island_Dungeon_0",
                     "cinematic": "tutorial dungeon scene"
                 }
             ]
@@ -230,7 +230,17 @@
                 ]
             }
         },
-        "Andro": {}
+        "Andro": {},
+        "Lizard": {
+            "initial": {
+                "textLines": [
+                    "I Will Eat You !"
+                ],
+                "lineInfo": [
+                    {}
+                ]
+            }
+        }
     },
     "worldDialogue": {
         "clouds": {

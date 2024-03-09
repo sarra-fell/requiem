@@ -163,6 +163,7 @@ function processKanjiData(data) {
 var dialogueFileData = {
     andro: {},
     gladius: {},
+    lizard: {},
     world: {},
     scenes: {},
     randomDysymbolia: {},
@@ -178,6 +179,7 @@ function processDialogueData(data) {
     dialogueFileData.randomDysymbolia = dialogueData.randomDysymbolia;
     dialogueFileData.gladius = dialogueData.characterDialogue.Gladius;
     dialogueFileData.andro = dialogueData.characterDialogue.Andro;
+    dialogueFileData.lizard = dialogueData.characterDialogue.Lizard;
 
     dialogueLoaded = true;
 }
@@ -233,7 +235,19 @@ function processLevelData(data) {
             let entityData = {id: e.__identifier, px: e.px, src: [32,0], type: e.__tags[0],width: e.width,height: e.height};
             for (let k in e.fieldInstances){
                 const field = e.fieldInstances[k];
-                entityData[field.__identifier] = field.__value;
+                if(field.__identifier === "FacingDirection"){
+                    if(field.__value === "Down"){
+                        entityData.src = [32,0];
+                    } else if(field.__value === "Left"){
+                        entityData.src = [32,32];
+                    } else if(field.__value === "Right"){
+                        entityData.src = [32,64];
+                    } else if(field.__value === "Up"){
+                        entityData.src = [32,96];
+                    }
+                } else {
+                    entityData[field.__identifier] = field.__value;
+                }
             }
             levels[i].entities.push(entityData);
             if(e.__identifier === "Witch"){
@@ -475,7 +489,7 @@ zenMaruBold.load().then(function(font){document.fonts.add(font);});
 var zenMaruBlack = new FontFace('zenMaruBlack', 'url(assets/ZenMaruGothic-Black.ttf)');
 zenMaruBlack.load().then(function(font){document.fonts.add(font);});
 
-const characterList = ["witch","andro","gladius"];
+const characterList = ["witch","andro","gladius","lizard"];
 
 var characterSpritesheets={},characterFaces={},characterBitrates={};
 const faceBitrate = 96;
@@ -1470,7 +1484,7 @@ function initializeScene(sceneName){
         scene.defaultTextSpeed = 200;
 
         // Counts the minutes elapsed from 0:00 in the day, for now it goes up 1 every second
-        scene.currentGameClock = 280;
+        scene.currentGameClock = 600;
 
         // True when the player is currently moving to the tile they are "at" and the walking animation is playing
         scene.moving = false;
@@ -1498,7 +1512,7 @@ function initializeScene(sceneName){
         // Game time is paused during dialogue, dysymbolia, and when menu is opened.
         // THis allows time to be updated appropriately when we have the timestamp and ingame time of the last pause
         scene.timeOfLastUnpause = scene.timeOfSceneChange;
-        scene.gameClockOfLastPause = 280;
+        scene.gameClockOfLastPause = 600;
 
 
         bgColor = 'rgb(103,131,92)';
@@ -2049,10 +2063,11 @@ function drawTile(type, src, x, y, bitrate = 32){
 // Draws a character
 function drawCharacter(character, src, x, y){
     context.imageSmoothingEnabled = true;
-    let size = characterBitrates[character]*scene.sizeMod;
+    let bitrate = characterBitrates[character];
+    let size = 32*scene.sizeMod;
     let image = characterSpritesheets[character];
     if(typeof image === "object"){
-        context.drawImage(image, src[0], src[1], characterBitrates[character], characterBitrates[character], x, y, size, size);
+        context.drawImage(image, src[0]*(bitrate/32), src[1]*(bitrate/32), bitrate, bitrate, x, y, size, size);
     } else {
         console.warn("drawCharacter: Expected object got " + typeof image + ", also you have negative hot men.");
     }
@@ -2407,6 +2422,8 @@ function updateAdventure(timeStamp){
                         // Otherwise advance line
                         scene.dialogue.lineStartTime = timeStamp;
                         scene.dialogue.currentLine++;
+
+                        // Apply effects that are on the new line
                         if(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem !== undefined){
                             updateInventory(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem);
                         }
@@ -2414,9 +2431,12 @@ function updateAdventure(timeStamp){
                             updateInventory(0);
                             removeFruit(lev.entities[scene.dialogue.entityIndex]);
                         }
+                        if(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange !== undefined){
+                            changeArea(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange,true);
+                        }
                         let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine]
 
-                        // Check for a conditional on the next line and evaluate
+                        // Check for a conditional on the new line and evaluate
                         if(lineInfo !== undefined && lineInfo.conditional !== undefined){
                             let applyConditionalEffect = function(eff){
                                 if(eff === "end"){
@@ -2440,7 +2460,7 @@ function updateAdventure(timeStamp){
                             }
                         }
 
-                        // Check for a cinematic on the next line, then start it if there is one
+                        // Check for a cinematic on the new line, then start it if there is one
                         if(lineInfo !== undefined && lineInfo.dysymbolia !== undefined){
                             let specialParticleSystem = lineInfo.particleSystem;
                             specialParticleSystem.specialDrawLocation = true;
@@ -2502,6 +2522,18 @@ function updateAdventure(timeStamp){
                             scene.player.numFinishedTutorialScenes++;
                         }
                     }
+                    if(dialogueFileData.hasOwnProperty(entity.id.toLowerCase())){
+                        if(currentDirection === "down"){
+                            entity.src[1] = spritesheetOrientationPosition.up * 32;
+                        } else if (currentDirection === "right"){
+                            entity.src[1] = spritesheetOrientationPosition.left * 32;
+                        } else if (currentDirection === "left"){
+                            entity.src[1] = spritesheetOrientationPosition.right * 32;
+                        } else {
+                            entity.src[1] = spritesheetOrientationPosition.down * 32;
+                        }
+                        initializeDialogue(entity.id.toLowerCase(),"initial",timeStamp,collision.index);
+                    }
                 } else if(collision === 1){
                     note = `Talking with the water instead of hot guy...`;
                     if(scene.player.finishedWaterScene){
@@ -2532,7 +2564,7 @@ function updateAdventure(timeStamp){
                 } else if(collision === 9){
                     console.log(lev.stairDestination);
                     //changeArea(lev.stairDestination,true);
-                    if(lev.stairDestination === "Floating_Island_Dungeon_0" && scene.player.finishedDungeonScene){
+                    if(lev.stairDestination === "Floating_Island_Dungeon_0" && !scene.player.finishedDungeonScene){
                         initializeDialogue("scenes","tutorial dungeon scene",timeStamp);
                         scene.player.finishedDungeonScene = true;
                         scene.player.numFinishedTutorialScenes++;
@@ -2671,11 +2703,13 @@ function drawAdventure(timeStamp){
         for (let i in lev.entities){
             const e = lev.entities[i];
             if(e.type === "character"){
-                drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*scene.sizeMod*2+scene.worldX,e.px[1]*scene.sizeMod*2+scene.worldY);
+                drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*scene.sizeMod+scene.worldX,e.px[1]*scene.sizeMod+scene.worldY);
             } else if(e.type === "location"){
                 // do nothing
             } else if(e.id === "Fruit_Tree"){
                 deferredTiles.push(...drawFruitTree(e,0,e.px[0]*scene.sizeMod+scene.worldX,e.px[1]*scene.sizeMod+scene.worldY));
+            } else if(e.type === "enemy"){
+                drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*scene.sizeMod+scene.worldX,e.px[1]*scene.sizeMod+scene.worldY,48);
             }
 
         }
@@ -2838,7 +2872,6 @@ function drawAdventure(timeStamp){
                             let yMod = Math.sin((Math.PI/2)*Math.min(2 - animationProgress*2,1));
                             if(xMod === Math.sin((Math.PI/2)*0.1)){
                                 // Instead of drawing the input string, draw it as the kanji
-                                context.fillStyle = c.info[2];
                                 context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
                             } else {
                                 // Draw it the same way as the fail animation
@@ -2847,7 +2880,6 @@ function drawAdventure(timeStamp){
                                     context.fillText(scene.textEntered[i], currentX + xMod*charWidth/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
                                     currentX += charWidth * xMod;
                                 }
-                                context.fillStyle = c.info[2];
                             }
 
 
@@ -2864,7 +2896,6 @@ function drawAdventure(timeStamp){
                                 context.fillText(scene.textEntered[i], currentX + xMod*charWidth/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
                                 currentX += charWidth * xMod;
                             }
-                            context.fillStyle = c.info[2];
                             context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 + 50*yMod)*scene.sizeMod/2);
                         }
                     }
@@ -3407,13 +3438,17 @@ function init(){
         let c = characterList[i];
 
         var spritesheet = new Image();
-        spritesheet.src = `/assets/3x4charactersheets/${c}_spritesheet.png`
+        spritesheet.src = `/assets/3x4charactersheets/${c}_spritesheet.png`;
         var faces = new Image();
-        faces.src = `/assets/faces/${c}_faces.png`
+        faces.src = `/assets/faces/${c}_faces.png`;
 
         characterSpritesheets[c] = spritesheet;
         characterFaces[c] = faces;
-        characterBitrates[c] = 32;
+        if(c === "lizard"){
+            characterBitrates[c] = 48;
+        } else {
+            characterBitrates[c] = 32;
+        }
     }
 
     // Get a reference to the canvas
