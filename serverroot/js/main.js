@@ -66,6 +66,40 @@ var srs = {
 
     finishDeckStudySession: function(){
 
+        // UNFINISHED FUNCTION
+
+        let cardData = this.decks[this.studyingDeck].cardData;
+        let date = new Date();
+
+        // First, update the progress data of the deck according to the results of the study session
+        for (const [i, card] of this.decks[this.studyingDeck].studySession.studiedCards.entries()) {
+            cardData[card.index].dateLastStudied = date;
+            if(card.failed){
+
+            }
+        }
+
+
+        let deckData = {
+
+        }
+        const FileSystem = require("fs");
+     FileSystem.writeFile('file.json', JSON.stringify(proj), (error) => {
+        if (error) throw error;
+      });
+        const file = new File(['fook u'], 'note.txt', {
+            type: 'text/plain',
+        })
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(file);
+
+        link.href = url;
+        link.download = file.name;
+        document.body.appendChild(link);
+        link.click();
+
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
     },
 
     // only to be called while a deck is currently being studied
@@ -1495,6 +1529,11 @@ function initializeScene(sceneName){
         // Switch foots each step taken
         scene.whichFoot = 0;
 
+        scene.menuSceneList = ["Inventory","Abilities","Kanji List","Theory","Settings"];
+
+        // If non-null, menu is open and menuScene is a string that is one of the above menu scenes
+        scene.menuScene = null;
+
         // Object that holds dialogue data
         /* scene.dialogue is null when there is no current dialogue, or an object with these properties:
             startTime (number) time dialogue started
@@ -1507,7 +1546,7 @@ function initializeScene(sceneName){
         */
         scene.dialogue = null;
 
-        scene.menuOpened = false;
+
 
         // Game time is paused during dialogue, dysymbolia, and when menu is opened.
         // THis allows time to be updated appropriately when we have the timestamp and ingame time of the last pause
@@ -1526,10 +1565,11 @@ function initializeScene(sceneName){
             neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
             text: "Menu", font: '13px zenMaruRegular', fontSize: 13,
             onClick: function() {
-                scene.menuOpened = !scene.menuOpened;
-                if(scene.menuOpened){
+                if(scene.menuScene === null){
+                    scene.menuScene = "Inventory";
                     scene.gameClockOfLastPause = scene.currentGameClock;
                 } else {
+                    scene.menuScene = null;
                     scene.timeOfLastUnpause = performance.now();
                 }
             }
@@ -1937,7 +1977,6 @@ function initializeDialogue(category, scenario, timeStamp, entityIndex = null){
 
 // Draws text one word at a time to be able to finely control what is written, designed to be a version of wrapText with much more features,
 //  including utilizing and managing its own particle systems
-
 // Uses the dialogue object in the scene to figure out what to write.
 function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp) {
     let d = scene.dialogue;
@@ -2249,7 +2288,7 @@ function updateAdventure(timeStamp){
     let newTime = (scene.gameClockOfLastPause+Math.floor((timeStamp-scene.timeOfLastUnpause)/1000))%1440;
 
     // If a second went by, update everything that needs to be updated by the second
-    if(scene.dialogue === null && !scene.menuOpened && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
+    if(scene.dialogue === null && scene.menuScene !== null && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
         if(scene.player.timeUntilDysymbolia > 0){
             scene.player.timeUntilDysymbolia-=1;
         } else {
@@ -2584,7 +2623,7 @@ function updateAdventure(timeStamp){
         zClicked = xClicked = false;
     };
 
-    if(scene.menuOpened){
+    if(scene.menuScene !== null){
         updateMenuScreen();
     } else {
         updateWorldScreen();
@@ -2757,10 +2796,14 @@ function drawAdventure(timeStamp){
         // Draw dialogue
         if(scene.dialogue !== null){
 
-            context.fillStyle = 'hsl(0, 100%, 0%, 78%)';
+            context.fillStyle = 'hsl(0, 100%, 0%, 70%)';
+            context.save();
+            context.shadowColor = "hsl(0, 15%, 0%, 70%)";
+            context.shadowBlur = 15;
             context.beginPath();
             context.roundRect(scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, w*scene.sizeMod, scene.sizeMod*96);
             context.fill();
+            context.restore();
 
             const faceCharacter = scene.dialogue.lineInfo[scene.dialogue.currentLine].face;
             const faceNum = scene.dialogue.lineInfo[scene.dialogue.currentLine].faceNum;
@@ -2904,11 +2947,40 @@ function drawAdventure(timeStamp){
         }
     }; // Draw world screen function ends here
 
-    const drawMenuScreen = function(){
+    const drawInventoryScreen = function(){
 
+    } // Draw inventory screen function ends here
+
+    const drawMenuScreen = function(){
+        // Background box
+        context.fillStyle = 'hsl(0, 100%, 0%, 55%)';
+        context.beginPath();
+        context.roundRect(scene.worldX, scene.worldY, w*scene.sizeMod, h*scene.sizeMod, 30);
+        context.fill();
+
+        // Divider bar
+        context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+        context.fillRect(scene.worldX+200, scene.worldY+65, 2, w*scene.sizeMod - 140);
+
+        for(const [i, sceneName] of scene.menuSceneList.entries()){
+            context.save();
+            context.shadowColor = "hsl(0, 100%, 0%)";
+            context.shadowBlur = 15;
+            context.strokeStyle = "#38f";
+            context.lineWidth = 4;
+            context.beginPath();
+            context.roundRect(scene.worldX+20, scene.worldY+65+30+100*i, 160, 80,10);
+            context.stroke();
+            context.restore();
+
+            context.fillStyle = 'hsl(199, 40%, 60%)';
+            context.beginPath();
+            context.roundRect(scene.worldX+20, scene.worldY+65+30+100*i, 160, 80, 10);
+            context.fill();
+        }
     }
 
-    if(scene.menuOpened){
+    if(scene.menuScene !== null){
         drawMenuScreen();
     } else {
         drawWorldScreen();
@@ -2924,10 +2996,14 @@ function drawAdventure(timeStamp){
     }
 
     // Draw the right part of the screen
-    context.fillStyle = 'hsl(0, 100%, 0%, 55%)';
+    context.fillStyle = 'hsl(0, 0%, 10%, 55%)';
+    context.save();
+    context.shadowColor = "hsl(0, 30%, 0%)";
+    context.shadowBlur = 15;
     context.beginPath();
     context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 305, 805, 30);
     context.fill();
+    context.restore();
 
     context.font = '32px zenMaruMedium';
     context.textAlign = 'center';
@@ -3156,7 +3232,7 @@ sceneDefinitions.push({
     name: "study deck",
     update: updateDeckStudy,
     draw: drawDeckStudy,
-    buttons: [loveButton,backToHomeButton,continueButton,failButton,passButton,pauseStudyButton],
+    buttons: [loveButton,backToHomeButton,continueButton,failButton,passButton/*,pauseStudyButton*/],
 });
 
 /********************************* Zidai sensou scene *************************************/

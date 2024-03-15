@@ -1201,10 +1201,7 @@
 			"enumTags": [],
 			"customData": [],
 			"savedSelections": [],
-			"cachedPixelData": {
-				"opaqueTiles": "000000000000000000000000000000000000000000000000",
-				"averageColors": "134213421342144514451455176317631763144414441444134213421342144514451455176317631763144414441444134213421342144514451455176317631763144414441444134213421342144514451455176317631763144414441444"
-			}
+			"cachedPixelData": null
 		},
 		{
 			"__cWid": 12,
@@ -1223,10 +1220,7 @@
 			"enumTags": [],
 			"customData": [],
 			"savedSelections": [],
-			"cachedPixelData": {
-				"opaqueTiles": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-				"averageColors": "2243224322432350235023502164216421642531253125312243225322432350236023502164216421642531263125312243225322432350236023502164216421642531263125312243224322432350235023502164216421642531253125312541254125412222222222222aaa2aaa2aaa2367236723672542264226422222222322222aaa2aaa2aaa2367236723672542264226422222222322222aaa2aaa2aaa2367236723672541254125412222222222222aaa2aaa2aaa236723672367"
-			}
+			"cachedPixelData": null
 		}
 	], "enums": [
 		{ "identifier": "Foregroundedness", "uid": 46, "values": [ { "id": "Front", "tileRect": null, "color": 12470831 }, { "id": "Back", "tileRect": null, "color": 14120515 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] },
@@ -1336,25 +1330,6 @@
 							"fieldInstances": [],
 							"__worldX": 160,
 							"__worldY": 224
-						},
-						{
-							"__identifier": "Lizard",
-							"__grid": [11,9],
-							"__pivot": [0,0],
-							"__tags": ["enemy"],
-							"__tile": null,
-							"__smartColor": "#E4A672",
-							"iid": "830f9420-d7b0-11ee-92c8-1937a7955f1e",
-							"width": 32,
-							"height": 32,
-							"defUid": 79,
-							"px": [352,288],
-							"fieldInstances": [{ "__identifier": "FacingDirection", "__type": "LocalEnum.FacingDirection", "__value": "Left", "__tile": null, "defUid": 91, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["Left"]
-							}] }],
-							"__worldX": 352,
-							"__worldY": 288
 						}
 					]
 				},
@@ -2560,7 +2535,7 @@
 					"layerDefUid": 1,
 					"pxOffsetX": 0,
 					"pxOffsetY": 0,
-					"visible": false,
+					"visible": true,
 					"optionalRules": [],
 					"intGridCsv": [],
 					"autoLayerTiles": [],
@@ -2884,7 +2859,7 @@
 					"layerDefUid": 6,
 					"pxOffsetX": 0,
 					"pxOffsetY": 0,
-					"visible": false,
+					"visible": true,
 					"optionalRules": [],
 					"intGridCsv": [],
 					"autoLayerTiles": [],
