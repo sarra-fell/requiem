@@ -205,8 +205,9 @@ var dialogueFileData = {
 
 // Loads the data !!!
 let dialogueLoaded = false;
-function processDialogueData(data) {
-    const dialogueData = JSON.parse(data);
+function processGameJsonData(data) {
+    const gameData = JSON.parse(data);
+    const dialogueData = gameData.dialogue;
 
     dialogueFileData.scenes = dialogueData.scenes;
     dialogueFileData.world = dialogueData.worldDialogue;
@@ -416,18 +417,18 @@ kanjiClient.onload = handleKanjiData;
 kanjiClient.open("GET", "assets/kanji.txt");
 kanjiClient.send();
 
-function handleDialogueData() {
+function handleGameJsonData() {
     if(this.status == 200) {
-        processDialogueData(this.responseText);
+        processGameJsonData(this.responseText);
     } else {
-        alert("Handling dialogue data: Status " + this.status + ". We have failed and (chou redacted).");
+        alert("Handling game json data: Status " + this.status + ". We have failed and (chou redacted).");
     }
 }
 
-var dialogueClient = new XMLHttpRequest();
-dialogueClient.onload = handleDialogueData;
-dialogueClient.open("GET", "assets/dialogue.txt");
-dialogueClient.send();
+var gameJsonClient = new XMLHttpRequest();
+gameJsonClient.onload = handleGameJsonData;
+gameJsonClient.open("GET", "assets/game_json_data.txt");
+gameJsonClient.send();
 
 function handleLevelData() {
     if(this.status == 200) {
@@ -797,18 +798,6 @@ let continueButton = {
         scene.showBack = true;
         failButton.enabled = true;
         passButton.enabled = true;
-    }
-}
-
-// Initializes an array of buttons during scene switch
-function initializeButtons(buttons){
-    for(const b of buttons){
-        if(!b.hasOwnProperty("color")){
-            b.color = b.neutralColor;
-        }
-        if(!b.hasOwnProperty("enabled")){
-            b.enabled = true;
-        }
     }
 }
 
@@ -1476,6 +1465,7 @@ function initializeScene(sceneName){
             level: 1,
             hp: 40, maxHp: 40,
             power: 0, powerSoftcap: 5,
+            maxInventorySpace: 20,
             dysymboliaActive: true,
 
             // Measured in in-game seconds. -1 means there is a current dysymbolia event
@@ -1499,7 +1489,11 @@ function initializeScene(sceneName){
                     desc: "Character is hungry. Healing from most non-food sources are reduced."
                 }
             ],
-            inventory: [0,"none","none","none","none"], // First 5 items are the hotbar
+            inventory: [0,"none","none","none","none", // First 5 items are the hotbar
+                        "none","none","none","none","none",
+                        "none","none","none","none","none",
+                        "none","none","none","none","none"
+            ],
 
             finishedWaterScene: false,
             finishedFruitScene: false,
@@ -1529,7 +1523,7 @@ function initializeScene(sceneName){
         // Switch foots each step taken
         scene.whichFoot = 0;
 
-        scene.menuSceneList = ["Inventory","Abilities","Kanji List","Theory","Settings"];
+        scene.menuTabList = ["Inventory","Abilities","Kanji List","Theory","Settings","Save"];
 
         // If non-null, menu is open and menuScene is a string that is one of the above menu scenes
         scene.menuScene = null;
@@ -1545,8 +1539,6 @@ function initializeScene(sceneName){
             cinematic (object) when any kind of special scene is playing during a dialogue. when not null the dialogue will not be continued with the z button
         */
         scene.dialogue = null;
-
-
 
         // Game time is paused during dialogue, dysymbolia, and when menu is opened.
         // THis allows time to be updated appropriately when we have the timestamp and ingame time of the last pause
@@ -1568,23 +1560,55 @@ function initializeScene(sceneName){
                 if(scene.menuScene === null){
                     scene.menuScene = "Inventory";
                     scene.gameClockOfLastPause = scene.currentGameClock;
+                    for(let i in scene.buttons){
+                        let b = scene.buttons[i];
+
+                        // If it has the tab property it is a menu tab changing button
+                        // This has me really raise my eyebrows at the state management of this program lol
+                        if(b.hasOwnProperty("tab")){
+                            b.enabled = true;
+                        }
+                    }
                 } else {
                     scene.menuScene = null;
                     scene.timeOfLastUnpause = performance.now();
+                    for(let i in scene.buttons){
+                        let b = scene.buttons[i];
+
+                        // If it has the tab property it is a menu tab changing button
+                        if(b.hasOwnProperty("tab")){
+                            b.enabled = false;
+                        }
+                    }
                 }
             }
         });
+
+        // Menu buttons
+        for(const [i, sceneName] of scene.menuTabList.entries()){
+            let newIngameMenuButton = {
+                x:scene.worldX+20, y:scene.worldY+65+30+78*i, width:160, height:60, shadow: 12,
+                neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+                text: scene.menuTabList[i], font: '20px zenMaruLight', fontSize: 24, jp: false, tab: scene.menuTabList[i],
+                enabled: false,
+                onClick: function() {
+                    scene.menuScene = this.tab;
+                }
+            }
+            scene.buttons.push(newIngameMenuButton);
+        }
+
     } else if (sceneName === "study deck"){
         scene.currentCard = srs.serveNextCard();
         scene.showBack = false;
         scene.cardResult = "pending";
     }
 
-    initializeButtons(scene.buttons);
-
-    // Register dictionary lookup tooltip boxes from buttons that are japanese
+    // Initialize buttons
     for(let i in scene.buttons){
         let b = scene.buttons[i];
+
+        // Register dictionary lookup tooltip boxes from buttons that are japanese
         if (b.jp){
             let words = b.text.split("=");
             let characterNumber = 0;
@@ -1603,6 +1627,15 @@ function initializeScene(sceneName){
                 }
                 characterNumber += word.length;
             }
+        }
+        if(!b.hasOwnProperty("color")){
+            b.color = b.neutralColor;
+        }
+        if(!b.hasOwnProperty("enabled")){
+            b.enabled = true;
+        }
+        if(!b.hasOwnProperty("shadow")){
+            b.shadow = 0;
         }
     }
     xClicked = zClicked = doubleClicked = false;
@@ -1907,7 +1940,8 @@ function updateInventory(addItem = "none"){
             scene.tooltipBoxes.splice(i,1);
         }
     }
-    for(let i=0; i<5; i++){
+    let inventory = scene.player.inventory;
+    for(let i=0; i<inventory.length; i++){
         let item = scene.player.inventory[i];
         if(item !== "none"){
             scene.tooltipBoxes.push({
@@ -2288,7 +2322,7 @@ function updateAdventure(timeStamp){
     let newTime = (scene.gameClockOfLastPause+Math.floor((timeStamp-scene.timeOfLastUnpause)/1000))%1440;
 
     // If a second went by, update everything that needs to be updated by the second
-    if(scene.dialogue === null && scene.menuScene !== null && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
+    if(scene.dialogue === null && scene.menuScene === null && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
         if(scene.player.timeUntilDysymbolia > 0){
             scene.player.timeUntilDysymbolia-=1;
         } else {
@@ -2299,8 +2333,6 @@ function updateAdventure(timeStamp){
 
     const updateWorldScreen = function(){
         let lev = levels[scene.levelNum];
-
-
 
         // Handle dialogue
         if(scene.dialogue !== null){
@@ -2962,12 +2994,23 @@ function drawAdventure(timeStamp){
         context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
         context.fillRect(scene.worldX+200, scene.worldY+65, 2, w*scene.sizeMod - 140);
 
-        for(const [i, sceneName] of scene.menuSceneList.entries()){
+        // Tab title
+        context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+        context.fillRect(scene.worldX+375, scene.worldY+105, 240, 2);
+
+        context.font = '36px zenMaruRegular';
+        context.textAlign = 'center';
+        context.fillStyle = 'white';
+        context.fillText(scene.menuScene, scene.worldX+345 + 150, scene.worldY+80);
+
+
+
+        /*for(const [i, sceneName] of scene.menuTabList.entries()){
             context.save();
             context.shadowColor = "hsl(0, 100%, 0%)";
             context.shadowBlur = 15;
             context.strokeStyle = "#38f";
-            context.lineWidth = 4;
+            context.lineWidth = 7;
             context.beginPath();
             context.roundRect(scene.worldX+20, scene.worldY+65+30+100*i, 160, 80,10);
             context.stroke();
@@ -2977,7 +3020,7 @@ function drawAdventure(timeStamp){
             context.beginPath();
             context.roundRect(scene.worldX+20, scene.worldY+65+30+100*i, 160, 80, 10);
             context.fill();
-        }
+        }*/
     }
 
     if(scene.menuScene !== null){
@@ -3426,11 +3469,14 @@ function gameLoop(timeStamp){
         }
         let text = b.text.replaceAll("=",""); // i use = as a special delimiter, not to be displayed
 
-        //context.reset();
+        context.save();
+        context.shadowColor = "hsl(0, 100%, 0%)";
+        context.shadowBlur = b.shadow;
         context.fillStyle = b.color;
         context.beginPath();
         context.roundRect(b.x, b.y, b.width, b.height, 28);
         context.fill();
+        context.restore();
 
         context.fillStyle = 'black';
         context.font = b.font;
