@@ -1065,7 +1065,7 @@ const wrapText = function(ctx, text, y, maxWidth, lineHeight, japanese = false) 
 
 // Draws the current tooltip
 function drawTooltip() {
-    let draw = function(titleColor,titleText,bodyText,jp = false){
+    let draw = function(titleColor,titleText,bodyText,jp = false,titleShadow=0){
         let wrappedText = wrapText(context, bodyText, mouseY+74, 360, 16, jp);
 
         const boxX = mouseX+12;
@@ -1090,7 +1090,11 @@ function drawTooltip() {
 
         context.textAlign = 'center';
         context.fillStyle = titleColor;
+        context.save();
+        context.shadowColor = "hsl(0, 15%, 0%, 70%)";
+        context.shadowBlur = titleShadow;
         context.fillText(titleText, boxX+offsetX+125, boxY+offsetY+32);
+        context.restore();
         //context.font = '20px Arial';
         context.font = '13px Arial';
         context.textAlign = 'start';
@@ -1113,10 +1117,10 @@ function drawTooltip() {
         context.font = '20px zenMaruBlack';
         if(condition.name === "Dysymbolia"){
             if(scene.player.timeUntilDysymbolia === 0){
-                draw(condition.color,condition.name,"Character sees visions of a distant world. Next imminent.");
+                draw(condition.color,condition.name,"Character sees visions of a distant world. Next imminent.", false, 12);
                 return;
             } else if(scene.player.timeUntilDysymbolia < 0){
-                draw(condition.color,condition.name,"ここが貴方のいるべき場所じゃない。戻ってください。", true);
+                draw(condition.color,condition.name,"ここが貴方のいるべき場所じゃない。戻ってください。", true, 12);
                 return;
             }
         }
@@ -1130,7 +1134,7 @@ function drawTooltip() {
                 parsedDesc = parsedDesc + splitDesc[i];
             }
         }
-        draw(condition.color,condition.name,parsedDesc);
+        draw(condition.color,condition.name,parsedDesc,false,12);
     } else if (tooltipBox.type === "item"){
         let info = itemInfo[tooltipBox.item];
         let splitDesc = info.desc.split("$");
@@ -1144,10 +1148,12 @@ function drawTooltip() {
         }
         draw(info.color,info.name,parsedDesc);
     } else if(tooltipBox.type === "kanji list entry"){
+        // dont draw shit and the tooltip is just used as a signal that its being hovered over lol
+        /*
         let kanji = adventureKanjiFileData[tooltipBox.index];
         let text = kanji.story;
-        context.font = '20px zenMaruRegular';
-        draw('black',kanji.symbol + "   " + kanji.keyword,text)
+        context.font = '20px Arial';
+        draw('black',kanji.symbol + "   " + kanji.keyword,text)*/
     }
 }
 
@@ -1555,15 +1561,16 @@ function initializeScene(sceneName){
 
 
         bgColor = 'rgb(103,131,92)';
+        initializeNewSaveGame();
         initializeDialogue("scenes","opening scene",scene.timeOfSceneChange);
         updateConditionTooltips();
         updateInventory();
 
         // Button for opening in-game menu
         scene.buttons.push({
-            x:scene.worldX+18*16*scene.sizeMod*2 +160, y:scene.worldY+750, width:50, height:30,
+            x:scene.worldX+18*16*scene.sizeMod*2 +157, y:scene.worldY+750, width:50, height:30,
             neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-            text: "Menu", font: '13px zenMaruRegular', fontSize: 13,
+            text: "Menu", font: '13px zenMaruRegular', fontSize: 18,
             onClick: function() {
                 if(scene.menuScene === null){
                     scene.menuScene = "Inventory";
@@ -1581,12 +1588,15 @@ function initializeScene(sceneName){
                 } else {
                     scene.menuScene = null;
                     scene.timeOfLastUnpause = performance.now();
-                    for(let i in scene.buttons){
+                    for(let i = scene.buttons.length-1;i>=0;i--){
                         let b = scene.buttons[i];
 
                         // If it has the tab property it is a menu tab changing button
                         if(b.hasOwnProperty("tab")){
                             b.enabled = false;
+                        }
+                        if(b.text === "Toggle Enabled Status"){
+                            scene.buttons.splice(i,1);
                         }
                     }
                     updateInventory();
@@ -1600,12 +1610,12 @@ function initializeScene(sceneName){
             if(sceneName === "Kanji List"){
                 onClick = function() {
                     scene.menuScene = this.tab;
-                    updateMenuTooltips();
+                    initializeMenuTab();
                 };
             } else {
                 onClick = function() {
                     scene.menuScene = this.tab;
-                    updateMenuTooltips();
+                    initializeMenuTab();
                 };
             }
             let newIngameMenuButton = {
@@ -1923,6 +1933,34 @@ sceneDefinitions.push({
 
 /********************************* Adventure scene *************************************/
 
+// Contains the kanji data specfic to the current player
+var playerKanjiData = [];
+
+// Call to initialize the game when no save file is being loaded and the game is to start from the beginning
+function initializeNewSaveGame(){
+    for(let i=0;i<adventureKanjiFileData.length;i++){
+        playerKanjiData.push({
+            // Contains the full trial history of the kanji
+            trialHistory: [],
+
+            enabled: true,
+            leechDetectionTriggered: false,
+            masteryStage: 0,
+            trialSuccesses: 0,
+            trialFailures: 0,
+            daysUntilNextTrial: 0,
+            daysUntilMasteryIncreaseOpportunity: 0,
+            customStory: null,
+            customKeyword: null
+        })
+    }
+}
+
+// Call to initialize the game when loading a save file
+function loadSaveGame(){
+
+}
+
 // Update condition tooltips when condition array is modified
 function updateConditionTooltips(){
     // Delete existing condition tooltops first
@@ -1992,7 +2030,7 @@ function updateInventory(addItem = "none"){
 }
 
 // Update tooltips that need to be updated apon menu change
-function updateMenuTooltips(){
+function initializeMenuTab(){
     for(let i = scene.tooltipBoxes.length-1;i>=0;i--){
         if(scene.tooltipBoxes[i].type === "item"){
             scene.tooltipBoxes.splice(i,1);
@@ -2000,10 +2038,16 @@ function updateMenuTooltips(){
             scene.tooltipBoxes.splice(i,1);
         }
     }
+    for(let i = scene.buttons.length-1;i>=0;i--){
+        if(scene.buttons[i].text === "Toggle Enabled Status"){
+            scene.buttons.splice(i,1);
+        }
+    }
 
     if(scene.menuScene === "Inventory"){
         updateInventory();
-    } else if(scene.menuScene === "Kanji List"){
+    }
+    if(scene.menuScene === "Kanji List"){
         let rowAmount = 12;
         for(let i=0;i<Math.ceil(adventureKanjiFileData.length/rowAmount);i++){
             for(let j=0; j<Math.min(rowAmount,adventureKanjiFileData.length-i*rowAmount);j++){
@@ -2016,8 +2060,17 @@ function updateMenuTooltips(){
                 });
             }
         }
-    }
+        scene.selectedKanji = 0;
 
+        scene.buttons.push({
+            x:scene.worldX+18*16*scene.sizeMod*2+107, y:scene.worldY+700, width:150, height:30,
+            neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+            text: "Toggle Enabled Status", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+            onClick: function(){
+                playerKanjiData[scene.selectedKanji].enabled = !playerKanjiData[scene.selectedKanji].enabled;
+            }
+        });
+    }
 }
 
 function useItem(inventoryIndex,particleSysX,particleSysY){
@@ -2709,6 +2762,11 @@ function updateAdventure(timeStamp){
     }; // Update world screen function ends here
 
     const updateMenuScreen = function(){
+        if(scene.menuScene === "Kanji List"){
+            if(mouseDown && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "kanji list entry"){
+                scene.selectedKanji = scene.tooltipBoxes[scene.currentTooltip.index].index;
+            }
+        }
         zClicked = xClicked = false;
     };
 
@@ -2755,6 +2813,9 @@ function drawAdventure(timeStamp){
             context.translate(ad.offset[0],ad.offset[1]);
         }
     }
+
+    // Set to false when the right part of the screen is to be used for something else
+    let isToDrawStatusBar = true;
 
     const drawWorldScreen = function(){
         let lev = levels[scene.levelNum];
@@ -3085,23 +3146,75 @@ function drawAdventure(timeStamp){
         } // Draw inventory screen function ends here
 
         const drawKanjiScreen = function(){
-            context.font = '26px zenMaruRegular';
+            context.font = '26px Arial';
             context.textAlign = 'left';
             context.fillStyle = 'white';
             let rowAmount = 12;
             for(let i=0;i<Math.ceil(adventureKanjiFileData.length/rowAmount);i++){
                 for(let j=0; j<Math.min(rowAmount,adventureKanjiFileData.length-i*rowAmount);j++){
+                    let currentIndex = j + i*rowAmount;
                     context.lineWidth = 2;
-                    context.strokeStyle = 'hsla(20, 60%, 75%, 0.6)';
+                    let textFill = 'white';
+                    if(scene.selectedKanji === currentIndex){
+                        context.strokeStyle = 'hsla(60, 100%, 75%, 1)';
+                    } else if(playerKanjiData[currentIndex].enabled){
+                        context.strokeStyle = 'hsla(20, 40%, 50%, 1)';
+                    } else {
+                        context.strokeStyle = 'hsla(0, 0%, 60%, 1)';
+                        textFill = 'hsla(0, 0%, 60%, 1)';
+                    }
+
                     context.fillStyle = 'black';
                     context.beginPath();
                     context.roundRect(scene.worldY+295+45*j, scene.worldY+140 + 45*i, 40, 40, 3);
                     context.fill();
                     context.stroke();
 
-                    context.fillStyle = 'white';
-                    context.fillText(adventureKanjiFileData[j + i*rowAmount].symbol,scene.worldY+295+45*j + 6,scene.worldY+140 + 45*i + 30)
+                    context.fillStyle = textFill;
+                    context.fillText(adventureKanjiFileData[currentIndex].symbol,scene.worldY+295+45*j + 6,scene.worldY+140 + 45*i + 30)
                 }
+            }
+
+            // Draw kanji info on side of screen
+            if(scene.selectedKanji !== null){
+                isToDrawStatusBar = false;
+
+                let kanjiInfo = adventureKanjiFileData[scene.selectedKanji];
+                let playerKanjiInfo = playerKanjiData[scene.selectedKanji];
+
+                context.fillStyle = 'hsl(0, 0%, 10%, 55%)';
+                context.save();
+                context.shadowColor = "hsl(0, 30%, 0%)";
+                context.shadowBlur = 15;
+                context.beginPath();
+                context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 305, 805, 30);
+                context.fill();
+                context.restore();
+
+                context.font = '120px Arial';
+                context.textAlign = 'center';
+                context.fillStyle = 'white';
+                context.fillText(kanjiInfo.symbol, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+140);
+
+                context.font = '32px zenMaruMedium';
+                context.fillText(kanjiInfo.keyword, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+210);
+
+                context.font = '18px zenMaruRegular';
+                context.textAlign = 'left';
+                let bodyText = kanjiInfo.story;
+                let wrappedText = wrapText(context, bodyText, scene.worldY+260, 240, 21);
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 35, item[1]);
+                });
+
+                if(!playerKanjiInfo.enabled){
+                    context.textAlign = 'center';
+                    context.font = '22px zenMaruBlack';
+                    context.fillText("Disabled", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+660);
+                }
+                //context.fillText("Conditions: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, 235);
             }
         } // Draw kanji screen function ends here
 
@@ -3144,120 +3257,122 @@ function drawAdventure(timeStamp){
         context.restore();
     }
 
-    // Draw the right part of the screen
-    context.fillStyle = 'hsl(0, 0%, 10%, 55%)';
-    context.save();
-    context.shadowColor = "hsl(0, 30%, 0%)";
-    context.shadowBlur = 15;
-    context.beginPath();
-    context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 305, 805, 30);
-    context.fill();
-    context.restore();
-
-    context.font = '32px zenMaruMedium';
-    context.textAlign = 'center';
-    context.fillStyle = 'white';
-    context.fillText("Status", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+50);
-    drawCharacter("witch",[32,0],scene.worldX+18*16*scene.sizeMod*2+30 + 200,scene.worldY+122);
-
-    context.font = '20px zenMaruMedium';
-    context.fillText("Abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+275);
-
-    context.font = '15px zenMaruRegular';
-    context.fillText("No learned abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+320);
-
-    context.font = '20px zenMaruMedium';
-    context.fillText("Inventory", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+660);
-
-    // Draw inventory hotbar
-    for(let i=0;i<5;i++){
-        context.lineWidth = 2;
-        context.strokeStyle = 'hsla(270, 60%, 75%, 0.6)';
+    if(isToDrawStatusBar){
+        // Draw the right part of the screen
+        context.fillStyle = 'hsl(0, 0%, 10%, 55%)';
+        context.save();
+        context.shadowColor = "hsl(0, 30%, 0%)";
+        context.shadowBlur = 15;
         context.beginPath();
-        context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i, scene.worldY+690, 45, 45, 3);
-        context.stroke();
+        context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 305, 805, 30);
+        context.fill();
+        context.restore();
 
-        if(scene.player.inventory[i] !== "none"){
-            drawItemIcon(scene.player.inventory[i],scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,scene.worldY+690);
+        context.font = '32px zenMaruMedium';
+        context.textAlign = 'center';
+        context.fillStyle = 'white';
+        context.fillText("Status", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+50);
+        drawCharacter("witch",[32,0],scene.worldX+18*16*scene.sizeMod*2+30 + 200,scene.worldY+122);
+
+        context.font = '20px zenMaruMedium';
+        context.fillText("Abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+275);
+
+        context.font = '15px zenMaruRegular';
+        context.fillText("No learned abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+320);
+
+        context.font = '20px zenMaruMedium';
+        context.fillText("Inventory", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+660);
+
+        // Draw inventory hotbar
+        for(let i=0;i<5;i++){
+            context.lineWidth = 2;
+            context.strokeStyle = 'hsla(270, 60%, 75%, 0.6)';
+            context.beginPath();
+            context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i, scene.worldY+690, 45, 45, 3);
+            context.stroke();
+
+            if(scene.player.inventory[i] !== "none"){
+                drawItemIcon(scene.player.inventory[i],scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,scene.worldY+690);
+            }
         }
-    }
 
-    // Make underlines
-    context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
-    context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 80, scene.worldY+65, 300-160, 2);
-    context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 100, scene.worldY+290, 300-200, 2);
-    context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 100, scene.worldY+675, 300-200, 2);
+        // Make underlines
+        context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+        context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 80, scene.worldY+65, 300-160, 2);
+        context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 100, scene.worldY+290, 300-200, 2);
+        context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 100, scene.worldY+675, 300-200, 2);
 
-    context.font = '24px zenMaruRegular';
-    context.textAlign = 'center';
-    context.fillStyle = "#d5a6ff";
-    context.fillText("Mari", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+100);
+        context.font = '24px zenMaruRegular';
+        context.textAlign = 'center';
+        context.fillStyle = "#d5a6ff";
+        context.fillText("Mari", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+100);
 
-    context.font = '18px zenMaruMedium';
-    context.textAlign = 'left';
-    context.fillStyle = "White";
-    context.fillText("HP: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+140);
-    context.fillText("Power: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+165);
-    context.fillText("Conditions: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+220);
-    //context.fillText("Abilties: No learned abilities.", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+245);
-
-    context.fillStyle = "#40d600";
-    context.fillText(scene.player.hp+"/"+scene.player.maxHp, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("HP: ").width, scene.worldY+140);
-
-    context.fillStyle = "#d600ba";
-    context.fillText(scene.player.power+"/"+scene.player.powerSoftcap, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("Power: ").width, scene.worldY+165);
-
-    let conditionLine = "Conditions: "
-    for(let i in scene.player.conditions){
-        const condition = scene.player.conditions[i];
         context.font = '18px zenMaruMedium';
-        let conditionX = scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText(conditionLine).width;
-        let conditionY = scene.worldY+220
+        context.textAlign = 'left';
+        context.fillStyle = "White";
+        context.fillText("HP: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+140);
+        context.fillText("Power: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+165);
+        context.fillText("Conditions: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+220);
+        //context.fillText("Abilties: No learned abilities.", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+245);
 
-        // Handle special drawing for the dysymbolia condition
-        if(condition.name === "Dysymbolia" && scene.player.timeUntilDysymbolia < 30){
-            context.font = `18px zenMaruBlack`;
-            if(condition.particleSystem === null){
-                condition.particleSystem = createParticleSystem({
-                    x: [conditionX,conditionX+context.measureText(condition.name).width], y:[conditionY,conditionY], hue: 0, saturation: 0, lightness: 100, startingAlpha: 0.005,
-                    particlesPerSec: 50, drawParticles: drawParticlesTypeZero, newParticle: newParticleTypeTwo,
-                    particleSize: 5, particleLifespan: 450, mod: 1.2, shift: 1.3, particleSpeed: 120, gravity: -300,
-                    sourceType: "line", specialDrawLocation: true,
-                });
-                scene.particleSystems.push(condition.particleSystem);
+        context.fillStyle = "#40d600";
+        context.fillText(scene.player.hp+"/"+scene.player.maxHp, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("HP: ").width, scene.worldY+140);
+
+        context.fillStyle = "#d600ba";
+        context.fillText(scene.player.power+"/"+scene.player.powerSoftcap, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("Power: ").width, scene.worldY+165);
+
+        let conditionLine = "Conditions: "
+        for(let i in scene.player.conditions){
+            const condition = scene.player.conditions[i];
+            context.font = '18px zenMaruMedium';
+            let conditionX = scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText(conditionLine).width;
+            let conditionY = scene.worldY+220
+
+            // Handle special drawing for the dysymbolia condition
+            if(condition.name === "Dysymbolia" && scene.player.timeUntilDysymbolia < 30){
+                context.font = `18px zenMaruBlack`;
+                if(condition.particleSystem === null){
+                    condition.particleSystem = createParticleSystem({
+                        x: [conditionX,conditionX+context.measureText(condition.name).width], y:[conditionY,conditionY], hue: 0, saturation: 0, lightness: 100, startingAlpha: 0.005,
+                        particlesPerSec: 50, drawParticles: drawParticlesTypeZero, newParticle: newParticleTypeTwo,
+                        particleSize: 5, particleLifespan: 450, mod: 1.2, shift: 1.3, particleSpeed: 120, gravity: -300,
+                        sourceType: "line", specialDrawLocation: true,
+                    });
+                    scene.particleSystems.push(condition.particleSystem);
+                }
+                let ps = condition.particleSystem;
+                if(scene.player.timeUntilDysymbolia > -1){
+                    let advancement = (30 - scene.player.timeUntilDysymbolia)/30;
+                    ps.startingAlpha = advancement/2;
+                    ps.particleLifespan = 250 + 300*advancement;
+                    ps.particlesPerSec = 40 + 30*advancement;
+                    ps.particleSize = 5 + 5*advancement;
+                    ps.particleSpeed = 60 + 200*advancement;
+                    ps.lightness = 100;
+
+                    condition.color = `hsl(0,0%,${scene.player.timeUntilDysymbolia*(10/3)}%)`;
+                } else {
+                    let advancement = 1;
+                    ps.startingAlpha = 1;
+                    ps.particleLifespan = 250 + 300*advancement;
+                    ps.particlesPerSec = 40 + 30*advancement;
+                    ps.particleSize = 5 + 5*advancement;
+                    ps.particleSpeed = 60 + 200*advancement;
+
+                    ps.lightness = 0;
+
+                    condition.color = `hsl(0,0%,100%)`;
+                }
+                condition.particleSystem.drawParticles(performance.now());
             }
-            let ps = condition.particleSystem;
-            if(scene.player.timeUntilDysymbolia > -1){
-                let advancement = (30 - scene.player.timeUntilDysymbolia)/30;
-                ps.startingAlpha = advancement/2;
-                ps.particleLifespan = 250 + 300*advancement;
-                ps.particlesPerSec = 40 + 30*advancement;
-                ps.particleSize = 5 + 5*advancement;
-                ps.particleSpeed = 60 + 200*advancement;
-                ps.lightness = 100;
 
-                condition.color = `hsl(0,0%,${scene.player.timeUntilDysymbolia*(10/3)}%)`;
+            context.fillStyle = condition.color;
+            if(i < scene.player.conditions.length-1){
+                context.fillText(condition.name+", ", conditionX, scene.worldY+220);
+                conditionLine += condition.name+", ";
             } else {
-                let advancement = 1;
-                ps.startingAlpha = 1;
-                ps.particleLifespan = 250 + 300*advancement;
-                ps.particlesPerSec = 40 + 30*advancement;
-                ps.particleSize = 5 + 5*advancement;
-                ps.particleSpeed = 60 + 200*advancement;
-
-                ps.lightness = 0;
-
-                condition.color = `hsl(0,0%,100%)`;
+                context.fillText(condition.name, conditionX, scene.worldY+220);
             }
-            condition.particleSystem.drawParticles(performance.now());
-        }
-
-        context.fillStyle = condition.color;
-        if(i < scene.player.conditions.length-1){
-            context.fillText(condition.name+", ", conditionX, scene.worldY+220);
-            conditionLine += condition.name+", ";
-        } else {
-            context.fillText(condition.name, conditionX, scene.worldY+220);
         }
     }
 }
