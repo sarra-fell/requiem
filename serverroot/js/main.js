@@ -203,11 +203,14 @@ var dialogueFileData = {
     randomDysymbolia: {},
 };
 
+var adventureKanjiFileData = [];
+
 // Loads the data !!!
 let dialogueLoaded = false;
 function processGameJsonData(data) {
     const gameData = JSON.parse(data);
     const dialogueData = gameData.dialogue;
+    adventureKanjiFileData = gameData.kanji;
 
     dialogueFileData.scenes = dialogueData.scenes;
     dialogueFileData.world = dialogueData.worldDialogue;
@@ -1140,6 +1143,11 @@ function drawTooltip() {
             }
         }
         draw(info.color,info.name,parsedDesc);
+    } else if(tooltipBox.type === "kanji list entry"){
+        let kanji = adventureKanjiFileData[tooltipBox.index];
+        let text = kanji.story;
+        context.font = '20px zenMaruRegular';
+        draw('black',kanji.symbol + "   " + kanji.keyword,text)
     }
 }
 
@@ -1490,9 +1498,9 @@ function initializeScene(sceneName){
                 }
             ],
             inventory: [0,"none","none","none","none", // First 5 items are the hotbar
-                        "none","none","none","none","none",
-                        "none","none","none","none","none",
-                        "none","none","none","none","none"
+                        "none",0,"none","none","none",
+                        "none","none",0,"none","none",
+                        0,"none","none","none",0
             ],
 
             finishedWaterScene: false,
@@ -1569,6 +1577,7 @@ function initializeScene(sceneName){
                             b.enabled = true;
                         }
                     }
+                    updateInventory();
                 } else {
                     scene.menuScene = null;
                     scene.timeOfLastUnpause = performance.now();
@@ -1580,20 +1589,31 @@ function initializeScene(sceneName){
                             b.enabled = false;
                         }
                     }
+                    updateInventory();
                 }
             }
         });
 
         // Menu buttons
         for(const [i, sceneName] of scene.menuTabList.entries()){
+            let onClick;
+            if(sceneName === "Kanji List"){
+                onClick = function() {
+                    scene.menuScene = this.tab;
+                    updateMenuTooltips();
+                };
+            } else {
+                onClick = function() {
+                    scene.menuScene = this.tab;
+                    updateMenuTooltips();
+                };
+            }
             let newIngameMenuButton = {
                 x:scene.worldX+20, y:scene.worldY+65+30+78*i, width:160, height:60, shadow: 12,
                 neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
                 text: scene.menuTabList[i], font: '20px zenMaruLight', fontSize: 24, jp: false, tab: scene.menuTabList[i],
                 enabled: false,
-                onClick: function() {
-                    scene.menuScene = this.tab;
-                }
+                onClick: onClick,
             }
             scene.buttons.push(newIngameMenuButton);
         }
@@ -1942,7 +1962,7 @@ function updateInventory(addItem = "none"){
     }
     let inventory = scene.player.inventory;
     for(let i=0; i<inventory.length; i++){
-        let item = scene.player.inventory[i];
+        let item = inventory[i];
         if(item !== "none"){
             scene.tooltipBoxes.push({
                 x: scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,
@@ -1950,8 +1970,16 @@ function updateInventory(addItem = "none"){
                 width: 45, height: 45,
                 type: "item", item: item, inventoryIndex: i, spawnTime: 0,
             });
+            if(scene.menuScene === "Inventory"){
+                scene.tooltipBoxes.push({
+                    x: scene.worldY+285+105+67*(i%5),
+                    y: scene.worldY+160 + 67*Math.floor(i/5),
+                    width: 60, height: 60,
+                    type: "item", item: item, inventoryIndex: i, spawnTime: 0,
+                });
+            }
         } else if(addItem !== "none"){
-            scene.player.inventory[i] = addItem;
+            inventory[i] = addItem;
             scene.tooltipBoxes.push({
                 x: scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,
                 y: scene.worldY+690,
@@ -1961,6 +1989,35 @@ function updateInventory(addItem = "none"){
             addItem = "none";
         }
     }
+}
+
+// Update tooltips that need to be updated apon menu change
+function updateMenuTooltips(){
+    for(let i = scene.tooltipBoxes.length-1;i>=0;i--){
+        if(scene.tooltipBoxes[i].type === "item"){
+            scene.tooltipBoxes.splice(i,1);
+        } else if(scene.tooltipBoxes[i].type === "kanji list entry"){
+            scene.tooltipBoxes.splice(i,1);
+        }
+    }
+
+    if(scene.menuScene === "Inventory"){
+        updateInventory();
+    } else if(scene.menuScene === "Kanji List"){
+        let rowAmount = 12;
+        for(let i=0;i<Math.ceil(adventureKanjiFileData.length/rowAmount);i++){
+            for(let j=0; j<Math.min(rowAmount,adventureKanjiFileData.length-i*rowAmount);j++){
+                scene.tooltipBoxes.push({
+                    x: scene.worldY+295+45*j,
+                    y: scene.worldY+140+45*i,
+                    spawnTime: 0,
+                    width: 45, height: 45,
+                    type: "kanji list entry", index: j + i*rowAmount,
+                });
+            }
+        }
+    }
+
 }
 
 function useItem(inventoryIndex,particleSysX,particleSysY){
@@ -2979,10 +3036,6 @@ function drawAdventure(timeStamp){
         }
     }; // Draw world screen function ends here
 
-    const drawInventoryScreen = function(){
-
-    } // Draw inventory screen function ends here
-
     const drawMenuScreen = function(){
         // Background box
         context.fillStyle = 'hsl(0, 100%, 0%, 55%)';
@@ -3003,7 +3056,60 @@ function drawAdventure(timeStamp){
         context.fillStyle = 'white';
         context.fillText(scene.menuScene, scene.worldX+345 + 150, scene.worldY+80);
 
+        // Each menu tab has its local function
+        const drawInventoryScreen = function(){
+            context.font = '18px zenMaruRegular';
+            context.fillText("First 5 items can be used on the inventory hotbar!", scene.worldX+345 + 150, scene.worldY+580);
+            context.fillText("Double click to use consumables!", scene.worldX+345 + 150, scene.worldY+630);
+            context.fillText("Crafting coming soon?!????!??!!?", scene.worldX+345 + 150, scene.worldY+680);
+            let inventory = scene.player.inventory;
+            for(let i=0;i<Math.ceil(inventory.length/5);i++){
+                for(let j=0;j<5;j++){
+                    context.lineWidth = 2;
+                    context.strokeStyle = 'hsla(270, 60%, 75%, 0.6)';
+                    context.fillStyle = 'black';
+                    context.beginPath();
+                    context.roundRect(scene.worldY+285+105+67*j, scene.worldY+160 + 67*i, 60, 60, 3);
+                    context.fill();
+                    context.stroke();
 
+                    if(inventory[j + i*5] !== "none"){
+                        context.save();
+                        context.translate(scene.worldY+285+105+67*j,scene.worldY+160 + 67*i);
+                        context.scale(1.4,1.4);
+                        drawItemIcon(inventory[j + i*5],-1,-1);
+                        context.restore();
+                    }
+                }
+            }
+        } // Draw inventory screen function ends here
+
+        const drawKanjiScreen = function(){
+            context.font = '26px zenMaruRegular';
+            context.textAlign = 'left';
+            context.fillStyle = 'white';
+            let rowAmount = 12;
+            for(let i=0;i<Math.ceil(adventureKanjiFileData.length/rowAmount);i++){
+                for(let j=0; j<Math.min(rowAmount,adventureKanjiFileData.length-i*rowAmount);j++){
+                    context.lineWidth = 2;
+                    context.strokeStyle = 'hsla(20, 60%, 75%, 0.6)';
+                    context.fillStyle = 'black';
+                    context.beginPath();
+                    context.roundRect(scene.worldY+295+45*j, scene.worldY+140 + 45*i, 40, 40, 3);
+                    context.fill();
+                    context.stroke();
+
+                    context.fillStyle = 'white';
+                    context.fillText(adventureKanjiFileData[j + i*rowAmount].symbol,scene.worldY+295+45*j + 6,scene.worldY+140 + 45*i + 30)
+                }
+            }
+        } // Draw kanji screen function ends here
+
+        if(scene.menuScene === "Inventory"){
+            drawInventoryScreen();
+        } else if(scene.menuScene === "Kanji List"){
+            drawKanjiScreen();
+        }
 
         /*for(const [i, sceneName] of scene.menuTabList.entries()){
             context.save();
@@ -3071,8 +3177,8 @@ function drawAdventure(timeStamp){
         context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i, scene.worldY+690, 45, 45, 3);
         context.stroke();
 
-        if(scene.player.inventory[i] === 0){
-            drawItemIcon(0,scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,scene.worldY+690);
+        if(scene.player.inventory[i] !== "none"){
+            drawItemIcon(scene.player.inventory[i],scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,scene.worldY+690);
         }
     }
 

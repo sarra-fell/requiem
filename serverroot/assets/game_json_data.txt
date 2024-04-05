@@ -327,27 +327,112 @@
         {
             "symbol": "一",
             "keyword": "One",
-            "story": "The one is written sideways"
+            "story": "The one is written sideways."
         },
         {
             "symbol": "二",
             "keyword": "Two",
-            "story": "1 and 1 makes 2"
+            "story": "1 and 1 makes 2."
         },
         {
             "symbol": "三",
             "keyword": "Three",
-            "story": "1 and 1 and 1 makes 3"
+            "story": "1 and 1 and 1 makes 3."
         },
         {
             "symbol": "五",
             "keyword": "Five",
-            "story": "Three with two extra vertical lines 2+3=5"
+            "story": "Three with two extra vertical lines 2+3=5."
         },
         {
             "symbol": "七",
             "keyword": "Seven",
-            "story": "It's upside down, and crossed european style, but definitely a 7"
+            "story": "It's upside down, and crossed european style, but definitely a 7."
+        },
+        {
+            "symbol": "四",
+            "keyword": "Four",
+            "story": "It's all within 4 walls."
+        },
+        {
+            "symbol": "西",
+            "keyword": "West",
+            "story": "The one is written sideways."
+        },
+        {
+            "symbol": "匹",
+            "keyword": "Crude",
+            "story": "If you use a crude approximation of pi, the circle doesn't go all the way around."
+        },
+        {
+            "symbol": "六",
+            "keyword": "Six",
+            "story": "Three lines pointing out from a central intersection, and a line halved: six can be a halved or divided by three."
+        },
+        {
+            "symbol": "穴",
+            "keyword": "Hole",
+            "story": "A roof over a chasm; holes in the ground are dangerous, and should be covered like this one."
+        },
+        {
+            "symbol": "九",
+            "keyword": "Nine",
+            "story": "A bit of the unenclosed shapes of four and five: 4+5=9."
+        },
+        {
+            "symbol": "丸",
+            "keyword": "Circle",
+            "story": "Nine with one more to round off."
+        },
+        {
+            "symbol": "力",
+            "keyword": "Power",
+            "story": "A left hand pressing downward so powerfully that the fingers are bent back."
+        },
+        {
+            "symbol": "万",
+            "keyword": "Ten-Thousand",
+            "story": "This evolved from the ancient swastika, which once meant ten-thousand gods. It kept its four arms, but only one maintains the swirl."
+        },
+        {
+            "symbol": "方",
+            "keyword": "Direction",
+            "story": "An old man, leaning on a cane, wearing a hat, who is lost and asking directions."
+        },
+        {
+            "symbol": "刀",
+            "keyword": "Knife",
+            "story": "The curved blade, chisel point, and cross-guard of a Japanese-style knife."
+        },
+        {
+            "symbol": "刃",
+            "keyword": "Edge",
+            "story": "A knife with the non-edge side crossed out."
+        },
+        {
+            "symbol": "十",
+            "keyword": "Ten",
+            "story": "A one with a vertical cross to indicate that it is moved to a higher decimal position, making ten."
+        },
+        {
+            "symbol": "千",
+            "keyword": "Thousand",
+            "story": "Ten cubed is a thousand (the three lines indicate 3 dimensions)."
+        },
+        {
+            "symbol": "土",
+            "keyword": "Earth",
+            "story": "Something growing from the earth."
+        },
+        {
+            "symbol": "士",
+            "keyword": "Knight",
+            "story": "An important person who can muster at least ten soliers from their land."
+        },
+        {
+            "symbol": "干",
+            "keyword": "Dry",
+            "story": "Your knight got all wet? Just hang them upside down to dry off!"
         }
     ]
 }
