@@ -204,6 +204,7 @@ var dialogueFileData = {
 };
 
 var adventureKanjiFileData = [];
+var theoryWriteupData = [];
 
 // Loads the data !!!
 let dialogueLoaded = false;
@@ -211,6 +212,7 @@ function processGameJsonData(data) {
     const gameData = JSON.parse(data);
     const dialogueData = gameData.dialogue;
     adventureKanjiFileData = gameData.kanji;
+    theoryWriteupData = gameData.theory;
 
     dialogueFileData.scenes = dialogueData.scenes;
     dialogueFileData.world = dialogueData.worldDialogue;
@@ -2044,9 +2046,6 @@ function initializeMenuTab(){
         }
     }
 
-    if(scene.menuScene === "Inventory"){
-        updateInventory();
-    }
     if(scene.menuScene === "Kanji List"){
         let rowAmount = 12;
         for(let i=0;i<Math.ceil(adventureKanjiFileData.length/rowAmount);i++){
@@ -2070,6 +2069,8 @@ function initializeMenuTab(){
                 playerKanjiData[scene.selectedKanji].enabled = !playerKanjiData[scene.selectedKanji].enabled;
             }
         });
+    } else {
+        updateInventory();
     }
 }
 
@@ -2974,24 +2975,12 @@ function drawAdventure(timeStamp){
 
             // Draw differently depending on player vs non-player vs no image
             const drawDialogueForPlayer = function(facesImage){
-                /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], (scene.worldY+h*scene.sizeMod-72*scene.sizeMod), (w*scene.sizeMod-124*scene.sizeMod), 20*scene.sizeMod, true);
-                wrappedText.forEach(function(item) {
-                    // item[0] is the text
-                    // item[1] is the y coordinate to fill the text at
-                    context.fillText(item[0], (96+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
-                });*/
                 context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
                 applyBlur();
                 drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp);
 
             };
             const drawDialogueForNonPlayer = function(facesImage){
-                /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-144*scene.sizeMod, 20*scene.sizeMod, true);
-                wrappedText.forEach(function(item) {
-                    // item[0] is the text
-                    // item[1] is the y coordinate to fill the text at
-                    context.fillText(item[0], (16+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
-                });*/
                 context.save();
                 context.scale(-1,1);
                 context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, -1*(scene.worldX+w*scene.sizeMod), scene.worldY+h*scene.sizeMod-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
@@ -3000,12 +2989,6 @@ function drawAdventure(timeStamp){
                 drawDialogueText((16+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-144*scene.sizeMod,20*scene.sizeMod,timeStamp);
             };
             const drawDialogueForNobody = function(){
-                /*let wrappedText = wrapText(context, scene.dialogue.textLines[scene.dialogue.currentLine], scene.worldY+h*scene.sizeMod-72*scene.sizeMod, w*scene.sizeMod-40*scene.sizeMod, 20*scene.sizeMod, true);
-                wrappedText.forEach(function(item) {
-                    // item[0] is the text
-                    // item[1] is the y coordinate to fill the text at
-                    context.fillText(item[0], (16+lev.gridWidth)*scene.sizeMod+scene.worldX, item[1]);
-                });*/
                 applyBlur();
                 drawDialogueText((16+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-40*scene.sizeMod,20*scene.sizeMod,timeStamp);
             };
@@ -3037,12 +3020,6 @@ function drawAdventure(timeStamp){
 
                         context.fillStyle = "white";
                         context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2);
-
-                        /*
-                        context.textAlign = 'left';
-                        let inputTextWidth = context.measureText(scene.textEntered).width;
-                        context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2 - inputTextWidth/2, scene.worldY + h*scene.sizeMod/2 + 50);
-                        */
                     } else {
                         // Play the animation for dysymbolia text colliding
                         let animationDuration = 2000;
@@ -3166,12 +3143,12 @@ function drawAdventure(timeStamp){
 
                     context.fillStyle = 'black';
                     context.beginPath();
-                    context.roundRect(scene.worldY+295+45*j, scene.worldY+140 + 45*i, 40, 40, 3);
+                    context.roundRect(scene.worldX+240+45*j, scene.worldY+140 + 45*i, 40, 40, 3);
                     context.fill();
                     context.stroke();
 
                     context.fillStyle = textFill;
-                    context.fillText(adventureKanjiFileData[currentIndex].symbol,scene.worldY+295+45*j + 6,scene.worldY+140 + 45*i + 30)
+                    context.fillText(adventureKanjiFileData[currentIndex].symbol,scene.worldX+240+45*j + 6,scene.worldY+140 + 45*i + 30)
                 }
             }
 
@@ -3202,12 +3179,27 @@ function drawAdventure(timeStamp){
                 context.font = '18px zenMaruRegular';
                 context.textAlign = 'left';
                 let bodyText = kanjiInfo.story;
-                let wrappedText = wrapText(context, bodyText, scene.worldY+260, 240, 21);
+                let wrappedText = wrapText(context, bodyText, scene.worldY+250, 240, 19);
                 wrappedText.forEach(function(item) {
                     // item[0] is the text
                     // item[1] is the y coordinate to fill the text at
                     context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 35, item[1]);
                 });
+
+                let belowStoryY = scene.worldY+250 + wrappedText.length*19;
+
+                context.font = '16px zenMaruRegular';
+                context.textAlign = 'center';
+                context.fillText("Successfully captured "+playerKanjiInfo.trialSuccesses+ " times.", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+45);
+                context.fillText("Mastery stage "+playerKanjiInfo.masteryStage, scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+70);
+                if(playerKanjiInfo.daysUntilMasteryIncreaseOpportunity > 0){
+                    context.font = '16px zenMaruRegular';
+                    context.fillText("Increase mastery in " + playerKanjiInfo.daysUntilMasteryIncreaseOpportunity + " days", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+95);
+                } else {
+                    context.font = '16px zenMaruBold';
+                    context.fillText("Capture to increase mastery!", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+95);
+                }
+
 
                 if(!playerKanjiInfo.enabled){
                     context.textAlign = 'center';
@@ -3218,28 +3210,94 @@ function drawAdventure(timeStamp){
             }
         } // Draw kanji screen function ends here
 
+        const drawTheoryScreen = function(){
+            context.font = '26px Arial';
+            context.textAlign = 'left';
+            context.fillStyle = 'white';
+
+            for(let i=0;i<theoryWriteupData.length;i++){
+                let theory = theoryWriteupData[i];
+
+                context.strokeStyle = 'hsla(300, 75%, 75%, 1)';
+                context.lineWidth = 2;
+                context.fillStyle = 'hsla(0, 0%, 30%, 1)';
+                context.beginPath();
+                context.roundRect(scene.worldX+240, scene.worldY+140 + 55*i, w-55, 40, 5);
+                context.fill();
+                context.stroke();
+
+                context.font = '20px ZenMaruRegular';
+                context.textAlign = 'left';
+                context.fillStyle = 'white';
+
+                context.fillText(theory.title,scene.worldX+240 + 15,scene.worldY+140 + 55*i + 27)
+            }
+            /*
+            // Draw kanji info on side of screen
+            if(scene.selectedKanji !== null){
+                isToDrawStatusBar = false;
+
+                let kanjiInfo = adventureKanjiFileData[scene.selectedKanji];
+                let playerKanjiInfo = playerKanjiData[scene.selectedKanji];
+
+                context.fillStyle = 'hsl(0, 0%, 10%, 55%)';
+                context.save();
+                context.shadowColor = "hsl(0, 30%, 0%)";
+                context.shadowBlur = 15;
+                context.beginPath();
+                context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 305, 805, 30);
+                context.fill();
+                context.restore();
+
+                context.font = '120px Arial';
+                context.textAlign = 'center';
+                context.fillStyle = 'white';
+                context.fillText(kanjiInfo.symbol, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+140);
+
+                context.font = '32px zenMaruMedium';
+                context.fillText(kanjiInfo.keyword, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+210);
+
+                context.font = '18px zenMaruRegular';
+                context.textAlign = 'left';
+                let bodyText = kanjiInfo.story;
+                let wrappedText = wrapText(context, bodyText, scene.worldY+250, 240, 19);
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 35, item[1]);
+                });
+
+                let belowStoryY = scene.worldY+250 + wrappedText.length*19;
+
+                context.font = '16px zenMaruRegular';
+                context.textAlign = 'center';
+                context.fillText("Successfully captured "+playerKanjiInfo.trialSuccesses+ " times.", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+45);
+                context.fillText("Mastery stage "+playerKanjiInfo.masteryStage, scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+70);
+                if(playerKanjiInfo.daysUntilMasteryIncreaseOpportunity > 0){
+                    context.font = '16px zenMaruRegular';
+                    context.fillText("Increase mastery in " + playerKanjiInfo.daysUntilMasteryIncreaseOpportunity + " days", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+95);
+                } else {
+                    context.font = '16px zenMaruBold';
+                    context.fillText("Capture to increase mastery!", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+95);
+                }
+
+
+                if(!playerKanjiInfo.enabled){
+                    context.textAlign = 'center';
+                    context.font = '22px zenMaruBlack';
+                    context.fillText("Disabled", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+660);
+                }
+                //context.fillText("Conditions: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, 235);
+            }*/
+        } // Draw theory screen function ends here
+
         if(scene.menuScene === "Inventory"){
             drawInventoryScreen();
         } else if(scene.menuScene === "Kanji List"){
             drawKanjiScreen();
+        } else if(scene.menuScene === "Theory"){
+            drawTheoryScreen();
         }
-
-        /*for(const [i, sceneName] of scene.menuTabList.entries()){
-            context.save();
-            context.shadowColor = "hsl(0, 100%, 0%)";
-            context.shadowBlur = 15;
-            context.strokeStyle = "#38f";
-            context.lineWidth = 7;
-            context.beginPath();
-            context.roundRect(scene.worldX+20, scene.worldY+65+30+100*i, 160, 80,10);
-            context.stroke();
-            context.restore();
-
-            context.fillStyle = 'hsl(199, 40%, 60%)';
-            context.beginPath();
-            context.roundRect(scene.worldX+20, scene.worldY+65+30+100*i, 160, 80, 10);
-            context.fill();
-        }*/
     }
 
     if(scene.menuScene !== null){
