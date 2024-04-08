@@ -1623,7 +1623,7 @@ function initializeScene(sceneName){
             let newIngameMenuButton = {
                 x:scene.worldX+20, y:scene.worldY+65+30+78*i, width:160, height:60, shadow: 12,
                 neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-                text: scene.menuTabList[i], font: '20px zenMaruLight', fontSize: 24, jp: false, tab: scene.menuTabList[i],
+                text: scene.menuTabList[i], font: '22px zenMaruLight', fontSize: 22, jp: false, tab: scene.menuTabList[i],
                 enabled: false,
                 onClick: onClick,
             }
@@ -1938,6 +1938,9 @@ sceneDefinitions.push({
 // Contains the kanji data specfic to the current player
 var playerKanjiData = [];
 
+// Contains the theory unlock data of the current player
+var playerTheoryUnlockedData = [];
+
 // Call to initialize the game when no save file is being loaded and the game is to start from the beginning
 function initializeNewSaveGame(){
     for(let i=0;i<adventureKanjiFileData.length;i++){
@@ -1955,6 +1958,9 @@ function initializeNewSaveGame(){
             customStory: null,
             customKeyword: null
         })
+    }
+    for(let i=0;i<theoryWriteupData.length;i++){
+        playerTheoryUnlockedData.push(false);
     }
 }
 
@@ -2041,7 +2047,11 @@ function initializeMenuTab(){
         }
     }
     for(let i = scene.buttons.length-1;i>=0;i--){
-        if(scene.buttons[i].text === "Toggle Enabled Status"){
+        if(scene.buttons[i].text === "Toggle Enabled Status" ||
+            scene.buttons[i].text === "Stop Reading" ||
+            scene.buttons[i].text === "Read" ||
+            scene.buttons[i].text === "Unlock and Collect Reward"
+        ){
             scene.buttons.splice(i,1);
         }
     }
@@ -2059,7 +2069,9 @@ function initializeMenuTab(){
                 });
             }
         }
-        scene.selectedKanji = 0;
+        if(!scene.hasOwnProperty("selectedKanji")){
+            scene.selectedKanji = 0;
+        }
 
         scene.buttons.push({
             x:scene.worldX+18*16*scene.sizeMod*2+107, y:scene.worldY+700, width:150, height:30,
@@ -2069,6 +2081,59 @@ function initializeMenuTab(){
                 playerKanjiData[scene.selectedKanji].enabled = !playerKanjiData[scene.selectedKanji].enabled;
             }
         });
+    } else if(scene.menuScene === "Theory"){
+        for(let i=0;i<theoryWriteupData.length;i++){
+                let theory = theoryWriteupData[i];
+
+                scene.tooltipBoxes.push({
+                    x: scene.worldX+240,
+                    y: scene.worldY+140 + 45*i,
+                    spawnTime: 0,
+                    width: 18*scene.tileSize+1-55, height: 40,
+                    type: "write-up entry", index: i,
+                });
+                if(!scene.hasOwnProperty("isReadingWriteup")){
+                    scene.isReadingWriteup = false;
+                }
+                if(!scene.hasOwnProperty("selectedWriteup")){
+                    scene.selectedWriteup = 0;
+                }
+
+                if(scene.isReadingWriteup){
+                    scene.buttons.push({
+                        x:scene.worldX+18*16*scene.sizeMod*2+107, y:scene.worldY+700, width:50, height:30,
+                        neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+                        text: "Stop Reading", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+                        onClick: function(){
+                            scene.isReadingWriteup = false;
+                            initializeMenuTab();
+                        }
+                    });
+                } else {
+                    if(playerTheoryUnlockedData[i]){
+                        scene.buttons.push({
+                            x:scene.worldX+18*16*scene.sizeMod*2+107, y:scene.worldY+700, width:50, height:30,
+                            neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+                            text: "Read", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+                            onClick: function(){
+                                scene.isReadingWriteup = true;
+                                initializeMenuTab();
+                            }
+                        });
+                    } else {
+                        scene.buttons.push({
+                            x:scene.worldX+18*16*scene.sizeMod*2+107, y:scene.worldY+700, width:170, height:30,
+                            neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+                            text: "Unlock and Collect Reward", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+                            onClick: function(){
+                                playerTheoryUnlockedData[scene.selectedWriteup] = true;
+                                scene.isReadingWriteup = true;
+                                initializeMenuTab();
+                            }
+                        });
+                    }
+                }
+            }
     } else {
         updateInventory();
     }
@@ -2767,6 +2832,10 @@ function updateAdventure(timeStamp){
             if(mouseDown && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "kanji list entry"){
                 scene.selectedKanji = scene.tooltipBoxes[scene.currentTooltip.index].index;
             }
+        } else if(scene.menuScene === "Theory"){
+            if(mouseDown && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "write-up entry"){
+                scene.selectedWriteup = scene.tooltipBoxes[scene.currentTooltip.index].index;
+            }
         }
         zClicked = xClicked = false;
     };
@@ -3206,31 +3275,79 @@ function drawAdventure(timeStamp){
                     context.font = '22px zenMaruBlack';
                     context.fillText("Disabled", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+660);
                 }
-                //context.fillText("Conditions: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, 235);
             }
         } // Draw kanji screen function ends here
 
         const drawTheoryScreen = function(){
-            context.font = '26px Arial';
+            context.font = '20px ZenMaruRegular';
             context.textAlign = 'left';
-            context.fillStyle = 'white';
 
-            for(let i=0;i<theoryWriteupData.length;i++){
-                let theory = theoryWriteupData[i];
+            if(!scene.isReadingWriteup){
+                for(let i=0;i<theoryWriteupData.length;i++){
+                    let theory = theoryWriteupData[i];
 
-                context.strokeStyle = 'hsla(300, 75%, 75%, 1)';
-                context.lineWidth = 2;
-                context.fillStyle = 'hsla(0, 0%, 30%, 1)';
+                    if(scene.selectedWriteup === i){
+                        context.strokeStyle = 'hsla(60, 100%, 75%, 1)';
+                    } else {
+                        context.strokeStyle = 'hsla(300, 75%, 75%, 1)';
+                    }
+                    context.lineWidth = 2;
+                    //context.fillStyle = 'hsla(0, 0%, 30%, 1)';
+                    context.fillStyle = 'black';
+                    context.beginPath();
+                    context.roundRect(scene.worldX+240, scene.worldY+140 + 45*i, w-55, 40, 5);
+                    context.fill();
+                    context.stroke();
+
+                    context.fillStyle = 'white';
+                    context.fillText(theory.title,scene.worldX+240 + 15,scene.worldY+140 + 45*i + 27)
+                }
+            } else {
+
+            }
+
+            if(scene.selectedWriteup !== null){
+                isToDrawStatusBar = false;
+
+                let writeupInfo = theoryWriteupData[scene.selectedWriteup];
+
+                // Right-side box
+                context.fillStyle = 'hsl(0, 0%, 10%, 55%)';
+                context.save();
+                context.shadowColor = "hsl(0, 30%, 0%)";
+                context.shadowBlur = 15;
                 context.beginPath();
-                context.roundRect(scene.worldX+240, scene.worldY+140 + 55*i, w-55, 40, 5);
+                context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 305, 805, 30);
                 context.fill();
-                context.stroke();
+                context.restore();
 
-                context.font = '20px ZenMaruRegular';
-                context.textAlign = 'left';
+                let currentY = 50;
+
+                // Write-up title
+                context.font = '32px zenMaruMedium';
                 context.fillStyle = 'white';
+                context.textAlign = 'center';
+                context.fillText("Title", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+currentY);
 
-                context.fillText(theory.title,scene.worldX+240 + 15,scene.worldY+140 + 55*i + 27)
+                context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+                context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 80, scene.worldY+currentY+15, 300-160, 2);
+
+                context.font = '20px zenMaruRegular';
+                context.fillStyle = 'white';
+                context.textAlign = 'left';
+                let wrappedText = wrapText(context, writeupInfo.title, scene.worldY+currentY+48, 240, 22);
+                context.textAlign = 'center';
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 150, item[1]);
+                });
+
+                currentY += wrappedText.length*19+48;
+
+                /*
+                context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+                context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 80, scene.worldY+currentY+25, 300-160, 2);*/
             }
             /*
             // Draw kanji info on side of screen
