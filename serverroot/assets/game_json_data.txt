@@ -350,6 +350,11 @@
             "story": "It's upside down, and crossed european style, but definitely a 7."
         },
         {
+            "symbol": "八",
+            "keyword": "Eight",
+            "story": "It's upside down, and crossed european style, but definitely a 7."
+        },
+        {
             "symbol": "四",
             "keyword": "Four",
             "story": "It's all within 4 walls."
@@ -433,11 +438,117 @@
             "symbol": "干",
             "keyword": "Dry",
             "story": "Your knight got all wet? Just hang them upside down to dry off!"
+        },
+        {
+            "symbol": "工",
+            "keyword": "Craft",
+            "story": "A carpenter's ruler.."
+        },
+        {
+            "symbol": "上",
+            "keyword": "Up",
+            "story": "Pointing up from the base."
+        },
+        {
+            "symbol": "下",
+            "keyword": "Down",
+            "story": "Pointing down from the crossbeams of the ceiling."
+        },
+        {
+            "symbol": "人",
+            "keyword": "Person",
+            "story": "Standing on two legs."
+        },
+        {
+            "symbol": "入",
+            "keyword": "Enter",
+            "story": "Two streams flow together, the smaller entering the larger."
+        },
+        {
+            "symbol": "火",
+            "keyword": "Fire",
+            "story": "Flames flicker over the woodpile."
+        },
+        {
+            "symbol": "小",
+            "keyword": "Small",
+            "story": "Two fingers picking up a small pin."
+        },
+        {
+            "symbol": "大",
+            "keyword": "Big",
+            "story": "A person with arms outstretched to indicate something big."
+        },
+        {
+            "symbol": "丈",
+            "keyword": "Length",
+            "story": "The person from big is disconnecting their leg so they can hold it and show how long it is."
+        },
+        {
+            "symbol": "木",
+            "keyword": "Tree",
+            "story": "A simple picture of a tree trunk and branches."
+        },
+        {
+            "symbol": "本",
+            "keyword": "Origin",
+            "story": "The tree grows from the root. What it grows from is its origin."
+        },
+        {
+            "symbol": "末",
+            "keyword": "Tip",
+            "story": "The top tip of the tree is made big to show that's what we are talking about."
+        },
+        {
+            "symbol": "未",
+            "keyword": "Not-Yet",
+            "story": "Ungrown tip: The top tip of the tree is made small to show that it has not yet grown."
+        },
+        {
+            "symbol": "天",
+            "keyword": "Heaven",
+            "story": "The big person is trying to show how big the heavens are, but it's above them and bigger than their arms can show."
+        },
+        {
+            "symbol": "夭",
+            "keyword": "Early Death",
+            "story": "When the heavens are out of joint, something terrible will happen."
+        },
+        {
+            "symbol": "林",
+            "keyword": "Woods",
+            "story": "Some trees in the woods."
+        },
+        {
+            "symbol": "森",
+            "keyword": "Forest",
+            "story": "Many trees in the forest."
+        },
+        {
+            "symbol": "炎",
+            "keyword": "Flame",
+            "story": "Double fire means flames."
+        },
+        {
+            "symbol": "協",
+            "keyword": "Cooperation",
+            "story": "Ten (left) with triple power (right) shows how many working together accomplish three times what they could do alone."
+        },
+        {
+            "symbol": "功",
+            "keyword": "Merit",
+            "story": "Craft (left) and power (right): quality and utility taken together mean merit."
+        },
+        {
+            "symbol": "仕",
+            "keyword": "Serve",
+            "story": "A person (left) serving a knight (right)."
         }
     ],
     "theory": [
         {
             "title": "Welcome to currently unnamed kanji learning game!",
+            "description": "Learn about the very basics of this game.",
             "unlockText": "Be an absolutely wonderful human being!",
             "unlockRequirements": [],
             "unlockRewards": [
@@ -450,11 +561,12 @@
         },
         {
             "title": "What is this theory tab?????",
-            "unlockText": "Walk 10 steps",
+            "description": "Learn what this menu tab is for and how to use it.",
+            "unlockText": "Walk 50 steps.",
             "unlockRequirements": [
                 {
                     "type": "step count",
-                    "number": 10
+                    "number": 50
                 }
             ],
             "unlockRewards": [

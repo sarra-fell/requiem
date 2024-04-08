@@ -534,6 +534,9 @@ const characterList = ["witch","andro","gladius","lizard"];
 var characterSpritesheets={},characterFaces={},characterBitrates={};
 const faceBitrate = 96;
 
+// Key pair for images
+var miscImages = {};
+
 // Constants to indicate character location in sprite sheets
 const PROTAGONIST = 1;
 const GLORIA = 0;
@@ -1519,6 +1522,7 @@ function initializeScene(sceneName){
             finishedFirstRandomDysymboliaScene: false,
             finishedFivePowerScene: false,
             numFinishedTutorialScenes: 0,
+            stepsTaken: 0,
         }
 
         scene.worldX = 80;
@@ -1957,10 +1961,14 @@ function initializeNewSaveGame(){
             daysUntilMasteryIncreaseOpportunity: 0,
             customStory: null,
             customKeyword: null
-        })
+        });
     }
     for(let i=0;i<theoryWriteupData.length;i++){
-        playerTheoryUnlockedData.push(false);
+        playerTheoryUnlockedData.push({
+            unlocked: false,
+            conditionsMet: false
+        });
+
     }
 }
 
@@ -2082,58 +2090,66 @@ function initializeMenuTab(){
             }
         });
     } else if(scene.menuScene === "Theory"){
+        let evaluateUnlockRequirements = function(requirements){
+            let unlocked = true;
+            /*for(let i in requirements){
+
+            }*/
+            return unlocked;
+        }
         for(let i=0;i<theoryWriteupData.length;i++){
-                let theory = theoryWriteupData[i];
-
-                scene.tooltipBoxes.push({
-                    x: scene.worldX+240,
-                    y: scene.worldY+140 + 45*i,
-                    spawnTime: 0,
-                    width: 18*scene.tileSize+1-55, height: 40,
-                    type: "write-up entry", index: i,
-                });
-                if(!scene.hasOwnProperty("isReadingWriteup")){
-                    scene.isReadingWriteup = false;
-                }
-                if(!scene.hasOwnProperty("selectedWriteup")){
-                    scene.selectedWriteup = 0;
-                }
-
-                if(scene.isReadingWriteup){
-                    scene.buttons.push({
-                        x:scene.worldX+18*16*scene.sizeMod*2+107, y:scene.worldY+700, width:50, height:30,
-                        neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-                        text: "Stop Reading", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
-                        onClick: function(){
-                            scene.isReadingWriteup = false;
-                            initializeMenuTab();
-                        }
-                    });
-                } else {
-                    if(playerTheoryUnlockedData[i]){
-                        scene.buttons.push({
-                            x:scene.worldX+18*16*scene.sizeMod*2+107, y:scene.worldY+700, width:50, height:30,
-                            neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-                            text: "Read", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
-                            onClick: function(){
-                                scene.isReadingWriteup = true;
-                                initializeMenuTab();
-                            }
-                        });
-                    } else {
-                        scene.buttons.push({
-                            x:scene.worldX+18*16*scene.sizeMod*2+107, y:scene.worldY+700, width:170, height:30,
-                            neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-                            text: "Unlock and Collect Reward", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
-                            onClick: function(){
-                                playerTheoryUnlockedData[scene.selectedWriteup] = true;
-                                scene.isReadingWriteup = true;
-                                initializeMenuTab();
-                            }
-                        });
-                    }
-                }
+            scene.tooltipBoxes.push({
+                x: scene.worldX+240,
+                y: scene.worldY+140 + 45*i,
+                spawnTime: 0,
+                width: 18*scene.tileSize+1-55, height: 40,
+                type: "write-up entry", index: i,
+            });
+            if(!playerTheoryUnlockedData[i].conditionsMet && evaluateUnlockRequirements(theoryWriteupData[i].unlockRequirements)){
+                playerTheoryUnlockedData[i].conditionsMet = true;
             }
+        }
+        if(!scene.hasOwnProperty("isReadingWriteup")){
+            scene.isReadingWriteup = false;
+        }
+        if(!scene.hasOwnProperty("selectedWriteup")){
+            scene.selectedWriteup = 0;
+        }
+
+        if(scene.isReadingWriteup){
+            scene.buttons.push({
+                x:scene.worldX+18*16*scene.sizeMod*2+132, y:scene.worldY+700, width:100, height:30,
+                neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+                text: "Stop Reading", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+                onClick: function(){
+                    scene.isReadingWriteup = false;
+                    initializeMenuTab();
+                }
+            });
+        } else {
+            if(playerTheoryUnlockedData[scene.selectedWriteup].unlocked){
+                scene.buttons.push({
+                    x:scene.worldX+18*16*scene.sizeMod*2+157, y:scene.worldY+700, width:50, height:30,
+                    neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+                    text: "Read", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+                    onClick: function(){
+                        scene.isReadingWriteup = true;
+                        initializeMenuTab();
+                    }
+                });
+            } else {
+                scene.buttons.push({
+                    x:scene.worldX+18*16*scene.sizeMod*2+98, y:scene.worldY+700, width:170, height:30,
+                    neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+                    text: "Unlock and Collect Reward", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+                    onClick: function(){
+                        playerTheoryUnlockedData[scene.selectedWriteup].unlocked = true;
+                        scene.isReadingWriteup = true;
+                        initializeMenuTab();
+                    }
+                });
+            }
+        }
     } else {
         updateInventory();
     }
@@ -2595,6 +2611,7 @@ function updateAdventure(timeStamp){
                         scene.player.location[1]+=32;
                         scene.movingDirection = "down";
                         scene.startedMovingTime = timeStamp;
+                        scene.player.stepsTaken++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "s"){
@@ -2609,6 +2626,7 @@ function updateAdventure(timeStamp){
                         scene.player.location[0]-=32;
                         scene.movingDirection = "left";
                         scene.startedMovingTime = timeStamp;
+                        scene.player.stepsTaken++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "w"){
@@ -2623,6 +2641,7 @@ function updateAdventure(timeStamp){
                         scene.player.location[0]+=32;
                         scene.movingDirection = "right";
                         scene.startedMovingTime = timeStamp;
+                        scene.player.stepsTaken++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "e"){
@@ -2637,6 +2656,7 @@ function updateAdventure(timeStamp){
                         scene.player.location[1]-=32;
                         scene.movingDirection = "up";
                         scene.startedMovingTime = timeStamp;
+                        scene.player.stepsTaken++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "n"){
@@ -2833,8 +2853,9 @@ function updateAdventure(timeStamp){
                 scene.selectedKanji = scene.tooltipBoxes[scene.currentTooltip.index].index;
             }
         } else if(scene.menuScene === "Theory"){
-            if(mouseDown && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "write-up entry"){
+            if(mouseDown && scene.currentTooltip && scene.selectedWriteup !== scene.tooltipBoxes[scene.currentTooltip.index].index && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "write-up entry"){
                 scene.selectedWriteup = scene.tooltipBoxes[scene.currentTooltip.index].index;
+                initializeMenuTab();
             }
         }
         zClicked = xClicked = false;
@@ -3289,7 +3310,12 @@ function drawAdventure(timeStamp){
                     if(scene.selectedWriteup === i){
                         context.strokeStyle = 'hsla(60, 100%, 75%, 1)';
                     } else {
-                        context.strokeStyle = 'hsla(300, 75%, 75%, 1)';
+                        if(playerTheoryUnlockedData[i].unlocked){
+                            context.strokeStyle = 'hsla(300, 75%, 75%, 1)';
+                        } else {
+                            context.strokeStyle = 'hsla(0, 0%, 60%, 1)';
+                        }
+
                     }
                     context.lineWidth = 2;
                     //context.fillStyle = 'hsla(0, 0%, 30%, 1)';
@@ -3300,7 +3326,13 @@ function drawAdventure(timeStamp){
                     context.stroke();
 
                     context.fillStyle = 'white';
-                    context.fillText(theory.title,scene.worldX+240 + 15,scene.worldY+140 + 45*i + 27)
+                    context.fillText(theory.title,scene.worldX+240 + 15,scene.worldY+140 + 45*i + 27);
+
+                    if(!playerTheoryUnlockedData[i].unlocked){
+                        context.drawImage(miscImages.whitelock,scene.worldX+240+w-55-35,scene.worldY+140 + 45*i + 7,21,25);
+                    } else {
+
+                    }
                 }
             } else {
 
@@ -3334,7 +3366,6 @@ function drawAdventure(timeStamp){
 
                 context.font = '20px zenMaruRegular';
                 context.fillStyle = 'white';
-                context.textAlign = 'left';
                 let wrappedText = wrapText(context, writeupInfo.title, scene.worldY+currentY+48, 240, 22);
                 context.textAlign = 'center';
                 wrappedText.forEach(function(item) {
@@ -3344,6 +3375,44 @@ function drawAdventure(timeStamp){
                 });
 
                 currentY += wrappedText.length*19+48;
+
+                // Write-up description
+                context.font = '18px zenMaruMedium';
+                context.fillText("Description", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+currentY+35);
+
+                context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+                context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 90, scene.worldY+currentY+35+13, 300-180, 2);
+
+                context.font = '16px zenMaruRegular';
+                context.fillStyle = 'white';
+                wrappedText = wrapText(context, writeupInfo.description, scene.worldY+currentY+35+38, 240, 18);
+                context.textAlign = 'center';
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 150, item[1]);
+                });
+
+                currentY += wrappedText.length*18+35+38;
+
+                // Write-up unlock requirements
+                context.font = '17px zenMaruMedium';
+                context.fillText("Unlock Requirements", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+currentY+28);
+
+                context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+                context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 90, scene.worldY+currentY+28+13, 300-180, 2);
+
+                context.font = '16px zenMaruRegular';
+                context.fillStyle = 'white';
+                wrappedText = wrapText(context, writeupInfo.unlockText, scene.worldY+currentY+28+38, 240, 18);
+                context.textAlign = 'center';
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 150, item[1]);
+                });
+
+                currentY += wrappedText.length*18+28+38;
 
                 /*
                 context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
@@ -3968,6 +4037,13 @@ function init(){
             characterBitrates[c] = 32;
         }
     }
+
+    miscImages.checklock = new Image();
+    miscImages.checklock.src = `/assets/some ui/checkmark-lock.png`;
+    miscImages.whitelock = new Image();
+    miscImages.whitelock.src = `/assets/some ui/white-lock.png`;
+    miscImages.openlock = new Image();
+    miscImages.openlock.src = `/assets/some ui/open-lock.png`;
 
     // Get a reference to the canvas
     canvas = document.getElementById('canvas');
