@@ -1036,7 +1036,7 @@ const wrapText = function(ctx, text, y, maxWidth, lineHeight, japanese = false) 
         let metrics = ctx.measureText(testLine);
         let testWidth = metrics.width;
         // If the width of this test line is more than the max width
-        if (testWidth > maxWidth && n > 0) {
+        if (words[n] === "\n" || testWidth > maxWidth && n > 0) {
             // Then the line is finished, push the current line into "lineArray"
             lineArray.push([line, y]);
             // Increase the line height, so a new line is started
@@ -1049,7 +1049,6 @@ const wrapText = function(ctx, text, y, maxWidth, lineHeight, japanese = false) 
                 line = `${words[n]} `;
                 testLine = `${words[n]} `;
             }
-
         }
         else {
             // If the test line is still less than the max width, then add the word to the current line
@@ -2045,7 +2044,7 @@ function updateInventory(addItem = "none"){
     }
 }
 
-// Update tooltips that need to be updated apon menu change
+// Update tooltips that need to be updated upon menu change
 function initializeMenuTab(){
     for(let i = scene.tooltipBoxes.length-1;i>=0;i--){
         if(scene.tooltipBoxes[i].type === "item"){
@@ -2092,9 +2091,9 @@ function initializeMenuTab(){
     } else if(scene.menuScene === "Theory"){
         let evaluateUnlockRequirements = function(requirements){
             let unlocked = true;
-            /*for(let i in requirements){
+            for(let i=0;i<requirements.length;i++){
 
-            }*/
+            }
             return unlocked;
         }
         for(let i=0;i<theoryWriteupData.length;i++){
@@ -3335,7 +3334,14 @@ function drawAdventure(timeStamp){
                     }
                 }
             } else {
-
+                context.font = '18px ZenMaruRegular';
+                let writeupInfo = theoryWriteupData[scene.selectedWriteup];
+                let wrappedText = wrapText(context, writeupInfo.entryText, scene.worldY+140, w-55, 20);
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], scene.worldX+240, item[1]);
+                });
             }
 
             if(scene.selectedWriteup !== null){
@@ -3413,6 +3419,23 @@ function drawAdventure(timeStamp){
                 });
 
                 currentY += wrappedText.length*18+28+38;
+
+                // unlock rewards
+                context.font = '17px zenMaruMedium';
+                context.fillText("Unlock Rewards", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+currentY+28);
+
+                context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+                context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 90, scene.worldY+currentY+28+13, 300-180, 2);
+
+                context.font = '16px zenMaruRegular';
+                context.fillStyle = 'white';
+                wrappedText = wrapText(context, writeupInfo.rewardText, scene.worldY+currentY+28+38, 240, 18);
+                context.textAlign = 'center';
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 150, item[1]);
+                });
 
                 /*
                 context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
