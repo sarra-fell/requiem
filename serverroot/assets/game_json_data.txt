@@ -550,7 +550,14 @@
             "title": "Welcome to currently unnamed kanji learning game!",
             "description": "Learn about the very basics of this game.",
             "unlockText": "Be an absolutely wonderful human being!",
-            "unlockRequirements": [],
+            "unlockRequirements": [
+                {
+                    "type": "free",
+                    "number": 1,
+                    "progress": 1,
+                    "textDescription": "Be an absolutely wonderful human being!"
+                }
+            ],
             "rewardText": "5 gems.",
             "unlockRewards": [
                 {
@@ -558,26 +565,28 @@
                     "number": 5
                 }
             ],
-            "entryText": " Welcome to currently unnamed kanji learning game!  \n \n Arrow keys to move around. Press Z to interact with things in front of you. I made it really, really simple so theres not so much you have to remember. Try interacting with a lot of things! \n Hover your mouse over items and conditions, and click on the theory write-ups in the theory tab and click on the kanji in the kanji tab for more info on them. \n You might have to use the rest of your keyboard to type at times. I wonder what that dysymbolia thing is all about??? \n You could also press X to skip though text if you want (feature pending). I don't know why you would want to though. \n \n Hope you liked those 5 gems I gave you, they are very pretty. If you want more, try unlocking more theory pages! I explain what this theory tab is all about in the next page. You could read it if you want. Or you could just grab the gems and leave without reading it, not my place to judge. \n \n - Sarracenia"
+            "entryText": " Welcome to currently unnamed kanji learning game!  \n \n Arrow keys to move around. Press Z to interact with things in front of you. I made it really, really simple so theres not so much you have to remember. Try interacting with a lot of things! \n \n Hover your mouse over items and conditions, and click on the theory write-ups in the theory tab and click on the kanji in the kanji tab for more info on them. \n \n You might have to use the rest of your keyboard to type at times. I wonder what that dysymbolia thing is all about??? \n \n Hope you liked those 5 gems I gave you, they are very pretty. If you want more, try unlocking more theory pages! I explain what this theory tab is all about in the next page. You could read it if you want. Or you could just grab the gems and leave without reading it, not my place to judge. \n \n - Sarracenia"
         },
         {
             "title": "What is this theory tab?????",
             "description": "Learn what this menu tab is for and how to use it.",
-            "unlockText": "Walk 50 steps.",
             "rewardText": "5 gems.",
             "unlockRequirements": [
                 {
                     "type": "step count",
-                    "number": 50
+                    "number": 150,
+                    "progress": 0,
+                    "textDescription": "Walk 150 steps."
                 }
             ],
             "unlockRewards": [
                 {
                     "type": "currency 2",
-                    "number": 5
+                    "number": 5,
+                    "progress": 0
                 }
             ],
-            "entryText": " I'm glad you asked. Wait, before you keep reading!!!!! You don't have to read this!!!! You can take the gems and do literally anything else you want to do instead!!!! This tab will be unlocked for all of time for you so come back whenever you want, well, unless you start a new save, or lose this one (I'll do my best to try to make sure that doesn't happen). You could also just never come back. \n \n The point is, you could skip these and be fine, and you definitely don't have to read them in order. In the theory tab you are on right now, you unlock my write-ups in English (ugh, boring language right, Japanese is where its at) and you can read whichever ones you think will help, either way you can get cool rewards so its a win-win. \n \n You'll unlock write-ups about a variety of topics: \n - How to use certain game features and tips and tricks for using them. \n - The point behind the different aspects in the game and why they are designed the way they are for you to help you best learn Japanese, and tips and tricks for making the most out of them for your personal language learning journey. \n - How I suggest you learn Japanese in general. \n - My own explainations for basic grammar topics in Japanese in case you don't feel like finding a different resource for that which I may or may not help you find! \n - Plus more, probably? \n \n Also at the bottom of the tab is a special section that can help you in the game if you don't know what to do next. You unlocked it by also unlocking this tab. At least, if I bothered to implement that yet lol. \n \n See you in the next one, or not! \n \n - Sarracenia"
+            "entryText": " I'm glad you asked. Wait, before you keep reading!!!!! You don't have to read this!!!! You can take the gems and do literally anything else you want to do instead!!!! This tab will be unlocked for all of time for you so come back whenever you want, well, unless you start a new save, or lose this one (I'll do my best to try to make sure that doesn't happen). You could also just never come back. \n \n The point is, you could skip these and be fine, and you definitely don't have to read them in order. In the theory tab you are on right now, you unlock my write-ups in English (ugh, boring language right, Japanese is where its at) and you can read whichever ones you think will help, either way you can get cool rewards so its a win-win. \n \n You'll unlock write-ups about a variety of topics: \n - How to use certain game features and tips and tricks for using them. \n - The point behind the different aspects in the game and why they are designed the way they are for you to help you best learn Japanese, and tips and tricks for making the most out of them for your personal language learning journey. \n - How I suggest you learn Japanese in general. \n - My own explainations for basic grammar topics in Japanese in case you don't feel like finding a different resource for that which I may or may not help you find! \n - Plus more, probably? \n \n Also at the bottom of the tab is a special section that can help you in the game if you don't know what to do next. You unlocked it by also unlocking this write-up. At least, if I bothered to implement that yet lol. \n \n See you in the next one, or not! \n \n - Sarracenia"
         }
     ]
 }

@@ -1485,6 +1485,7 @@ function initializeScene(sceneName){
             power: 0, powerSoftcap: 5,
             maxInventorySpace: 20,
             dysymboliaActive: true,
+            currencyOne: 0, currencyTwo: 0,
 
             // Measured in in-game seconds. -1 means there is a current dysymbolia event
             // it will stay at 0 if one cannot currently happen and it is waiting for the next opportunity to start
@@ -1521,7 +1522,7 @@ function initializeScene(sceneName){
             finishedFirstRandomDysymboliaScene: false,
             finishedFivePowerScene: false,
             numFinishedTutorialScenes: 0,
-            stepsTaken: 0,
+            stepCount: 0,
         }
 
         scene.worldX = 80;
@@ -1589,7 +1590,7 @@ function initializeScene(sceneName){
                             b.enabled = true;
                         }
                     }
-                    updateInventory();
+                    initializeMenuTab();
                 } else {
                     scene.menuScene = null;
                     scene.timeOfLastUnpause = performance.now();
@@ -1600,7 +1601,10 @@ function initializeScene(sceneName){
                         if(b.hasOwnProperty("tab")){
                             b.enabled = false;
                         }
-                        if(b.text === "Toggle Enabled Status"){
+                        if(scene.buttons[i].text === "Toggle Enabled Status" ||
+                            scene.buttons[i].text === "Stop Reading" ||
+                            scene.buttons[i].text === "Read" ||
+                            scene.buttons[i].text === "Unlock and Collect Reward"){
                             scene.buttons.splice(i,1);
                         }
                     }
@@ -1965,7 +1969,7 @@ function initializeNewSaveGame(){
     for(let i=0;i<theoryWriteupData.length;i++){
         playerTheoryUnlockedData.push({
             unlocked: false,
-            conditionsMet: false
+            conditionsMet: false,
         });
 
     }
@@ -2044,6 +2048,12 @@ function updateInventory(addItem = "none"){
     }
 }
 
+function awardPlayer(award){
+    if(typeof award === "object"){
+        scene.player.currencyTwo += award.number;
+    }
+}
+
 // Update tooltips that need to be updated upon menu change
 function initializeMenuTab(){
     for(let i = scene.tooltipBoxes.length-1;i>=0;i--){
@@ -2092,7 +2102,13 @@ function initializeMenuTab(){
         let evaluateUnlockRequirements = function(requirements){
             let unlocked = true;
             for(let i=0;i<requirements.length;i++){
-
+                let r = requirements[i];
+                if(r.type === "step count"){
+                    r.progress = scene.player.stepCount;
+                    if(r.progress <= r.number){
+                        unlocked = false;
+                    }
+                }
             }
             return unlocked;
         }
@@ -2104,7 +2120,7 @@ function initializeMenuTab(){
                 width: 18*scene.tileSize+1-55, height: 40,
                 type: "write-up entry", index: i,
             });
-            if(!playerTheoryUnlockedData[i].conditionsMet && evaluateUnlockRequirements(theoryWriteupData[i].unlockRequirements)){
+            if(evaluateUnlockRequirements(theoryWriteupData[i].unlockRequirements)){
                 playerTheoryUnlockedData[i].conditionsMet = true;
             }
         }
@@ -2136,15 +2152,21 @@ function initializeMenuTab(){
                         initializeMenuTab();
                     }
                 });
-            } else {
+            } else if(playerTheoryUnlockedData[scene.selectedWriteup].conditionsMet){
                 scene.buttons.push({
                     x:scene.worldX+18*16*scene.sizeMod*2+98, y:scene.worldY+700, width:170, height:30,
                     neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
                     text: "Unlock and Collect Reward", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
                     onClick: function(){
-                        playerTheoryUnlockedData[scene.selectedWriteup].unlocked = true;
-                        scene.isReadingWriteup = true;
-                        initializeMenuTab();
+                        let theoryNum = scene.selectedWriteup;
+                        if(playerTheoryUnlockedData[theoryNum].conditionsMet){
+                            playerTheoryUnlockedData[theoryNum].unlocked = true;
+                            scene.isReadingWriteup = true;
+                            for(let i in theoryWriteupData[theoryNum].unlockRewards){
+                                awardPlayer(theoryWriteupData[theoryNum].unlockRewards[i]);
+                            }
+                            initializeMenuTab();
+                        }
                     }
                 });
             }
@@ -2610,7 +2632,7 @@ function updateAdventure(timeStamp){
                         scene.player.location[1]+=32;
                         scene.movingDirection = "down";
                         scene.startedMovingTime = timeStamp;
-                        scene.player.stepsTaken++;
+                        scene.player.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "s"){
@@ -2625,7 +2647,7 @@ function updateAdventure(timeStamp){
                         scene.player.location[0]-=32;
                         scene.movingDirection = "left";
                         scene.startedMovingTime = timeStamp;
-                        scene.player.stepsTaken++;
+                        scene.player.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "w"){
@@ -2640,7 +2662,7 @@ function updateAdventure(timeStamp){
                         scene.player.location[0]+=32;
                         scene.movingDirection = "right";
                         scene.startedMovingTime = timeStamp;
-                        scene.player.stepsTaken++;
+                        scene.player.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "e"){
@@ -2655,7 +2677,7 @@ function updateAdventure(timeStamp){
                         scene.player.location[1]-=32;
                         scene.movingDirection = "up";
                         scene.startedMovingTime = timeStamp;
-                        scene.player.stepsTaken++;
+                        scene.player.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "n"){
@@ -2852,7 +2874,7 @@ function updateAdventure(timeStamp){
                 scene.selectedKanji = scene.tooltipBoxes[scene.currentTooltip.index].index;
             }
         } else if(scene.menuScene === "Theory"){
-            if(mouseDown && scene.currentTooltip && scene.selectedWriteup !== scene.tooltipBoxes[scene.currentTooltip.index].index && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "write-up entry"){
+            if(mouseDown && scene.currentTooltip && !scene.isReadingWriteup && scene.selectedWriteup !== scene.tooltipBoxes[scene.currentTooltip.index].index && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "write-up entry"){
                 scene.selectedWriteup = scene.tooltipBoxes[scene.currentTooltip.index].index;
                 initializeMenuTab();
             }
@@ -3328,9 +3350,11 @@ function drawAdventure(timeStamp){
                     context.fillText(theory.title,scene.worldX+240 + 15,scene.worldY+140 + 45*i + 27);
 
                     if(!playerTheoryUnlockedData[i].unlocked){
-                        context.drawImage(miscImages.whitelock,scene.worldX+240+w-55-35,scene.worldY+140 + 45*i + 7,21,25);
-                    } else {
-
+                        if(playerTheoryUnlockedData[i].conditionsMet){
+                            context.drawImage(miscImages.checklock,scene.worldX+240+w-55-35,scene.worldY+140 + 45*i + 7,21,25);
+                        } else {
+                            context.drawImage(miscImages.whitelock,scene.worldX+240+w-55-35,scene.worldY+140 + 45*i + 7,21,25);
+                        }
                     }
                 }
             } else {
@@ -3391,8 +3415,8 @@ function drawAdventure(timeStamp){
 
                 context.font = '16px zenMaruRegular';
                 context.fillStyle = 'white';
-                wrappedText = wrapText(context, writeupInfo.description, scene.worldY+currentY+35+38, 240, 18);
                 context.textAlign = 'center';
+                wrappedText = wrapText(context, writeupInfo.description, scene.worldY+currentY+35+38, 240, 18);
                 wrappedText.forEach(function(item) {
                     // item[0] is the text
                     // item[1] is the y coordinate to fill the text at
@@ -3408,17 +3432,22 @@ function drawAdventure(timeStamp){
                 context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
                 context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 90, scene.worldY+currentY+28+13, 300-180, 2);
 
+                currentY += 28+13;
+
                 context.font = '16px zenMaruRegular';
                 context.fillStyle = 'white';
-                wrappedText = wrapText(context, writeupInfo.unlockText, scene.worldY+currentY+28+38, 240, 18);
                 context.textAlign = 'center';
-                wrappedText.forEach(function(item) {
-                    // item[0] is the text
-                    // item[1] is the y coordinate to fill the text at
-                    context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 150, item[1]);
-                });
+                for(let i=0; i<writeupInfo.unlockRequirements.length; i++){
+                    let r = writeupInfo.unlockRequirements[i];
+                    wrappedText = wrapText(context, r.textDescription+` (${r.progress}/${r.number})`, scene.worldY+currentY+25, 240, 18);
+                    wrappedText.forEach(function(item) {
+                        // item[0] is the text
+                        // item[1] is the y coordinate to fill the text at
+                        context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 150, item[1]);
+                    });
+                }
 
-                currentY += wrappedText.length*18+28+38;
+                currentY += wrappedText.length*18+15;
 
                 // unlock rewards
                 context.font = '17px zenMaruMedium';
@@ -3429,8 +3458,12 @@ function drawAdventure(timeStamp){
 
                 context.font = '16px zenMaruRegular';
                 context.fillStyle = 'white';
-                wrappedText = wrapText(context, writeupInfo.rewardText, scene.worldY+currentY+28+38, 240, 18);
                 context.textAlign = 'center';
+                let rewardText = writeupInfo.rewardText;
+                if(playerTheoryUnlockedData[scene.selectedWriteup].unlocked){
+                    rewardText+= " (Collected)";
+                }
+                wrappedText = wrapText(context, rewardText, scene.worldY+currentY+28+38, 240, 18);
                 wrappedText.forEach(function(item) {
                     // item[0] is the text
                     // item[1] is the y coordinate to fill the text at
@@ -3441,63 +3474,6 @@ function drawAdventure(timeStamp){
                 context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
                 context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 80, scene.worldY+currentY+25, 300-160, 2);*/
             }
-            /*
-            // Draw kanji info on side of screen
-            if(scene.selectedKanji !== null){
-                isToDrawStatusBar = false;
-
-                let kanjiInfo = adventureKanjiFileData[scene.selectedKanji];
-                let playerKanjiInfo = playerKanjiData[scene.selectedKanji];
-
-                context.fillStyle = 'hsl(0, 0%, 10%, 55%)';
-                context.save();
-                context.shadowColor = "hsl(0, 30%, 0%)";
-                context.shadowBlur = 15;
-                context.beginPath();
-                context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 305, 805, 30);
-                context.fill();
-                context.restore();
-
-                context.font = '120px Arial';
-                context.textAlign = 'center';
-                context.fillStyle = 'white';
-                context.fillText(kanjiInfo.symbol, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+140);
-
-                context.font = '32px zenMaruMedium';
-                context.fillText(kanjiInfo.keyword, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+210);
-
-                context.font = '18px zenMaruRegular';
-                context.textAlign = 'left';
-                let bodyText = kanjiInfo.story;
-                let wrappedText = wrapText(context, bodyText, scene.worldY+250, 240, 19);
-                wrappedText.forEach(function(item) {
-                    // item[0] is the text
-                    // item[1] is the y coordinate to fill the text at
-                    context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 35, item[1]);
-                });
-
-                let belowStoryY = scene.worldY+250 + wrappedText.length*19;
-
-                context.font = '16px zenMaruRegular';
-                context.textAlign = 'center';
-                context.fillText("Successfully captured "+playerKanjiInfo.trialSuccesses+ " times.", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+45);
-                context.fillText("Mastery stage "+playerKanjiInfo.masteryStage, scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+70);
-                if(playerKanjiInfo.daysUntilMasteryIncreaseOpportunity > 0){
-                    context.font = '16px zenMaruRegular';
-                    context.fillText("Increase mastery in " + playerKanjiInfo.daysUntilMasteryIncreaseOpportunity + " days", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+95);
-                } else {
-                    context.font = '16px zenMaruBold';
-                    context.fillText("Capture to increase mastery!", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+95);
-                }
-
-
-                if(!playerKanjiInfo.enabled){
-                    context.textAlign = 'center';
-                    context.font = '22px zenMaruBlack';
-                    context.fillText("Disabled", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+660);
-                }
-                //context.fillText("Conditions: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, 235);
-            }*/
         } // Draw theory screen function ends here
 
         if(scene.menuScene === "Inventory"){
@@ -3588,6 +3564,19 @@ function drawAdventure(timeStamp){
         context.fillStyle = "#d600ba";
         context.fillText(scene.player.power+"/"+scene.player.powerSoftcap, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("Power: ").width, scene.worldY+165);
 
+        // Draw currencies
+        context.drawImage(miscImages.gems,scene.worldX+18*16*scene.sizeMod*2+30+20,scene.worldY+750,26,26);
+        context.drawImage(miscImages.gold,scene.worldX+18*16*scene.sizeMod*2+30+257,scene.worldY+750,26,26);
+        context.font = '24px Arial';
+        context.fillStyle = "#0cf";
+        context.fillText(scene.player.currencyTwo, scene.worldX+18*16*scene.sizeMod*2+30+55, scene.worldY+772);
+        context.fillStyle = "#fff01a";
+        context.textAlign = 'right';
+        context.fillText(scene.player.currencyOne, scene.worldX+18*16*scene.sizeMod*2+30+55+190, scene.worldY+772);
+
+        context.textAlign = 'left';
+
+        // Draw conditions
         let conditionLine = "Conditions: "
         for(let i in scene.player.conditions){
             const condition = scene.player.conditions[i];
@@ -4062,11 +4051,15 @@ function init(){
     }
 
     miscImages.checklock = new Image();
-    miscImages.checklock.src = `/assets/some ui/checkmark-lock.png`;
+    miscImages.checklock.src = `/assets/some ui/green-checklock.png`;
     miscImages.whitelock = new Image();
     miscImages.whitelock.src = `/assets/some ui/white-lock.png`;
     miscImages.openlock = new Image();
     miscImages.openlock.src = `/assets/some ui/open-lock.png`;
+    miscImages.gems = new Image();
+    miscImages.gems.src = `/assets/some ui/diamonds.png`;
+    miscImages.gold = new Image();
+    miscImages.gold.src = `/assets/some ui/gold-coins.png`;
 
     // Get a reference to the canvas
     canvas = document.getElementById('canvas');
