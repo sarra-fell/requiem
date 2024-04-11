@@ -205,6 +205,7 @@ var dialogueFileData = {
 
 var adventureKanjiFileData = [];
 var theoryWriteupData = [];
+var abilityFileData = [];
 
 // Loads the data !!!
 let dialogueLoaded = false;
@@ -213,6 +214,7 @@ function processGameJsonData(data) {
     const dialogueData = gameData.dialogue;
     adventureKanjiFileData = gameData.kanji;
     theoryWriteupData = gameData.theory;
+    abilityFileData = gameData.abilities;
 
     dialogueFileData.scenes = dialogueData.scenes;
     dialogueFileData.world = dialogueData.worldDialogue;
@@ -1513,6 +1515,7 @@ function initializeScene(sceneName){
                         "none","none",0,"none","none",
                         0,"none","none","none",0
             ],
+            acquiredAbilities: [],
 
             finishedWaterScene: false,
             finishedFruitScene: false,
@@ -1948,6 +1951,9 @@ var playerKanjiData = [];
 // Contains the theory unlock data of the current player
 var playerTheoryUnlockedData = [];
 
+// Contains the ability data of the current player
+var playerAbilityData = [];
+
 // Call to initialize the game when no save file is being loaded and the game is to start from the beginning
 function initializeNewSaveGame(){
     for(let i=0;i<adventureKanjiFileData.length;i++){
@@ -2052,6 +2058,11 @@ function awardPlayer(award){
     if(typeof award === "object"){
         scene.player.currencyTwo += award.number;
     }
+}
+
+// Update the playerAbilityData with the current listed and aquirable abilities
+function updatePlayerAbilityList(){
+
 }
 
 // Update tooltips that need to be updated upon menu change
@@ -3476,12 +3487,47 @@ function drawAdventure(timeStamp){
             }
         } // Draw theory screen function ends here
 
+        const drawAbilityScreen = function(){
+            context.font = '20px ZenMaruRegular';
+            context.textAlign = 'left';
+
+            let currentY = 135;
+
+            // Draw ability bar
+            for(let i=0;i<5;i++){
+                context.lineWidth = 2;
+                context.strokeStyle = 'hsla(0, 30%, 60%, 1)';
+                context.beginPath();
+                context.roundRect(scene.worldX+240+50*i, scene.worldY+currentY, 45, 45, 3);
+                context.stroke();
+            }
+
+            currentY += 65;
+
+            // Write-up title
+            context.font = '20px zenMaruRegular';
+            context.fillStyle = 'white';
+            context.textAlign = 'center';
+            context.fillText("Acquired Abilities", scene.worldX+240+250, scene.worldY+currentY+25);
+
+            context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+            context.fillRect(scene.worldX+240+148, scene.worldY+currentY+25+15, 300-90, 2);
+
+            //currentY += wrappedText.length*19+48;
+
+            if(scene.selectedAbility !== null){
+
+            }
+        } // Draw ability screen function ends here
+
         if(scene.menuScene === "Inventory"){
             drawInventoryScreen();
         } else if(scene.menuScene === "Kanji List"){
             drawKanjiScreen();
         } else if(scene.menuScene === "Theory"){
             drawTheoryScreen();
+        } else if(scene.menuScene === "Abilities"){
+            drawAbilityScreen();
         }
     }
 
@@ -3518,10 +3564,19 @@ function drawAdventure(timeStamp){
         drawCharacter("witch",[32,0],scene.worldX+18*16*scene.sizeMod*2+30 + 200,scene.worldY+122);
 
         context.font = '20px zenMaruMedium';
-        context.fillText("Abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+275);
+        context.fillText("Abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+505);
 
-        context.font = '15px zenMaruRegular';
-        context.fillText("No learned abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+320);
+        // Draw ability bar
+        for(let i=0;i<5;i++){
+            context.lineWidth = 2;
+            context.strokeStyle = 'hsla(0, 30%, 60%, 1)';
+            context.beginPath();
+            context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i, scene.worldY+535, 45, 45, 3);
+            context.stroke();
+        }
+
+        /*context.font = '15px zenMaruRegular';
+        context.fillText("No learned abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+520);*/
 
         context.font = '20px zenMaruMedium';
         context.fillText("Inventory", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+660);
@@ -3529,7 +3584,7 @@ function drawAdventure(timeStamp){
         // Draw inventory hotbar
         for(let i=0;i<5;i++){
             context.lineWidth = 2;
-            context.strokeStyle = 'hsla(270, 60%, 75%, 0.6)';
+            context.strokeStyle = 'hsla(270, 30%, 60%, 1)';
             context.beginPath();
             context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i, scene.worldY+690, 45, 45, 3);
             context.stroke();
@@ -3542,7 +3597,7 @@ function drawAdventure(timeStamp){
         // Make underlines
         context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
         context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 80, scene.worldY+65, 300-160, 2);
-        context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 100, scene.worldY+290, 300-200, 2);
+        context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 100, scene.worldY+520, 300-200, 2);
         context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 100, scene.worldY+675, 300-200, 2);
 
         context.font = '24px zenMaruRegular';
@@ -3556,7 +3611,6 @@ function drawAdventure(timeStamp){
         context.fillText("HP: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+140);
         context.fillText("Power: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+165);
         context.fillText("Conditions: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+220);
-        //context.fillText("Abilties: No learned abilities.", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+245);
 
         context.fillStyle = "#40d600";
         context.fillText(scene.player.hp+"/"+scene.player.maxHp, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("HP: ").width, scene.worldY+140);
