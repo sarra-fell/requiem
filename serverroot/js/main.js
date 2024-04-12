@@ -206,6 +206,7 @@ var dialogueFileData = {
 var adventureKanjiFileData = [];
 var theoryWriteupData = [];
 var abilityFileData = [];
+var abilityIcons = [];
 
 // Loads the data !!!
 let dialogueLoaded = false;
@@ -222,6 +223,12 @@ function processGameJsonData(data) {
     dialogueFileData.gladius = dialogueData.characterDialogue.Gladius;
     dialogueFileData.andro = dialogueData.characterDialogue.Andro;
     dialogueFileData.lizard = dialogueData.characterDialogue.Lizard;
+
+    for(let i=0;i<abilityFileData.length;i++){
+        let icon = new Image();
+        icon.src = `/assets/temp icons/icon-${i}.png`;
+        abilityIcons.push(icon);
+    }
 
     dialogueLoaded = true;
 }
@@ -632,18 +639,12 @@ const movingAnimationDuration = 200;
     Extremely insignificant and puny variables !!
 */
 
-// These constants could be scene variables but they dont need to be variable so it saves a bit of the work to just have them be global constants
-const playerSpeed=400, bulletSpeed=2500;
-const bulletRadius = 10;
-
 // Turned on for one frame when the logging key is pressed to alert/print some stuff
 let isLoggingFrame = false;
 
 let showDevInfo = true;
 
 // Various variables that should be scene variables but havent gotten to changing them yet (maybe not ever)
-let shaking = false, shakeIntensity = 4, timeOfLastShake = 0;
-const shakeFrequency = 2;
 let love = 0, note = "無";
 let name = "nameless", nameRecentlyLearned = false;
 let randomColor = Math.random() > 0.5? '#ff8080' : '#0099b0';
@@ -978,7 +979,7 @@ window.addEventListener('click',function(e) {
 
         // Make bullet going at a velocity of the unit vector times the bullet speed
         scene.bullets.push({bulletX: scene.playerX,bulletY: scene.playerY,
-        bulletVelocityX: a*bulletSpeed/distance,bulletVelocityY: b*bulletSpeed/distance});
+        bulletVelocityX: a*2500/distance,bulletVelocityY: b*2500/distance});
     }
 
     for (let x in scene.buttons) {
@@ -1122,10 +1123,10 @@ function drawTooltip() {
         const condition = tooltipBox.condition;
         context.font = '20px zenMaruBlack';
         if(condition.name === "Dysymbolia"){
-            if(scene.player.timeUntilDysymbolia === 0){
+            if(scene.player.sceneData.timeUntilDysymbolia === 0){
                 draw(condition.color,condition.name,"Character sees visions of a distant world. Next imminent.", false, 12);
                 return;
-            } else if(scene.player.timeUntilDysymbolia < 0){
+            } else if(scene.player.sceneData.timeUntilDysymbolia < 0){
                 draw(condition.color,condition.name,"ここが貴方のいるべき場所じゃない。戻ってください。", true, 12);
                 return;
             }
@@ -1135,7 +1136,7 @@ function drawTooltip() {
         let parsedDesc = "";
         for(let i in splitDesc){
             if(splitDesc[i] === "timeUntilDysymbolia"){
-                parsedDesc = parsedDesc + `${scene.player.timeUntilDysymbolia}`;
+                parsedDesc = parsedDesc + `${scene.player.sceneData.timeUntilDysymbolia}`;
             } else {
                 parsedDesc = parsedDesc + splitDesc[i];
             }
@@ -1478,21 +1479,57 @@ function initializeScene(sceneName){
 
         // Stores all player and progress info for adventure (as long as its information that would be worth saving between sessions)
         scene.player = {
-            location: levels[0].defaultLocation,
-            graphicLocation: levels[0].defaultLocation,
-            src: [32,0],
-            name: "Mari", jpName: "マリィ",
-            level: 1,
-            hp: 40, maxHp: 40,
-            power: 0, powerSoftcap: 5,
-            maxInventorySpace: 20,
-            dysymboliaActive: true,
-            currencyOne: 0, currencyTwo: 0,
+            sceneData: {
+                location: levels[0].defaultLocation,
+                graphicLocation: levels[0].defaultLocation,
+                src: [32,0],
+                name: "Mari", jpName: "マリィ",
+                dysymboliaActive: true,
 
-            // Measured in in-game seconds. -1 means there is a current dysymbolia event
-            // it will stay at 0 if one cannot currently happen and it is waiting for the next opportunity to start
-            timeUntilDysymbolia: 60,
-            //hunger: 75, maxHunger: 100,
+                // Measured in in-game seconds. -1 means there is a current dysymbolia event
+                // it will stay at 0 if one cannot currently happen and it is waiting for the next opportunity to start
+                timeUntilDysymbolia: 60,
+                //hunger: 75, maxHunger: 100,
+            },
+            combatData: {
+                level: 1,
+                hp: 40, maxHp: 40,
+                power: 0, powerSoftcap: 5
+            },
+            inventoryData: {
+                maxInventorySpace: 20,
+                currencyOne: 0, currencyTwo: 0,
+                inventory: [0,"none","none","none","none", // First 5 items are the hotbar
+                            "none",0,"none","none","none",
+                            "none","none",0,"none","none",
+                            0,"none","none","none",0
+                ],
+            },
+            abilityData: {
+                abilitySlots: 6,
+
+                // Contains listed abilities and data on whether they are unlocked or not
+                listedAbilities: [],
+
+                // Dictionary of booleans, is the named ability acquired?
+                acquiredAbilities: {},
+            },
+            statisticData: {
+                finishedWaterScene: false,
+                finishedFruitScene: false,
+                finishedCloudScene: false,
+                finishedDungeonScene: false,
+                finishedNightScene: false,
+                finishedFirstRandomDysymboliaScene: false,
+                finishedFivePowerScene: false,
+                numFinishedTutorialScenes: 0,
+                stepCount: 0,
+                enemiesDefeated: 0,
+                totalDysymboliaManualTriggers: 0,
+                totalKanjiMastery: 0,
+            },
+            kanjiData: [],
+            theoryData: [],
             conditions: [
                 {
                     name: "Dysymbolia",
@@ -1510,22 +1547,6 @@ function initializeScene(sceneName){
                     desc: "Character is hungry. Healing from most non-food sources are reduced."
                 }
             ],
-            inventory: [0,"none","none","none","none", // First 5 items are the hotbar
-                        "none",0,"none","none","none",
-                        "none","none",0,"none","none",
-                        0,"none","none","none",0
-            ],
-            acquiredAbilities: [],
-
-            finishedWaterScene: false,
-            finishedFruitScene: false,
-            finishedCloudScene: false,
-            finishedDungeonScene: false,
-            finishedNightScene: false,
-            finishedFirstRandomDysymboliaScene: false,
-            finishedFivePowerScene: false,
-            numFinishedTutorialScenes: 0,
-            stepCount: 0,
         }
 
         scene.worldX = 80;
@@ -1715,18 +1736,18 @@ function updateHome(timeStamp){
         scene.ballVelocityY*=-1;
     }
 
-    // Update player location
+    // Update user controlled ball location
     if(upPressed){
-        scene.playerY-=playerSpeed/fps;
+        scene.playerY-=400/fps;
     }
     if(downPressed){
-        scene.playerY+=playerSpeed/fps;
+        scene.playerY+=400/fps;
     }
     if(leftPressed){
-        scene.playerX-=playerSpeed/fps;
+        scene.playerX-=400/fps;
     }
     if(rightPressed){
-        scene.playerX+=playerSpeed/fps;
+        scene.playerX+=400/fps;
     }
 
     playerParticleSystem.x = scene.playerX;
@@ -1855,7 +1876,7 @@ function drawHome(timeStamp){
         //context.fillText("Bullet "+x+" X:"+bullet.bulletX, screenWidth-200, 50+40*x);
         //context.fillText("Bullet "+x+" Y:"+bullet.bulletY, screenWidth-200, 65+40*x);
         context.beginPath();
-        context.arc(bullet.bulletX, bullet.bulletY, bulletRadius, 0, 2 * Math.PI);
+        context.arc(bullet.bulletX, bullet.bulletY, 10, 0, 2 * Math.PI);
         context.fill();
     }
 }
@@ -1946,16 +1967,14 @@ sceneDefinitions.push({
 /********************************* Adventure scene *************************************/
 
 // Contains the kanji data specfic to the current player
-var playerKanjiData = [];
+//var playerKanjiData = [];
 
 // Contains the theory unlock data of the current player
-var playerTheoryUnlockedData = [];
-
-// Contains the ability data of the current player
-var playerAbilityData = [];
+//var playerTheoryUnlockedData = [];
 
 // Call to initialize the game when no save file is being loaded and the game is to start from the beginning
 function initializeNewSaveGame(){
+    let playerKanjiData = scene.player.kanjiData;
     for(let i=0;i<adventureKanjiFileData.length;i++){
         playerKanjiData.push({
             // Contains the full trial history of the kanji
@@ -1972,18 +1991,47 @@ function initializeNewSaveGame(){
             customKeyword: null
         });
     }
+
+    let playerTheoryData = scene.player.theoryData;
     for(let i=0;i<theoryWriteupData.length;i++){
-        playerTheoryUnlockedData.push({
+        playerTheoryData.push({
             unlocked: false,
             conditionsMet: false,
         });
+    }
 
+    let playerAbilityData = scene.player.abilityData;
+    for(let i=0;i<abilityFileData.length;i++){
+        playerAbilityData.acquiredAbilities[abilityFileData[i]] = false;
     }
 }
 
 // Call to initialize the game when loading a save file
 function loadSaveGame(){
 
+}
+
+// Evaluate conditions for listing abilities, unlocking abilities, listing theory pages, or unlocking theory pages.
+let evaluateUnlockRequirements = function(requirements){
+    let unlocked = true;
+    for(let i=0;i<requirements.length;i++){
+        let r = requirements[i];
+        if(r.type === "statistic threshold"){
+            r.progress = scene.player.statisticData[r.stat];
+            if(r.progress <= r.number){
+                unlocked = false;
+            }
+        } else if(r.type === "acquired ability"){
+            if(scene.player.abilityData.acquiredAbilities[r.ability]){
+                r.progress = 1;
+                unlocked = true;
+            } else {
+                r.progress = 0;
+                unlocked = false;
+            }
+        }
+    }
+    return unlocked;
 }
 
 // Update condition tooltips when condition array is modified
@@ -2023,9 +2071,9 @@ function updateInventory(addItem = "none"){
             scene.tooltipBoxes.splice(i,1);
         }
     }
-    let inventory = scene.player.inventory;
-    for(let i=0; i<inventory.length; i++){
-        let item = inventory[i];
+    let inventoryData = scene.player.inventoryData;
+    for(let i=0; i<inventoryData.inventory.length; i++){
+        let item = inventoryData.inventory[i];
         if(item !== "none"){
             scene.tooltipBoxes.push({
                 x: scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,
@@ -2054,15 +2102,33 @@ function updateInventory(addItem = "none"){
     }
 }
 
+// Will add graphics associated with awarding stuff to the player much later
 function awardPlayer(award){
+    let inventoryData = scene.player.inventoryData;
     if(typeof award === "object"){
-        scene.player.currencyTwo += award.number;
+        inventoryData.currencyTwo += award.number;
     }
 }
 
-// Update the playerAbilityData with the current listed and aquirable abilities
+// Update the player's ability data with the current listed and aquirable abilities
 function updatePlayerAbilityList(){
+    let playerAbilityData = scene.player.abilityData;
+    let newAbilityList = [];
 
+    for(let i=0;i<abilityFileData.length;i++){
+        let a = abilityFileData[i];
+
+        if(evaluateUnlockRequirements(a.listConditions)){
+            let unlocked = evaluateUnlockRequirements(a.unlockConditions);
+            newAbilityList.push({
+                name: a.name,
+                unlockConditions: a.unlockConditions,
+                unlocked: unlocked,
+                index: i,
+            });
+        }
+    }
+    playerAbilityData.list = newAbilityList;
 }
 
 // Update tooltips that need to be updated upon menu change
@@ -2071,6 +2137,8 @@ function initializeMenuTab(){
         if(scene.tooltipBoxes[i].type === "item"){
             scene.tooltipBoxes.splice(i,1);
         } else if(scene.tooltipBoxes[i].type === "kanji list entry"){
+            scene.tooltipBoxes.splice(i,1);
+        } else if(scene.tooltipBoxes[i].type === "ability menu ability") {
             scene.tooltipBoxes.splice(i,1);
         }
     }
@@ -2106,23 +2174,11 @@ function initializeMenuTab(){
             neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
             text: "Toggle Enabled Status", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
             onClick: function(){
-                playerKanjiData[scene.selectedKanji].enabled = !playerKanjiData[scene.selectedKanji].enabled;
+                scene.player.kanjiData[scene.selectedKanji].enabled = !scene.player.kanjiData[scene.selectedKanji].enabled;
             }
         });
     } else if(scene.menuScene === "Theory"){
-        let evaluateUnlockRequirements = function(requirements){
-            let unlocked = true;
-            for(let i=0;i<requirements.length;i++){
-                let r = requirements[i];
-                if(r.type === "step count"){
-                    r.progress = scene.player.stepCount;
-                    if(r.progress <= r.number){
-                        unlocked = false;
-                    }
-                }
-            }
-            return unlocked;
-        }
+        let playerTheoryData = scene.player.theoryData;
         for(let i=0;i<theoryWriteupData.length;i++){
             scene.tooltipBoxes.push({
                 x: scene.worldX+240,
@@ -2132,7 +2188,7 @@ function initializeMenuTab(){
                 type: "write-up entry", index: i,
             });
             if(evaluateUnlockRequirements(theoryWriteupData[i].unlockRequirements)){
-                playerTheoryUnlockedData[i].conditionsMet = true;
+                playerTheoryData[i].conditionsMet = true;
             }
         }
         if(!scene.hasOwnProperty("isReadingWriteup")){
@@ -2153,7 +2209,7 @@ function initializeMenuTab(){
                 }
             });
         } else {
-            if(playerTheoryUnlockedData[scene.selectedWriteup].unlocked){
+            if(playerTheoryData[scene.selectedWriteup].unlocked){
                 scene.buttons.push({
                     x:scene.worldX+18*16*scene.sizeMod*2+157, y:scene.worldY+700, width:50, height:30,
                     neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
@@ -2163,15 +2219,15 @@ function initializeMenuTab(){
                         initializeMenuTab();
                     }
                 });
-            } else if(playerTheoryUnlockedData[scene.selectedWriteup].conditionsMet){
+            } else if(playerTheoryData[scene.selectedWriteup].conditionsMet){
                 scene.buttons.push({
                     x:scene.worldX+18*16*scene.sizeMod*2+98, y:scene.worldY+700, width:170, height:30,
                     neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
                     text: "Unlock and Collect Reward", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
                     onClick: function(){
                         let theoryNum = scene.selectedWriteup;
-                        if(playerTheoryUnlockedData[theoryNum].conditionsMet){
-                            playerTheoryUnlockedData[theoryNum].unlocked = true;
+                        if(scene.player.theoryData[theoryNum].conditionsMet){
+                            scene.player.theoryData[theoryNum].unlocked = true;
                             scene.isReadingWriteup = true;
                             for(let i in theoryWriteupData[theoryNum].unlockRewards){
                                 awardPlayer(theoryWriteupData[theoryNum].unlockRewards[i]);
@@ -2182,18 +2238,39 @@ function initializeMenuTab(){
                 });
             }
         }
+    } else if(scene.menuScene === "Abilities"){
+        updatePlayerAbilityList();
+        let playerAbilityList = scene.player.abilityData.list;
+
+        let rowAmount = 10;
+            for(let i=0;i<Math.ceil(playerAbilityList.length/rowAmount);i++){
+                let currentRowWidth = Math.min(rowAmount,playerAbilityList.length-i*rowAmount);
+                for(let j=0; j<currentRowWidth;j++){
+                    scene.tooltipBoxes.push({
+                        x: scene.worldX+247+250-currentRowWidth*25+50*j,
+                        y: scene.worldY+200+70,
+                        spawnTime: 0,
+                        width: 45, height: 45,
+                        type: "ability menu ability", index: j + i*rowAmount,
+                    });
+                }
+            }
+        if(!scene.hasOwnProperty("selectedAbility")){
+            scene.selectedAbility = 0;
+        }
+        updateInventory();
     } else {
         updateInventory();
     }
 }
 
 function useItem(inventoryIndex,particleSysX,particleSysY){
-    let item = scene.player.inventory[inventoryIndex];
+    let item = scene.player.inventoryData.inventory[inventoryIndex];
     let info = itemInfo[item];
 
     for(const eff of info.effectList){
         if(eff === "heal"){
-            scene.player.hp = Math.min(scene.player.maxHp,scene.player.hp+info.effects.healAmount);
+            scene.player.combatData.hp = Math.min(scene.player.combatData.maxHp,scene.player.combatData.hp+info.effects.healAmount);
         } else if (eff === "satiate"){
             for(let i=scene.player.conditions.length-1;i>=0;i--){
                 if(scene.player.conditions[i].name === "Hunger"){
@@ -2206,7 +2283,7 @@ function useItem(inventoryIndex,particleSysX,particleSysY){
 
     scene.particleSystems.push(createParticleSystem({hue:120,saturation:100,lightness:50,x:particleSysX, y:particleSysY, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
 
-    scene.player.inventory[inventoryIndex] = "none";
+    scene.player.inventoryData.inventory[inventoryIndex] = "none";
     updateInventory();
 }
 
@@ -2239,7 +2316,7 @@ function initializeDialogue(category, scenario, timeStamp, entityIndex = null){
 function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp) {
     let d = scene.dialogue;
     // First cuts up the dialogue text
-    let words = d.textLines[d.currentLine].replace(/playerName/g,scene.player.name).split(' ');
+    let words = d.textLines[d.currentLine].replace(/playerName/g,scene.player.sceneData.name).split(' ');
 
     let testLine = ''; // This will store the text when we add a word, to test if it's too long
     let lineArray = []; // Array of the individual words, a new array is a new line
@@ -2371,38 +2448,6 @@ function drawCharacter(character, src, x, y){
     context.imageSmoothingEnabled = false;
 }
 
-// Draws an inanimate object
-/*function drawInanimate(inanimate, x, y) {
-    let size = 16*scene.sizeMod;
-    let image = null;
-    let srcX = 0;
-    let srcY = 0;
-    let bitrate = 16;
-    if(inanimate.id === "Door"){
-        image = houseTileset;
-        srcX = 16*3;
-        if(inanimate.state === "closed"){
-            srcY = 16*1;
-        } else if (inanimate.state === "half-closed"){
-            srcY = 16*3;
-        } else if (inanimate.state === "half-open"){
-            srcY = 16*2;
-        } else if (inanimate.state === "open"){
-            srcY = 16*0;
-        } else {
-            console.alert("drawInanimate: Got unexpected door state: "+ inanimate.state);
-        }
-    } else {
-        throw "Unknown inanimate type: " + inanimate.id;
-    }
-
-    if(typeof image === "object"){
-        context.drawImage(image, srcX*scene.sizeMod, srcY*scene.sizeMod, bitrate, bitrate, x, y, size*2, size*2);
-    } else {
-        console.warn("drawInanimate: Expected object got " + typeof image + ", also you have negative hot men.");
-    }
-}*/
-
 // Requires the tileset "Grassy_Biome_Things" and draws a fruit tree given the data stored in the entity about it's fruit
 // Returns array of tiles to defer
 function drawFruitTree(tree,tilesetNum,x,y){
@@ -2532,8 +2577,8 @@ function changeArea(iid,changePlayerLocation = false){
         if(levels[i].iid === iid || levels[i].identifier === iid){
             scene.levelNum = i;
             if(changePlayerLocation){
-                scene.player.location = levels[i].defaultLocation;
-                scene.player.graphicLocation = levels[i].defaultLocation;
+                scene.player.sceneData.location = levels[i].sceneData.defaultLocation;
+                scene.player.sceneData.graphicLocation = levels[i].sceneData.defaultLocation;
             }
             return;
         }
@@ -2542,13 +2587,14 @@ function changeArea(iid,changePlayerLocation = false){
 }
 
 function updateAdventure(timeStamp){
+    let playerSceneData = scene.player.sceneData;
     // Update in-game time
     let newTime = (scene.gameClockOfLastPause+Math.floor((timeStamp-scene.timeOfLastUnpause)/1000))%1440;
 
     // If a second went by, update everything that needs to be updated by the second
     if(scene.dialogue === null && scene.menuScene === null && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
-        if(scene.player.timeUntilDysymbolia > 0){
-            scene.player.timeUntilDysymbolia-=1;
+        if(playerSceneData.timeUntilDysymbolia > 0){
+            playerSceneData.timeUntilDysymbolia-=1;
         } else {
             initializeDialogue("randomDysymbolia","auto",timeStamp);
         }
@@ -2563,8 +2609,8 @@ function updateAdventure(timeStamp){
             // If player was moving when dialogue started, make sure to end it when its time to end it
             if(scene.movingDirection !== null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
                 scene.movingDirection = null;
-                scene.player.graphicLocation = scene.player.location;
-                scene.player.src[0]=32;
+                playerSceneData.graphicLocation = playerSceneData.location;
+                playerSceneData.src[0]=32;
                 scene.whichFoot = (scene.whichFoot+1)%2;
             }
 
@@ -2598,10 +2644,10 @@ function updateAdventure(timeStamp){
                                 scene.blur = 0;
                                 scene.textEntered = "";
                                 if(scene.dialogue.cinematic.result === "pass") {
-                                    scene.player.power = Math.min(scene.player.powerSoftcap,scene.player.power+1);
+                                    scene.player.combatData.power = Math.min(scene.player.combatData.powerSoftcap,scene.player.combatData.power+1);
                                 } else {
                                     // TODO: make taking damage a function that checks death and stuff lol
-                                    scene.player.hp -= 3;
+                                    scene.player.combatData.hp -= 3;
                                     scene.activeDamage = {
                                         // If startFrame is positive, there is currently active damage.
                                         startFrame: timeStamp,
@@ -2616,8 +2662,8 @@ function updateAdventure(timeStamp){
                                         timeOfLastShake: -1,
                                     };
                                 }
-                                scene.player.timeUntilDysymbolia = 60;
-                                initializeDialogue("scenes","post dysymbolia "+scene.player.numFinishedTutorialScenes,timeStamp);
+                                playerSceneData.timeUntilDysymbolia = 60;
+                                initializeDialogue("scenes","post dysymbolia "+scene.player.statisticData.numFinishedTutorialScenes,timeStamp);
                             }
                         }
                     }
@@ -2628,80 +2674,80 @@ function updateAdventure(timeStamp){
         } else {
             // If not in dialogue, handle movement
             if(currentDirection === "down"){
-                scene.player.src = [32,0];
+                playerSceneData.src = [32,0];
             } else if (currentDirection === "left") {
-                scene.player.src = [32,32];
+                playerSceneData.src = [32,32];
             } else if(currentDirection === "right"){
-                scene.player.src = [32,32*2];
+                playerSceneData.src = [32,32*2];
             } else if(currentDirection === "up"){
-                scene.player.src = [32,32*3];
+                playerSceneData.src = [32,32*3];
             }
             if(scene.movingDirection===null){
                 if(currentDirection === "down" && downPressed){
-                    let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"down");
+                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"down");
                     if(collision===null){
-                        scene.player.location[1]+=32;
+                        playerSceneData.location[1]+=32;
                         scene.movingDirection = "down";
                         scene.startedMovingTime = timeStamp;
-                        scene.player.stepCount++;
+                        scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "s"){
                                 changeArea(n.levelIid);
-                                scene.player.location[1]=-32;
+                                playerSceneData.location[1]=-32;
                             }
                         }
                     }
                 } else if(currentDirection === "left" && leftPressed){
-                    let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"left");
+                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"left");
                     if(collision===null){
-                        scene.player.location[0]-=32;
+                        playerSceneData.location[0]-=32;
                         scene.movingDirection = "left";
                         scene.startedMovingTime = timeStamp;
-                        scene.player.stepCount++;
+                        scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "w"){
                                 changeArea(n.levelIid);
-                                scene.player.location[0]=18*32;
+                                playerSceneData.location[0]=18*32;
                             }
                         }
                     }
                 } else if(currentDirection === "right" && rightPressed){
-                    let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"right");
+                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"right");
                     if(collision===null){
-                        scene.player.location[0]+=32;
+                        playerSceneData.location[0]+=32;
                         scene.movingDirection = "right";
                         scene.startedMovingTime = timeStamp;
-                        scene.player.stepCount++;
+                        scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "e"){
                                 changeArea(n.levelIid);
-                                scene.player.location[0]=-32;
+                                playerSceneData.location[0]=-32;
                             }
                         }
                     }
                 } else if(currentDirection === "up" && upPressed){
-                    let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],"up");
+                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"up");
                     if(collision===null){
-                        scene.player.location[1]-=32;
+                        playerSceneData.location[1]-=32;
                         scene.movingDirection = "up";
                         scene.startedMovingTime = timeStamp;
-                        scene.player.stepCount++;
+                        scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
                             if(n.dir === "n"){
                                 changeArea(n.levelIid);
-                                scene.player.location[1]=18*32;
+                                playerSceneData.location[1]=18*32;
                             }
                         }
                     }
                 }
             } else if(movingAnimationDuration + scene.startedMovingTime < timeStamp){
                 scene.movingDirection = null;
-                scene.player.graphicLocation = scene.player.location;
-                scene.player.src[0]=32;
+                playerSceneData.graphicLocation = playerSceneData.location;
+                playerSceneData.src[0]=32;
                 scene.whichFoot = (scene.whichFoot+1)%2;
             }
         }
@@ -2748,7 +2794,7 @@ function updateAdventure(timeStamp){
                             }
                             let conditionalEval = false;
                             if(lineInfo.conditional === "is wary of scene dysymbolia"){
-                                if(scene.player.numFinishedTutorialScenes > 1){
+                                if(scene.player.statisticData.numFinishedTutorialScenes > 1){
                                     conditionalEval = true;
                                 }
                             }
@@ -2765,7 +2811,7 @@ function updateAdventure(timeStamp){
                             specialParticleSystem.specialDrawLocation = true;
 
                             scene.particleSystems.push(createParticleSystem(specialParticleSystem));
-                            scene.player.timeUntilDysymbolia = -1;
+                            playerSceneData.timeUntilDysymbolia = -1;
 
                             scene.dialogue.cinematic = {
                                 type: "dysymbolia",
@@ -2777,7 +2823,7 @@ function updateAdventure(timeStamp){
                                 result: null,
                             };
                         } else if (lineInfo !== undefined && lineInfo.randomDysymbolia !== undefined){
-                            scene.player.timeUntilDysymbolia = -1;
+                            playerSceneData.timeUntilDysymbolia = -1;
                             scene.dialogue.cinematic = {
                                 type: "random dysymbolia",
                                 startTime: timeStamp,
@@ -2791,12 +2837,12 @@ function updateAdventure(timeStamp){
                     scene.finishedInputting = false;
                 } else if(scene.dialogue.cinematic.type === "random dysymbolia"){
                     currentDirection = scene.dialogue.playerDirection;
-                    scene.player.timeUntilDysymbolia = 60;
+                    playerSceneData.timeUntilDysymbolia = 60;
                     scene.dialogue = null;
                     scene.timeOfLastUnpause = timeStamp;
                 }
             } else { // If no dialogue, check for object interaction via collision
-                let collision = isCollidingOnTile(scene.player.location[0],scene.player.location[1],currentDirection);
+                let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],currentDirection);
                 if(collision !== null && typeof collision === "object"){
                     /*note = `Talking with ${collision.id}!`;
                     if(currentDirection === "down"){
@@ -2813,12 +2859,12 @@ function updateAdventure(timeStamp){
                     }*/
                     let entity = lev.entities[collision.index];
                     if(entity.id === "Fruit_Tree" && (entity.hasBottomFruit || entity.hasLeftFruit || entity.hasRightFruit)){
-                        if(scene.player.finishedFruitScene){
+                        if(scene.player.statisticData.finishedFruitScene){
                             initializeDialogue("world","fruit_tree",timeStamp,collision.index);
                         } else {
                             initializeDialogue("scenes","tutorial fruit scene",timeStamp,collision.index);
-                            scene.player.finishedFruitScene = true;
-                            scene.player.numFinishedTutorialScenes++;
+                            scene.player.statisticData.finishedFruitScene = true;
+                            scene.player.statisticData.numFinishedTutorialScenes++;
                         }
                     }
                     if(dialogueFileData.hasOwnProperty(entity.id.toLowerCase())){
@@ -2835,38 +2881,38 @@ function updateAdventure(timeStamp){
                     }
                 } else if(collision === 1){
                     note = `Talking with the water instead of hot guy...`;
-                    if(scene.player.finishedWaterScene){
+                    if(scene.player.statisticData.finishedWaterScene){
                         initializeDialogue("world","water",timeStamp);
                     } else {
                         initializeDialogue("scenes","tutorial water scene",timeStamp);
-                        scene.player.finishedWaterScene = true;
-                        scene.player.numFinishedTutorialScenes++;
+                        scene.player.statisticData.finishedWaterScene = true;
+                        scene.player.statisticData.numFinishedTutorialScenes++;
                     }
                 } else if(collision === 3){
-                    if(scene.player.finishedFruitScene){
+                    if(scene.player.statisticData.finishedFruitScene){
                         initializeDialogue("world","fruit_tree",timeStamp);
                     } else {
                         initializeDialogue("scenes","tutorial fruit scene",timeStamp);
-                        scene.player.finishedFruitScene = true;
-                        scene.player.numFinishedTutorialScenes++;
+                        scene.player.statisticData.finishedFruitScene = true;
+                        scene.player.statisticData.numFinishedTutorialScenes++;
                     }
                 } else if(collision === 7){
-                    if(scene.player.finishedCloudScene){
+                    if(scene.player.statisticData.finishedCloudScene){
                         initializeDialogue("world","clouds",timeStamp);
                     } else {
                         initializeDialogue("scenes","tutorial cloud scene",timeStamp);
-                        scene.player.finishedCloudScene = true;
-                        scene.player.numFinishedTutorialScenes++;
+                        scene.player.statisticData.finishedCloudScene = true;
+                        scene.player.statisticData.numFinishedTutorialScenes++;
                     }
                 } else if(collision === 8){
                     initializeDialogue("world","sunflower",timeStamp);
                 } else if(collision === 9){
                     console.log(lev.stairDestination);
                     //changeArea(lev.stairDestination,true);
-                    if(lev.stairDestination === "Floating_Island_Dungeon_0" && !scene.player.finishedDungeonScene){
+                    if(lev.stairDestination === "Floating_Island_Dungeon_0" && !scene.player.statisticData.finishedDungeonScene){
                         initializeDialogue("scenes","tutorial dungeon scene",timeStamp);
-                        scene.player.finishedDungeonScene = true;
-                        scene.player.numFinishedTutorialScenes++;
+                        scene.player.statisticData.finishedDungeonScene = true;
+                        scene.player.statisticData.numFinishedTutorialScenes++;
                     } else {
                         changeArea(lev.stairDestination,true);
                     }
@@ -2888,6 +2934,10 @@ function updateAdventure(timeStamp){
             if(mouseDown && scene.currentTooltip && !scene.isReadingWriteup && scene.selectedWriteup !== scene.tooltipBoxes[scene.currentTooltip.index].index && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "write-up entry"){
                 scene.selectedWriteup = scene.tooltipBoxes[scene.currentTooltip.index].index;
                 initializeMenuTab();
+            }
+        } else if(scene.menuScene === "Abilities"){
+            if(mouseDown && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "ability menu ability"){
+                scene.selectedAbility = scene.tooltipBoxes[scene.currentTooltip.index].index;
             }
         }
         zClicked = xClicked = false;
@@ -2914,6 +2964,8 @@ function drawAdventure(timeStamp){
     // world width and height
     let w = 18*scene.tileSize+1;
     let h = 18*scene.tileSize+1;
+
+    let playerSceneData = scene.player.sceneData;
 
     // Apply damage shake
     if(scene.activeDamage.startFrame > 0){
@@ -2996,19 +3048,19 @@ function drawAdventure(timeStamp){
             let animationCompletion = (timeStamp - scene.startedMovingTime)/movingAnimationDuration;
 
             if(animationCompletion > 0.25 && animationCompletion < 0.75){
-                scene.player.src = [scene.whichFoot*2*32,spritesheetOrientationPosition[scene.movingDirection]*32];
+                playerSceneData.src = [scene.whichFoot*2*32,spritesheetOrientationPosition[scene.movingDirection]*32];
             } else {
-                scene.player.src = [32,spritesheetOrientationPosition[scene.movingDirection]*32];
+                playerSceneData.src = [32,spritesheetOrientationPosition[scene.movingDirection]*32];
             }
 
             if(scene.movingDirection === "up"){
-                scene.player.graphicLocation = [scene.player.location[0],scene.player.location[1]+scene.tileSize*(1-animationCompletion)];
+                playerSceneData.graphicLocation = [playerSceneData.location[0],playerSceneData.location[1]+scene.tileSize*(1-animationCompletion)];
             } else if(scene.movingDirection === "left"){
-                scene.player.graphicLocation = [scene.player.location[0]+scene.tileSize*(1-animationCompletion),scene.player.location[1]];
+                playerSceneData.graphicLocation = [playerSceneData.location[0]+scene.tileSize*(1-animationCompletion),playerSceneData.location[1]];
             } else if(scene.movingDirection === "right"){
-                scene.player.graphicLocation = [scene.player.location[0]-scene.tileSize*(1-animationCompletion),scene.player.location[1]];
+                playerSceneData.graphicLocation = [playerSceneData.location[0]-scene.tileSize*(1-animationCompletion),playerSceneData.location[1]];
             } else if(scene.movingDirection === "down"){
-                scene.player.graphicLocation = [scene.player.location[0],scene.player.location[1]-scene.tileSize*(1-animationCompletion)];
+                playerSceneData.graphicLocation = [playerSceneData.location[0],playerSceneData.location[1]-scene.tileSize*(1-animationCompletion)];
             }
         }
 
@@ -3025,7 +3077,7 @@ function drawAdventure(timeStamp){
             }
 
         }
-        drawCharacter("witch",scene.player.src,scene.worldX+scene.player.graphicLocation[0]*scene.sizeMod,scene.worldY+scene.player.graphicLocation[1]*scene.sizeMod);
+        drawCharacter("witch",playerSceneData.src,scene.worldX+playerSceneData.graphicLocation[0]*scene.sizeMod,scene.worldY+playerSceneData.graphicLocation[1]*scene.sizeMod);
 
         // Draw foreground elements
         for (const dt of deferredRawTiles){
@@ -3222,8 +3274,8 @@ function drawAdventure(timeStamp){
             context.fillText("First 5 items can be used on the inventory hotbar!", scene.worldX+345 + 150, scene.worldY+580);
             context.fillText("Double click to use consumables!", scene.worldX+345 + 150, scene.worldY+630);
             context.fillText("Crafting coming soon?!????!??!!?", scene.worldX+345 + 150, scene.worldY+680);
-            let inventory = scene.player.inventory;
-            for(let i=0;i<Math.ceil(inventory.length/5);i++){
+            let inventoryData = scene.player.inventoryData;
+            for(let i=0;i<Math.ceil(inventoryData.inventory.length/5);i++){
                 for(let j=0;j<5;j++){
                     context.lineWidth = 2;
                     context.strokeStyle = 'hsla(270, 60%, 75%, 0.6)';
@@ -3233,11 +3285,11 @@ function drawAdventure(timeStamp){
                     context.fill();
                     context.stroke();
 
-                    if(inventory[j + i*5] !== "none"){
+                    if(inventoryData.inventory[j + i*5] !== "none"){
                         context.save();
                         context.translate(scene.worldY+285+105+67*j,scene.worldY+160 + 67*i);
                         context.scale(1.4,1.4);
-                        drawItemIcon(inventory[j + i*5],-1,-1);
+                        drawItemIcon(inventoryData.inventory[j + i*5],-1,-1);
                         context.restore();
                     }
                 }
@@ -3248,6 +3300,8 @@ function drawAdventure(timeStamp){
             context.font = '26px Arial';
             context.textAlign = 'left';
             context.fillStyle = 'white';
+
+            let playerKanjiData = scene.player.kanjiData;
             let rowAmount = 12;
             for(let i=0;i<Math.ceil(adventureKanjiFileData.length/rowAmount);i++){
                 for(let j=0; j<Math.min(rowAmount,adventureKanjiFileData.length-i*rowAmount);j++){
@@ -3335,6 +3389,7 @@ function drawAdventure(timeStamp){
             context.font = '20px ZenMaruRegular';
             context.textAlign = 'left';
 
+            let playerTheoryData = scene.player.theoryData;
             if(!scene.isReadingWriteup){
                 for(let i=0;i<theoryWriteupData.length;i++){
                     let theory = theoryWriteupData[i];
@@ -3342,7 +3397,7 @@ function drawAdventure(timeStamp){
                     if(scene.selectedWriteup === i){
                         context.strokeStyle = 'hsla(60, 100%, 75%, 1)';
                     } else {
-                        if(playerTheoryUnlockedData[i].unlocked){
+                        if(playerTheoryData[i].unlocked){
                             context.strokeStyle = 'hsla(300, 75%, 75%, 1)';
                         } else {
                             context.strokeStyle = 'hsla(0, 0%, 60%, 1)';
@@ -3360,8 +3415,8 @@ function drawAdventure(timeStamp){
                     context.fillStyle = 'white';
                     context.fillText(theory.title,scene.worldX+240 + 15,scene.worldY+140 + 45*i + 27);
 
-                    if(!playerTheoryUnlockedData[i].unlocked){
-                        if(playerTheoryUnlockedData[i].conditionsMet){
+                    if(!playerTheoryData[i].unlocked){
+                        if(playerTheoryData[i].conditionsMet){
                             context.drawImage(miscImages.checklock,scene.worldX+240+w-55-35,scene.worldY+140 + 45*i + 7,21,25);
                         } else {
                             context.drawImage(miscImages.whitelock,scene.worldX+240+w-55-35,scene.worldY+140 + 45*i + 7,21,25);
@@ -3471,7 +3526,7 @@ function drawAdventure(timeStamp){
                 context.fillStyle = 'white';
                 context.textAlign = 'center';
                 let rewardText = writeupInfo.rewardText;
-                if(playerTheoryUnlockedData[scene.selectedWriteup].unlocked){
+                if(playerTheoryData[scene.selectedWriteup].unlocked){
                     rewardText+= " (Collected)";
                 }
                 wrappedText = wrapText(context, rewardText, scene.worldY+currentY+28+38, 240, 18);
@@ -3488,30 +3543,54 @@ function drawAdventure(timeStamp){
         } // Draw theory screen function ends here
 
         const drawAbilityScreen = function(){
+            let playerAbilityData = scene.player.abilityData;
+
             context.font = '20px ZenMaruRegular';
             context.textAlign = 'left';
 
             let currentY = 135;
 
             // Draw ability bar
-            for(let i=0;i<5;i++){
+            for(let i=0;i<playerAbilityData.abilitySlots;i++){
                 context.lineWidth = 2;
                 context.strokeStyle = 'hsla(0, 30%, 60%, 1)';
                 context.beginPath();
-                context.roundRect(scene.worldX+240+50*i, scene.worldY+currentY, 45, 45, 3);
+                context.roundRect(scene.worldX+247+250-playerAbilityData.abilitySlots*25+50*i, scene.worldY+currentY, 45, 45, 3);
                 context.stroke();
             }
 
             currentY += 65;
 
-            // Write-up title
             context.font = '20px zenMaruRegular';
             context.fillStyle = 'white';
             context.textAlign = 'center';
-            context.fillText("Acquired Abilities", scene.worldX+240+250, scene.worldY+currentY+25);
+            context.fillText("Ability List", scene.worldX+240+250, scene.worldY+currentY+25);
 
             context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
-            context.fillRect(scene.worldX+240+148, scene.worldY+currentY+25+15, 300-90, 2);
+            context.fillRect(scene.worldX+240+168, scene.worldY+currentY+25+15, 300-130, 2);
+
+            // Draw ability list
+            let rowAmount = 10;
+            for(let i=0;i<Math.ceil(playerAbilityData.list.length/rowAmount);i++){
+                let currentRowWidth = Math.min(rowAmount,playerAbilityData.list.length-i*rowAmount);
+                for(let j=0; j<currentRowWidth;j++){
+                    let currentIndex = j + i*rowAmount;
+
+                    context.drawImage(abilityIcons[playerAbilityData.list[currentIndex].index],scene.worldX+247+250-currentRowWidth*25+50*j,scene.worldY+currentY+70+50*i,45,45);
+
+                    context.lineWidth = 2;
+                    if(scene.selectedAbility === currentIndex){
+                        context.strokeStyle = 'hsla(60, 100%, 75%, 1)';
+                    } else {
+                        context.strokeStyle = 'hsla(0, 30%, 60%, 1)';
+                    }
+
+                    context.lineWidth = 2;
+                    context.beginPath();
+                    context.roundRect(scene.worldX+247+250-currentRowWidth*25+50*j, scene.worldY+currentY+70+50*i, 45, 45, 3);
+                    context.stroke();
+                }
+            }
 
             //currentY += wrappedText.length*19+48;
 
@@ -3589,8 +3668,8 @@ function drawAdventure(timeStamp){
             context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i, scene.worldY+690, 45, 45, 3);
             context.stroke();
 
-            if(scene.player.inventory[i] !== "none"){
-                drawItemIcon(scene.player.inventory[i],scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,scene.worldY+690);
+            if(scene.player.inventoryData.inventory[i] !== "none"){
+                drawItemIcon(scene.player.inventoryData.inventory[i],scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,scene.worldY+690);
             }
         }
 
@@ -3613,20 +3692,20 @@ function drawAdventure(timeStamp){
         context.fillText("Conditions: ", scene.worldX+18*16*scene.sizeMod*2+30 + 35, scene.worldY+220);
 
         context.fillStyle = "#40d600";
-        context.fillText(scene.player.hp+"/"+scene.player.maxHp, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("HP: ").width, scene.worldY+140);
+        context.fillText(scene.player.combatData.hp+"/"+scene.player.combatData.maxHp, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("HP: ").width, scene.worldY+140);
 
         context.fillStyle = "#d600ba";
-        context.fillText(scene.player.power+"/"+scene.player.powerSoftcap, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("Power: ").width, scene.worldY+165);
+        context.fillText(scene.player.combatData.power+"/"+scene.player.combatData.powerSoftcap, scene.worldX+18*16*scene.sizeMod*2+30 + 35+context.measureText("Power: ").width, scene.worldY+165);
 
         // Draw currencies
         context.drawImage(miscImages.gems,scene.worldX+18*16*scene.sizeMod*2+30+20,scene.worldY+750,26,26);
         context.drawImage(miscImages.gold,scene.worldX+18*16*scene.sizeMod*2+30+257,scene.worldY+750,26,26);
         context.font = '24px Arial';
         context.fillStyle = "#0cf";
-        context.fillText(scene.player.currencyTwo, scene.worldX+18*16*scene.sizeMod*2+30+55, scene.worldY+772);
+        context.fillText(scene.player.inventoryData.currencyTwo, scene.worldX+18*16*scene.sizeMod*2+30+55, scene.worldY+772);
         context.fillStyle = "#fff01a";
         context.textAlign = 'right';
-        context.fillText(scene.player.currencyOne, scene.worldX+18*16*scene.sizeMod*2+30+55+190, scene.worldY+772);
+        context.fillText(scene.player.inventoryData.currencyOne, scene.worldX+18*16*scene.sizeMod*2+30+55+190, scene.worldY+772);
 
         context.textAlign = 'left';
 
@@ -3639,7 +3718,7 @@ function drawAdventure(timeStamp){
             let conditionY = scene.worldY+220
 
             // Handle special drawing for the dysymbolia condition
-            if(condition.name === "Dysymbolia" && scene.player.timeUntilDysymbolia < 30){
+            if(condition.name === "Dysymbolia" && playerSceneData.timeUntilDysymbolia < 30){
                 context.font = `18px zenMaruBlack`;
                 if(condition.particleSystem === null){
                     condition.particleSystem = createParticleSystem({
@@ -3651,8 +3730,8 @@ function drawAdventure(timeStamp){
                     scene.particleSystems.push(condition.particleSystem);
                 }
                 let ps = condition.particleSystem;
-                if(scene.player.timeUntilDysymbolia > -1){
-                    let advancement = (30 - scene.player.timeUntilDysymbolia)/30;
+                if(playerSceneData.timeUntilDysymbolia > -1){
+                    let advancement = (30 - playerSceneData.timeUntilDysymbolia)/30;
                     ps.startingAlpha = advancement/2;
                     ps.particleLifespan = 250 + 300*advancement;
                     ps.particlesPerSec = 40 + 30*advancement;
@@ -3660,7 +3739,7 @@ function drawAdventure(timeStamp){
                     ps.particleSpeed = 60 + 200*advancement;
                     ps.lightness = 100;
 
-                    condition.color = `hsl(0,0%,${scene.player.timeUntilDysymbolia*(10/3)}%)`;
+                    condition.color = `hsl(0,0%,${playerSceneData.timeUntilDysymbolia*(10/3)}%)`;
                 } else {
                     let advancement = 1;
                     ps.startingAlpha = 1;
@@ -4063,19 +4142,11 @@ function gameLoop(timeStamp){
 `Time Stamp: ${timeStamp}
 Scene: ${scene.name}
 Number of tooltips: ${scene.tooltipBoxes.length}
-Player Src: ${scene.player.src}
+Player Src: ${scene.player.sceneData.src}
 `;
         console.log(statement);
         alert(statement);
         isLoggingFrame=false;
-    }
-
-    // Handle shake effect
-    if(shaking && timeStamp > timeOfLastShake+(shakeFrequency*1000)/fps){
-        context.restore();
-        context.save();
-        context.translate((Math.random()-0.5)*shakeIntensity*2,(Math.random()-0.5)*shakeIntensity*2);
-        timeOfLastShake = timeStamp;
     }
 
     // Keep requesting new frames

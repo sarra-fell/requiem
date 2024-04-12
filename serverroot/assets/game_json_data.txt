@@ -573,7 +573,8 @@
             "rewardText": "5 gems.",
             "unlockRequirements": [
                 {
-                    "type": "step count",
+                    "type": "statistic threshold",
+                    "stat": "stepCount",
                     "number": 150,
                     "progress": 0,
                     "textDescription": "Walk 150 steps."
@@ -594,7 +595,8 @@
             "rewardText": "5 gems.",
             "unlockRequirements": [
                 {
-                    "type": "total mastery",
+                    "type": "statistic threshold",
+                    "stat": "totalKanjiMastery",
                     "number": 20,
                     "progress": 0,
                     "textDescription": "Gain 20 total kanji mastery level."
@@ -631,7 +633,7 @@
             ],
             "static effects": [
                 {
-                    "type": "gains basic dysymbolia control"
+                    "type": "basic dysymbolia control"
                 }
             ],
             "listConditions": [],
@@ -656,8 +658,8 @@
             "listConditions": [],
             "unlockConditions": [
                 {
-                    "type": "number check",
-                    "ability": "totalDysymboliaManualTriggers",
+                    "type": "statistic threshold",
+                    "stat": "totalDysymboliaManualTriggers",
                     "number": 5
                 }
             ],
@@ -690,8 +692,8 @@
             ],
             "listConditions": [
                 {
-                    "type": "number check",
-                    "check": "enemiesDefeated",
+                    "type": "statistic threshold",
+                    "stat": "enemiesDefeated",
                     "number": 1
                 }
             ],
