@@ -847,7 +847,9 @@ window.addEventListener('keydown',function(e) {
        case 'ArrowRight': rightPressed=true; currentDirection="right"; break;
        case 'ArrowDown': downPressed=true; currentDirection="down"; break;
        case 'Enter': scene.finishedInputting=true; break;
+       case 'X': xClicked=true;
        case 'x': xClicked=true;
+       case 'Z': zClicked=true;
        case 'z': zClicked=true;
        default: if(!scene.finishedInputting){
            switch (e.key) {
@@ -1506,7 +1508,7 @@ function initializeScene(sceneName){
                 ],
             },
             abilityData: {
-                abilitySlots: 6,
+                abilitySlots: 5,
 
                 // Contains listed abilities and data on whether they are unlocked or not
                 listedAbilities: [],
@@ -1615,6 +1617,9 @@ function initializeScene(sceneName){
                         }
                     }
                     initializeMenuTab();
+                    this.text = "Close Menu";
+                    this.width = 80;
+                    this.x -= 15;
                 } else {
                     scene.menuScene = null;
                     scene.timeOfLastUnpause = performance.now();
@@ -1625,14 +1630,14 @@ function initializeScene(sceneName){
                         if(b.hasOwnProperty("tab")){
                             b.enabled = false;
                         }
-                        if(scene.buttons[i].text === "Toggle Enabled Status" ||
-                            scene.buttons[i].text === "Stop Reading" ||
-                            scene.buttons[i].text === "Read" ||
-                            scene.buttons[i].text === "Unlock and Collect Reward"){
+                        if(scene.buttons[i].temporaryMenuButton !== undefined && scene.buttons[i].temporaryMenuButton){
                             scene.buttons.splice(i,1);
                         }
                     }
                     updateInventory();
+                    this.text = "Menu";
+                    this.width = 50;
+                    this.x += 15;
                 }
             }
         });
@@ -2011,6 +2016,11 @@ function loadSaveGame(){
 
 }
 
+// Just returns the jsonified player
+function outputSave(){
+
+}
+
 // Evaluate conditions for listing abilities, unlocking abilities, listing theory pages, or unlocking theory pages.
 let evaluateUnlockRequirements = function(requirements){
     let unlocked = true;
@@ -2090,7 +2100,7 @@ function updateInventory(addItem = "none"){
                 });
             }
         } else if(addItem !== "none"){
-            inventory[i] = addItem;
+            inventoryData.inventory[i] = addItem;
             scene.tooltipBoxes.push({
                 x: scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,
                 y: scene.worldY+690,
@@ -2118,12 +2128,13 @@ function updatePlayerAbilityList(){
     for(let i=0;i<abilityFileData.length;i++){
         let a = abilityFileData[i];
 
-        if(evaluateUnlockRequirements(a.listConditions)){
-            let unlocked = evaluateUnlockRequirements(a.unlockConditions);
+        if(evaluateUnlockRequirements(a.listRequirements)){
+            let unlocked = evaluateUnlockRequirements(a.unlockRequirements);
             newAbilityList.push({
                 name: a.name,
-                unlockConditions: a.unlockConditions,
+                unlockRequirements: a.unlockRequirements,
                 unlocked: unlocked,
+                acquired: playerAbilityData.acquiredAbilities[a.name],
                 index: i,
             });
         }
@@ -2131,7 +2142,7 @@ function updatePlayerAbilityList(){
     playerAbilityData.list = newAbilityList;
 }
 
-// Update tooltips that need to be updated upon menu change
+// Update tooltips that need to be updated upon certain menu state changes
 function initializeMenuTab(){
     for(let i = scene.tooltipBoxes.length-1;i>=0;i--){
         if(scene.tooltipBoxes[i].type === "item"){
@@ -2143,11 +2154,7 @@ function initializeMenuTab(){
         }
     }
     for(let i = scene.buttons.length-1;i>=0;i--){
-        if(scene.buttons[i].text === "Toggle Enabled Status" ||
-            scene.buttons[i].text === "Stop Reading" ||
-            scene.buttons[i].text === "Read" ||
-            scene.buttons[i].text === "Unlock and Collect Reward"
-        ){
+        if(scene.buttons[i].temporaryMenuButton !== undefined && scene.buttons[i].temporaryMenuButton){
             scene.buttons.splice(i,1);
         }
     }
@@ -2172,7 +2179,7 @@ function initializeMenuTab(){
         scene.buttons.push({
             x:scene.worldX+18*16*scene.sizeMod*2+107, y:scene.worldY+700, width:150, height:30,
             neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-            text: "Toggle Enabled Status", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+            text: "Toggle Enabled Status", font: '13px zenMaruRegular', fontSize: 18, enabled: true, temporaryMenuButton: true,
             onClick: function(){
                 scene.player.kanjiData[scene.selectedKanji].enabled = !scene.player.kanjiData[scene.selectedKanji].enabled;
             }
@@ -2202,7 +2209,7 @@ function initializeMenuTab(){
             scene.buttons.push({
                 x:scene.worldX+18*16*scene.sizeMod*2+132, y:scene.worldY+700, width:100, height:30,
                 neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-                text: "Stop Reading", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+                text: "Stop Reading", font: '13px zenMaruRegular', fontSize: 18, enabled: true, temporaryMenuButton: true,
                 onClick: function(){
                     scene.isReadingWriteup = false;
                     initializeMenuTab();
@@ -2213,7 +2220,7 @@ function initializeMenuTab(){
                 scene.buttons.push({
                     x:scene.worldX+18*16*scene.sizeMod*2+157, y:scene.worldY+700, width:50, height:30,
                     neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-                    text: "Read", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+                    text: "Read", font: '13px zenMaruRegular', fontSize: 18, enabled: true, temporaryMenuButton: true,
                     onClick: function(){
                         scene.isReadingWriteup = true;
                         initializeMenuTab();
@@ -2222,8 +2229,8 @@ function initializeMenuTab(){
             } else if(playerTheoryData[scene.selectedWriteup].conditionsMet){
                 scene.buttons.push({
                     x:scene.worldX+18*16*scene.sizeMod*2+98, y:scene.worldY+700, width:170, height:30,
-                    neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-                    text: "Unlock and Collect Reward", font: '13px zenMaruRegular', fontSize: 18, enabled: true,
+                    neutralColor: '#ff6', hoverColor: '#ffffb3', pressedColor: '#66f', color: '#ff6',
+                    text: "Unlock and Collect Reward", font: '13px zenMaruRegular', fontSize: 18, enabled: true, temporaryMenuButton: true,
                     onClick: function(){
                         let theoryNum = scene.selectedWriteup;
                         if(scene.player.theoryData[theoryNum].conditionsMet){
@@ -2243,21 +2250,57 @@ function initializeMenuTab(){
         let playerAbilityList = scene.player.abilityData.list;
 
         let rowAmount = 10;
-            for(let i=0;i<Math.ceil(playerAbilityList.length/rowAmount);i++){
-                let currentRowWidth = Math.min(rowAmount,playerAbilityList.length-i*rowAmount);
-                for(let j=0; j<currentRowWidth;j++){
-                    scene.tooltipBoxes.push({
-                        x: scene.worldX+247+250-currentRowWidth*25+50*j,
-                        y: scene.worldY+200+70,
-                        spawnTime: 0,
-                        width: 45, height: 45,
-                        type: "ability menu ability", index: j + i*rowAmount,
-                    });
-                }
+        for(let i=0;i<Math.ceil(playerAbilityList.length/rowAmount);i++){
+            let currentRowWidth = Math.min(rowAmount,playerAbilityList.length-i*rowAmount);
+            for(let j=0; j<currentRowWidth;j++){
+                scene.tooltipBoxes.push({
+                    x: scene.worldX+247+250-currentRowWidth*25+50*j,
+                    y: scene.worldY+200+70,
+                    spawnTime: 0,
+                    width: 45, height: 45,
+                    type: "ability menu ability", index: j + i*rowAmount,
+                });
             }
+        }
         if(!scene.hasOwnProperty("selectedAbility")){
             scene.selectedAbility = 0;
         }
+
+        let playerAbilityInfo = playerAbilityList[scene.selectedAbility];
+        let abilityInfo = abilityFileData[playerAbilityInfo.index];
+        if(!playerAbilityInfo.acquired && playerAbilityInfo.unlocked && scene.player.combatData.power >= abilityInfo.acquisitionPower){
+            scene.buttons.push({
+                x:scene.worldX+18*16*scene.sizeMod*2+128, y:scene.worldY+700, width:110, height:30,
+                neutralColor: '#ff6', hoverColor: '#ffffb3', pressedColor: '#66f', color: '#ff6',
+                text: "Begin Acquisition", font: '13px zenMaruRegular', fontSize: 14, enabled: true, temporaryMenuButton: true,
+                onClick: function(){
+                    alert("u win da gayme");
+                }
+            });
+        }
+    } else if(scene.menuScene === "Save") {
+        scene.buttons.push({
+            x:scene.worldX+247+125, y:scene.worldY+200, width:250, height:40,
+            neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+            text: "Save Game to Local Storage", font: '17px zenMaruRegular', fontSize: 17, enabled: true, temporaryMenuButton: true,
+            onClick: function(){
+                try {
+                    localStorage.setItem("save 1",JSON.stringify(scene.player));
+                    alert("successfully saved i think");
+                }
+                catch {
+                    alert("save failed: "+err);
+                }
+            }
+        });
+        scene.buttons.push({
+            x:scene.worldX+247+115, y:scene.worldY+300, width:270, height:40,
+            neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+            text: "Load Game from Local Storage", font: '17px zenMaruRegular', fontSize: 17, enabled: true, temporaryMenuButton: true,
+            onClick: function(){
+                alert("u win da gayme");
+            }
+        });
         updateInventory();
     } else {
         updateInventory();
@@ -2577,8 +2620,8 @@ function changeArea(iid,changePlayerLocation = false){
         if(levels[i].iid === iid || levels[i].identifier === iid){
             scene.levelNum = i;
             if(changePlayerLocation){
-                scene.player.sceneData.location = levels[i].sceneData.defaultLocation;
-                scene.player.sceneData.graphicLocation = levels[i].sceneData.defaultLocation;
+                scene.player.sceneData.location = levels[i].defaultLocation;
+                scene.player.sceneData.graphicLocation = levels[i].defaultLocation;
             }
             return;
         }
@@ -2931,13 +2974,14 @@ function updateAdventure(timeStamp){
                 scene.selectedKanji = scene.tooltipBoxes[scene.currentTooltip.index].index;
             }
         } else if(scene.menuScene === "Theory"){
-            if(mouseDown && scene.currentTooltip && !scene.isReadingWriteup && scene.selectedWriteup !== scene.tooltipBoxes[scene.currentTooltip.index].index && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "write-up entry"){
+            if(mouseDown && scene.currentTooltip && !scene.isReadingWriteup && scene.selectedWriteup !== scene.tooltipBoxes[scene.currentTooltip.index].index && scene.tooltipBoxes[scene.currentTooltip.index].type === "write-up entry"){
                 scene.selectedWriteup = scene.tooltipBoxes[scene.currentTooltip.index].index;
                 initializeMenuTab();
             }
         } else if(scene.menuScene === "Abilities"){
-            if(mouseDown && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "ability menu ability"){
+            if(mouseDown && scene.currentTooltip && scene.selectedAbility !== scene.tooltipBoxes[scene.currentTooltip.index].index && scene.tooltipBoxes[scene.currentTooltip.index].type === "ability menu ability"){
                 scene.selectedAbility = scene.tooltipBoxes[scene.currentTooltip.index].index;
+                initializeMenuTab();
             }
         }
         zClicked = xClicked = false;
@@ -3592,10 +3636,92 @@ function drawAdventure(timeStamp){
                 }
             }
 
-            //currentY += wrappedText.length*19+48;
-
             if(scene.selectedAbility !== null){
+                isToDrawStatusBar = false;
 
+                let playerAbilityInfo = playerAbilityData.list[scene.selectedAbility];
+                let abilityInfo = abilityFileData[playerAbilityInfo.index];
+
+                // Right-side box
+                context.fillStyle = 'hsl(0, 0%, 10%, 55%)';
+                context.save();
+                context.shadowColor = "hsl(0, 30%, 0%)";
+                context.shadowBlur = 15;
+                context.beginPath();
+                context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30, scene.worldY, 305, 805, 30);
+                context.fill();
+                context.restore();
+
+                context.drawImage(abilityIcons[playerAbilityInfo.index],scene.worldX+18*16*scene.sizeMod*2+30 + 150-50,scene.worldY+25,100,100);
+
+
+                context.font = '24px zenMaruRegular';
+                context.fillStyle = 'white';
+                context.fillText(abilityInfo.name, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+165);
+
+                context.font = '16px zenMaruRegular';
+                context.textAlign = 'left';
+
+                let bodyText = abilityInfo.description;
+                let wrappedText = wrapText(context, bodyText, scene.worldY+205, 260, 16);
+                wrappedText.forEach(function(item) {
+                    // item[0] is the text
+                    // item[1] is the y coordinate to fill the text at
+                    context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 25, item[1]);
+                });
+
+                let currentY = scene.worldY+185 + wrappedText.length*16;
+
+                if(!playerAbilityInfo.acquired){
+                    context.textAlign = 'center';
+                    context.font = '17px zenMaruMedium';
+                    context.fillText("Unlock Requirements", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+currentY+28);
+
+                    context.fillStyle = 'hsl(0, 100%, 100%, 40%)';
+                    context.fillRect(scene.worldX+18*16*scene.sizeMod*2+30 + 90, scene.worldY+currentY+28+13, 300-180, 2);
+
+                    currentY += 28+13;
+
+                    context.font = '16px zenMaruRegular';
+                    context.fillStyle = 'white';
+                    context.textAlign = 'center';
+                    for(let i=0; i<abilityInfo.unlockRequirements.length; i++){
+                        let r = abilityInfo.unlockRequirements[i];
+                        wrappedText = wrapText(context, r.textDescription+` (${r.progress}/${r.number})`, scene.worldY+currentY+25, 240, 18);
+                        wrappedText.forEach(function(item) {
+                            // item[0] is the text
+                            // item[1] is the y coordinate to fill the text at
+                            context.fillText(item[0], scene.worldX+18*16*scene.sizeMod*2+30 + 150, item[1]);
+                        });
+                    }
+                    currentY += 25+wrappedText.length*18;
+                    if(playerAbilityInfo.unlocked){
+                        context.font = '19px zenMaruMedium';
+                        context.fillStyle = "#d600ba";
+                        context.fillText(`${scene.player.combatData.power}/${abilityInfo.acquisitionPower} power to acquire!`, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+currentY+28);
+                    }
+                }
+
+                //context.font = '16px zenMaruRegular';
+                //context.textAlign = 'center';
+                //context.fillText("Max level: "+abilityInfo.maxLevel, scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+45);
+
+                /*
+                context.fillText("Mastery stage "+playerKanjiInfo.masteryStage, scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+70);
+                if(playerKanjiInfo.daysUntilMasteryIncreaseOpportunity > 0){
+                    context.font = '16px zenMaruRegular';
+                    context.fillText("Increase mastery in " + playerKanjiInfo.daysUntilMasteryIncreaseOpportunity + " days", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+95);
+                } else {
+                    context.font = '16px zenMaruBold';
+                    context.fillText("Capture to increase mastery!", scene.worldX+18*16*scene.sizeMod*2+30 + 150, belowStoryY+95);
+                }
+
+
+                if(!playerKanjiInfo.enabled){
+                    context.textAlign = 'center';
+                    context.font = '22px zenMaruBlack';
+                    context.fillText("Disabled", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+660);
+                }*/
             }
         } // Draw ability screen function ends here
 

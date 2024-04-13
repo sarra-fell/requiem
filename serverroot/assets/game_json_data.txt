@@ -615,7 +615,7 @@
     "abilities": [
         {
             "name": "Basic Dysymbolia Mastery",
-            "description": "Through experience with how it works and exerting some internal control, you are able to tame your dysymbolia a little. Equipping this passive ability increases your curse resistance by 10% and doubles the time between automatic dysymbolia triggers, but more importantly, after acquiring this ability, you can trigger dysymbolia by clicking the dysymbolia condition without even equpping this.",
+            "description": " Through experience with how it works and exerting some internal control, you are able to tame your dysymbolia a little. \n \n Equipping this passive ability increases your curse resistance by 10% and doubles the time between automatic dysymbolia triggers, but more importantly, after acquiring this ability, you can trigger dysymbolia by clicking the dysymbolia condition without even equpping this.",
             "types": [
                 "passive",
                 "static",
@@ -636,15 +636,22 @@
                     "type": "basic dysymbolia control"
                 }
             ],
-            "listConditions": [],
-            "unlockConditions": [],
-            "aquisitionPower": 5,
+            "listRequirements": [],
+            "unlockRequirements": [
+                {
+                    "type": "free",
+                    "number": 1,
+                    "progress": 1,
+                    "textDescription": "Find the abilities menu tab! (Difficulty: Impossible)"
+                }
+            ],
+            "acquisitionPower": 5,
             "maxLevel": 1,
             "special kanji": []
         },
         {
             "name": "Suppress Dysymbolia",
-            "description": "Through more experience with dysymbolia, you figure out you can turn it off indefinitely, at a cost. Equipping this removes the dysymbolia condition, reduces your max HP by 10%, and disables all dysymbolia abilities, until it is unequipped.",
+            "description": " Through more experience with dysymbolia, you figure out you can turn it off indefinitely, at a cost. \n \n Equipping this removes the dysymbolia condition, reduces your max HP by 10%, and disables all dysymbolia abilities, until it is unequipped.",
             "types": ["passive"],
             "passive effects": [
                 {
@@ -655,12 +662,14 @@
                     "number": -10
                 }
             ],
-            "listConditions": [],
-            "unlockConditions": [
+            "listRequirements": [],
+            "unlockRequirements": [
                 {
                     "type": "statistic threshold",
                     "stat": "totalDysymboliaManualTriggers",
-                    "number": 5
+                    "number": 5,
+                    "progress": 0,
+                    "textDescription": "Manually trigger dysymbolia 5 times."
                 }
             ],
             "acquisitionPower": 5,
@@ -669,7 +678,7 @@
         },
         {
             "name": "Body Strengthen",
-            "description": "Channel your power towards strengthening your physical abilities. When equipped, increases your max hp by 10% and your basic attack strength by 50% per level. Also, just having it acquired increases your base attack damage by 1 per level.",
+            "description": " Channel your power towards strengthening your physical abilities. \n \n When equipped, increases your max hp by 10% and your basic attack strength by 50% per level. Also, just having it acquired increases your base attack damage by 1 per level.",
             "types": ["passive", "static"],
             "passive effects": [
                 {
@@ -690,21 +699,30 @@
                     "number": 1
                 }
             ],
-            "listConditions": [
+            "listRequirements": [
                 {
                     "type": "statistic threshold",
                     "stat": "enemiesDefeated",
                     "number": 1
                 }
             ],
-            "unlockConditions": [],
+            "unlockRequirements": [
+                {
+                    "type": "statistic threshold",
+                    "stat": "enemiesDefeated",
+                    "number": 3,
+                    "progress": 0,
+                    "textDescription": "Defeat 3 enemies."
+                }
+            ],
             "maxLevel": 4,
+            "acquisitionPower": 5,
             "specialKanji": [],
             "levelingInfo": {}
         },
         {
             "name": "Increase Max Power",
-            "description": "Channel your dysymbolia power in on itself and use it to increase your maximum dysymbolia power.",
+            "description": " Channel your dysymbolia power in on itself and use it to increase your maximum dysymbolia power.",
             "types": ["static"],
             "static effects": [
                 {
@@ -713,19 +731,19 @@
                     "number": 5
                 }
             ],
-            "listConditions": [],
-            "unlockConditions": [
-                {
-                    "type": "acquired ability",
-                    "ability": "Basic Dysymbolia Mastery"
-                },
+            "listRequirements": [],
+            "unlockRequirements": [
                 {
                     "type": "acquired ability",
                     "ability": "Body Strengthen",
-                    "level": 1
+                    "number": 1,
+                    "level": 1,
+                    "progress": 0,
+                    "textDescription": "Acquire ability Body Strengthen. If you don't know what that is yet, you will."
                 }
             ],
             "maxLevel": 20,
+            "acquisitionPower": 5,
             "special kanji": [],
             "levelingInfo": {}
         }
