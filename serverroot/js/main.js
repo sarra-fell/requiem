@@ -520,9 +520,6 @@ let itemInfo = [
     Load our assets before doing anything else !!
 */
 
-/*var uiThingImage = new Image();
-uiThingImage.src = "assets/some ui/thing.png";*/
-
 var zenMaruRegular = new FontFace('zenMaruRegular', 'url(assets/ZenMaruGothic-Regular.ttf)');
 zenMaruRegular.load().then(function(font){document.fonts.add(font);});
 
@@ -1530,6 +1527,10 @@ function initializeScene(sceneName){
                 totalDysymboliaManualTriggers: 0,
                 totalKanjiMastery: 0,
             },
+            srsSettingsData: {
+                trialsPerRandomDysymbolia: 8,
+                reinforcementIntervalLength: 10,
+            },
             kanjiData: [],
             theoryData: [],
             conditions: [
@@ -1982,18 +1983,26 @@ function initializeNewSaveGame(){
     let playerKanjiData = scene.player.kanjiData;
     for(let i=0;i<adventureKanjiFileData.length;i++){
         playerKanjiData.push({
+            // Index in the file data
+            index: i,
+
             // Contains the full trial history of the kanji
             trialHistory: [],
 
             enabled: true,
             leechDetectionTriggered: false,
-            masteryStage: 0,
+
             trialSuccesses: 0,
             trialFailures: 0,
-            daysUntilNextTrial: 0,
-            daysUntilMasteryIncreaseOpportunity: 0,
+
             customStory: null,
-            customKeyword: null
+            customKeyword: null,
+
+            daysUntilMasteryIncreaseOpportunity: 0,
+            masteryStage: 0,
+
+            // Mastery stage can go down after a long vacation but highest mastery stage will be used to calculate mastery score
+            highestMasteryStage: 0,
         });
     }
 
@@ -2011,14 +2020,53 @@ function initializeNewSaveGame(){
     }
 }
 
-// Call to initialize the game when loading a save file
+// Doesn't work yet
 function loadSaveGame(){
-
+    try {
+        //alert(localStorage.getItem("save 1"));
+        scene.player = JSON.parse(localStorage.getItem("save 1"));
+        alert("successfully loaded i think");
+    }
+    catch {
+        alert("save failed: "+err);
+    }
 }
 
-// Just returns the jsonified player
-function outputSave(){
+// Doesn't work yet
+function saveToLocalStorage(){
+    try {
+        localStorage.setItem("save 1",JSON.stringify(scene.player));
+        alert("don't actually try and load this, saving doesnt work yet lol");
+    }
+    catch {
+        alert("save failed: "+err);
+    }
+}
 
+// Takes a kanji from the player's kanjiData and assigns a number indicating the priority of the next trial of it
+function assignStudyPriority(kanji){
+    if(kanji.trialHistory.length > 0){
+        return 0;
+    } else {
+        return 1000-kanji.index;
+    }
+}
+
+// after completing a trial, this function adds the trial to the kanji and updates all the information of it
+function addTrial(kanji, succeeded){
+    kanji.trialHistory.push({
+        dateStamp: new Date(),
+        success: succeeded,
+    });
+    if(kanji.daysUntilMasteryIncreaseOpportunity === 0){
+        kanji.masteryStage++;
+        kanji.highestMasteryStage = Math.max(kanji.masteryStage,kanji.highestMasteryStage);
+    }
+    if(succeeded){
+        kanji.trialSuccesses++;
+    } else {
+        kanji.trialFailures++;
+    }
 }
 
 // Evaluate conditions for listing abilities, unlocking abilities, listing theory pages, or unlocking theory pages.
@@ -2284,13 +2332,7 @@ function initializeMenuTab(){
             neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
             text: "Save Game to Local Storage", font: '17px zenMaruRegular', fontSize: 17, enabled: true, temporaryMenuButton: true,
             onClick: function(){
-                try {
-                    localStorage.setItem("save 1",JSON.stringify(scene.player));
-                    alert("successfully saved i think");
-                }
-                catch {
-                    alert("save failed: "+err);
-                }
+                saveToLocalStorage();
             }
         });
         scene.buttons.push({
@@ -2298,7 +2340,7 @@ function initializeMenuTab(){
             neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
             text: "Load Game from Local Storage", font: '17px zenMaruRegular', fontSize: 17, enabled: true, temporaryMenuButton: true,
             onClick: function(){
-                alert("u win da gayme");
+                loadSaveGame();
             }
         });
         updateInventory();
@@ -2659,7 +2701,7 @@ function updateAdventure(timeStamp){
 
             // Handle cinematic
             if(scene.dialogue.cinematic !== null){
-                // Handle within scene dysynbolia
+                // Handle scene dysynbolia
                 if(scene.dialogue.cinematic.type === "dysymbolia"){
                     let timeElapsed = timeStamp-scene.dialogue.cinematic.startTime;
                     if(timeElapsed < 2500){
@@ -2668,7 +2710,7 @@ function updateAdventure(timeStamp){
                         scene.blur = 5;
                     }
                     // If the inputting phase has began, handle update
-                    if(scene.dialogue.cinematic.phaseStartTime !== null){
+                    if(scene.dialogue.cinematic.phaseNum > 0){
                         if(scene.inputting){
                             // If input entered
                             if(scene.finishedInputting){
@@ -2710,8 +2752,9 @@ function updateAdventure(timeStamp){
                             }
                         }
                     }
+                } else if(scene.dialogue.cinematic.type === "randomDysymbolia"){
+                    // Handle random dysymbolia
                 }
-
             }
             // If there isnt a cinematic theres nothing to handle about the dialogue in update phase
         } else {
@@ -2859,11 +2902,22 @@ function updateAdventure(timeStamp){
                             scene.dialogue.cinematic = {
                                 type: "dysymbolia",
                                 startTime: timeStamp,
+                                phaseStartTime: timeStamp,
+                                // Phase 0 is the introduction phase where the text line is shown but no input has started yet.
+                                // Phase 1 starts with the z key and the player is to input their answer
+                                // Phase 2 is when the answer is inputted and an animation shows the answer.
+                                // The player can spend time after the animation is finished to check the kanji story and the text line.
+                                // The cinematic ends when the z key is pressed after the animation is finished
+                                phaseNum: 0,
                                 info: lineInfo.dysymbolia,
-                                phaseStartTime: null,
                                 particleSystem: scene.particleSystems[scene.particleSystems.length-1],
+
+                                // True when the animation finishes
                                 finished: false,
                                 result: null,
+
+                                // Will apply effects after the animation is finished when this is still false
+                                resultApplied: false,
                             };
                         } else if (lineInfo !== undefined && lineInfo.randomDysymbolia !== undefined){
                             playerSceneData.timeUntilDysymbolia = -1;
@@ -2874,7 +2928,9 @@ function updateAdventure(timeStamp){
                             };
                         }
                     }
-                } else if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseStartTime === null){
+                } else if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseNum === 0){
+                    // Begin the inputting phase
+                    scene.dialogue.cinematic.phaseNum = 1;
                     scene.dialogue.cinematic.phaseStartTime = timeStamp;
                     scene.inputting = true;
                     scene.finishedInputting = false;
@@ -3180,7 +3236,7 @@ function drawAdventure(timeStamp){
             context.font = `${Math.floor(16*scene.sizeMod)}px zenMaruRegular`;
 
             if(scene.dialogue.cinematic !== null){
-                if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseStartTime !== null){
+                if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseNum > 0){
                     // draw shaded circle pre-blur
                     context.fillStyle = 'hsl(0, 100%, 0%, 20%)';
                     context.beginPath();
@@ -3224,7 +3280,7 @@ function drawAdventure(timeStamp){
 
             if(scene.dialogue.cinematic !== null && scene.dialogue.cinematic.type === "dysymbolia"){
                 let c = scene.dialogue.cinematic;
-                if(c.phaseStartTime !== null){
+                if(c.phaseNum > 0){
 
                     // Draw dysymbolia input elements post blur
                     context.fillStyle = 'hsl(0, 100%, 100%, 80%)';

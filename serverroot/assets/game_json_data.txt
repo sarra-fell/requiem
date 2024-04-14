@@ -46,7 +46,7 @@
                     {
                         "face": "player",
                         "faceNum": 4,
-                        "dysymbolia": ["雲",["cloud","clouds","kumo"],"#737373","clouds","雲"],
+                        "dysymbolia": ["雲",["cloud","clouds","kumo"],"#737373","雲(くも)","雲"],
                         "particleSystem": {
                                 "hue": [0,0], "saturation": [0,0], "lightness": [100,85],
                                 "particlesPerSec": 30, "drawParticles": 0, "newParticle": 1,
@@ -307,7 +307,7 @@
             "auto": {
                 "textLines": [
                     "It's coming.",
-                    "This is where the random dysymbolia would go if I made it yet, its kind of the whole entire point of the game and teaches you all the kanji and kana you need, but its really important and i'm still not sure exactly how it should go lol."
+                    "..."
                 ],
                 "lineInfo": [
                     {
@@ -316,7 +316,7 @@
                     },
                     {
                         "face": "player",
-                        "faceNum": 15,
+                        "faceNum": 9,
                         "randomDysymbolia": true
                     }
                 ]
