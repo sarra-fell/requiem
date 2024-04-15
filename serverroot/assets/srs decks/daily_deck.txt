@@ -58,3 +58,6 @@ days_studied+0
 上京+上京
 disable+日課
 disable+作成
+disable+雲
+disable+一つ
+disable+水

@@ -2398,7 +2398,10 @@ function initializeDialogue(category, scenario, timeStamp, entityIndex = null){
 // Draws text one word at a time to be able to finely control what is written, designed to be a version of wrapText with much more features,
 //  including utilizing and managing its own particle systems
 // Uses the dialogue object in the scene to figure out what to write.
-function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp) {
+
+// registerTooltopBox should be an object with all the tooltip information needed other than x and y
+//  and this function will register the box with the missing information filled in
+function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp, registerTooltipBox = null) {
     let d = scene.dialogue;
     // First cuts up the dialogue text
     let words = d.textLines[d.currentLine].replace(/playerName/g,scene.player.sceneData.name).split(' ');
@@ -2410,7 +2413,7 @@ function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp) {
     let currentX = x; // x coordinate in which to draw the next word
     let currentY = y; // y coordinate in which to draw the next word
 
-    let textSpeed = d.lineInfo[d.currentLine].textSpeed
+    let textSpeed = d.lineInfo[d.currentLine].textSpeed;
     if(textSpeed === undefined){
         textSpeed = scene.defaultTextSpeed;
     }
@@ -2478,7 +2481,7 @@ function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp) {
             }
             continue;
         } else if(d.cinematic !== null){
-            if(d.cinematic.type === "dysymbolia"){
+            if(d.cinematic.type === "dysymbolia" && !d.cinematic.resultApplied){
                 if(word[0].includes(d.cinematic.info[0])){
                     let re = new RegExp(`(${d.cinematic.info[0]})`);
                     let splitText = word[0].split(re);
@@ -2495,6 +2498,14 @@ function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp) {
                     }
                     continue;
                 }
+            }
+        }
+        if(registerTooltipBox !== null){
+            if(word[0].includes(registerTooltipBox.word)){
+                // Add tooltip box to scene
+                registerTooltipBox.x = word[1];
+                registerTooltipBox.y = word[2]-lineHeight;
+                scene.tooltipBoxes.push(registerTooltipBox);
             }
         }
         context.fillText(word[0],word[1],word[2]);
@@ -2710,7 +2721,7 @@ function updateAdventure(timeStamp){
                         scene.blur = 5;
                     }
                     // If the inputting phase has began, handle update
-                    if(scene.dialogue.cinematic.phaseNum > 0){
+                    if(scene.dialogue.cinematic.phaseNum === 1){
                         if(scene.inputting){
                             // If input entered
                             if(scene.finishedInputting){
@@ -2721,13 +2732,11 @@ function updateAdventure(timeStamp){
                                 }
                                 scene.inputting = false;
                                 scene.dialogue.cinematic.phaseStartTime = timeStamp;
-                                scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine].replaceAll(scene.dialogue.cinematic.info[4],scene.dialogue.cinematic.info[3]);
+                                //scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine].replaceAll(scene.dialogue.cinematic.info[4],scene.dialogue.cinematic.info[3]);
                             }
                         } else {
                             // If animation finished
-                            if(scene.dialogue.cinematic.finished){
-                                scene.blur = 0;
-                                scene.textEntered = "";
+                            if(scene.dialogue.cinematic.finished && !scene.dialogue.cinematic.resultApplied){
                                 if(scene.dialogue.cinematic.result === "pass") {
                                     scene.player.combatData.power = Math.min(scene.player.combatData.powerSoftcap,scene.player.combatData.power+1);
                                 } else {
@@ -2747,8 +2756,20 @@ function updateAdventure(timeStamp){
                                         timeOfLastShake: -1,
                                     };
                                 }
-                                playerSceneData.timeUntilDysymbolia = 60;
-                                initializeDialogue("scenes","post dysymbolia "+scene.player.statisticData.numFinishedTutorialScenes,timeStamp);
+                                scene.dialogue.cinematic.resultApplied = true;
+                                scene.dialogue.cinematic.phaseNum = 2;
+                                scene.dialogue.cinematic.phaseStartTime = timeStamp;
+                                note = "Hover your mouse over the Japanese text for more info.";
+                                /*let w = 18*scene.tileSize+1;
+                                let h = 18*scene.tileSize+1;
+                                let lev = levels[scene.levelNum];
+                                drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp,
+                                    {
+                                        width: Math.ceil(16*scene.sizeMod)*scene.dialogue.cinematic.info[4].length, height: Math.ceil(16*scene.sizeMod),
+                                        type: "dictionary", word: scene.dialogue.cinematic.info[4], spawnTime: 0,
+                                    }
+                                );*/
+
                             }
                         }
                     }
@@ -2918,6 +2939,7 @@ function updateAdventure(timeStamp){
 
                                 // Will apply effects after the animation is finished when this is still false
                                 resultApplied: false,
+                                tooltipsRegistered: false
                             };
                         } else if (lineInfo !== undefined && lineInfo.randomDysymbolia !== undefined){
                             playerSceneData.timeUntilDysymbolia = -1;
@@ -2934,6 +2956,12 @@ function updateAdventure(timeStamp){
                     scene.dialogue.cinematic.phaseStartTime = timeStamp;
                     scene.inputting = true;
                     scene.finishedInputting = false;
+                } else if (scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseNum > 1 && scene.dialogue.cinematic.resultApplied) {
+                    scene.blur = 0;
+                    scene.textEntered = "";
+                    playerSceneData.timeUntilDysymbolia = 60;
+                    initializeDialogue("scenes","post dysymbolia "+scene.player.statisticData.numFinishedTutorialScenes,timeStamp);
+                    note = "無";
                 } else if(scene.dialogue.cinematic.type === "random dysymbolia"){
                     currentDirection = scene.dialogue.playerDirection;
                     playerSceneData.timeUntilDysymbolia = 60;
@@ -3122,7 +3150,15 @@ function drawAdventure(timeStamp){
 
         context.font = '16px zenMaruRegular';
         context.fillStyle = textColor;
+        context.textAlign = "left";
         context.fillText("Press Z to interact",scene.worldX+100, scene.worldY+30+h*scene.sizeMod);
+
+        if(note !== "無"){
+            context.fillStyle = "hsla(61, 100%, 80%, 1)";
+            context.font = '20px zenMaruRegular';
+            context.fillText(note,scene.worldX+300, scene.worldY+50+h*scene.sizeMod);
+        }
+
         context.font = '20px zenMaruMedium';
         context.fillStyle = 'black';
         let hours = Math.floor(scene.currentGameClock/60);
@@ -3233,7 +3269,8 @@ function drawAdventure(timeStamp){
             const faceCharacter = scene.dialogue.lineInfo[scene.dialogue.currentLine].face;
             const faceNum = scene.dialogue.lineInfo[scene.dialogue.currentLine].faceNum;
             context.fillStyle = textColor;
-            context.font = `${Math.floor(16*scene.sizeMod)}px zenMaruRegular`;
+            let dialogueFontSize = Math.floor(16*scene.sizeMod)
+            context.font = `${dialogueFontSize}px zenMaruRegular`;
 
             if(scene.dialogue.cinematic !== null){
                 if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseNum > 0){
@@ -3251,8 +3288,18 @@ function drawAdventure(timeStamp){
             const drawDialogueForPlayer = function(facesImage){
                 context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, scene.worldX, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
                 applyBlur();
-                drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp);
 
+                if(scene.dialogue.cinematic !== null && scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.resultApplied && !scene.dialogue.cinematic.tooltipsRegistered){
+                    drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp,
+                        {
+                            width: dialogueFontSize*scene.dialogue.cinematic.info[4].lengths, height: 20*scene.sizeMod,
+                            type: "dictionary", word: scene.dialogue.cinematic.info[4], spawnTime: 0,
+                        }
+                    );
+                    scene.dialogue.cinematic.tooltipsRegistered = true;
+                } else {
+                    drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp);
+                }
             };
             const drawDialogueForNonPlayer = function(facesImage){
                 context.save();
@@ -3294,17 +3341,17 @@ function drawAdventure(timeStamp){
 
                         context.fillStyle = "white";
                         context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2);
-                    } else {
+                    } else if (!c.resultApplied){
                         // Play the animation for dysymbolia text colliding
                         let animationDuration = 2000;
                         let animationProgress = (timeStamp - c.phaseStartTime)/animationDuration;
                         if (animationProgress >= 1){
                             if(c.result === "pass"){
                                 // Green particle system
-                                scene.particleSystems.push(createParticleSystem({hue:120,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+                                scene.particleSystems.push(createParticleSystem({hue:120,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:25, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
                             } else {
                                 // Red particle system
-                                scene.particleSystems.push(createParticleSystem({hue:0,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:10, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+                                scene.particleSystems.push(createParticleSystem({hue:0,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:25, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
                             }
 
                             c.finished = true;
@@ -4310,6 +4357,7 @@ function gameLoop(timeStamp){
     }
 
     context.font = '20px zenMaruLight';
+    context.textAlign = "left";
     context.fillText(`I love you by a factor of ${love}.`, 120, screenHeight-30);
 
     // Draw tooltip over everything else
