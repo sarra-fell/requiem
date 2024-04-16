@@ -304,6 +304,39 @@
             }
         },
         "randomDysymbolia": {
+            "first": {
+                "textLines": [
+                    ".........",
+                    "Ugh.......... my head...",
+                    ""
+                ],
+                "lineInfo": [
+                    {
+                        "face": "player",
+                        "faceNum": 9,
+                        "textSpeed": 20
+                    },
+                    {
+                        "face": "player",
+                        "faceNum": 9,
+                        "textSpeed": 40,
+                        "conditional": "is wary of scene dysymbolia",
+                        "conditionalFail": "continue",
+                        "conditionalSuccess": "altText",
+                        "altText": "Even though I'm just walking around, it's here again... ugh..."
+                    },
+                    {
+                        "face": "player",
+                        "faceNum": 9,
+                        "randomDysymbolia": true,
+                        "particleSystem": {
+                            "hue": [0], "saturation": [30], "lightness": [80],
+                            "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
+                            "particleSize": 4, "particleLifespan": 1400, "particleSpeed": 20
+                        }
+                    }
+                ]
+            },
             "auto": {
                 "textLines": [
                     "It's coming.",
@@ -317,7 +350,12 @@
                     {
                         "face": "player",
                         "faceNum": 9,
-                        "randomDysymbolia": true
+                        "randomDysymbolia": true,
+                        "particleSystem": {
+                            "hue": [0], "saturation": [30], "lightness": [80],
+                            "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
+                            "particleSize": 4, "particleLifespan": 1400, "particleSpeed": 20
+                        }
                     }
                 ]
             }
