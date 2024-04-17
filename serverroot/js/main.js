@@ -1165,6 +1165,11 @@ function drawTooltip() {
         let text = kanji.story;
         context.font = '20px Arial';
         draw('black',kanji.symbol + "   " + kanji.keyword,text)*/
+    } else if (tooltipBox.type === "kanji"){
+        let kanji = adventureKanjiFileData[tooltipBox.index];
+        let text = kanji.story;
+        context.font = '20px Arial';
+        draw('black',kanji.symbol + "   " + kanji.keyword,text)
     }
 }
 
@@ -1537,7 +1542,7 @@ function initializeScene(sceneName){
                 totalKanjiMastery: 0,
             },
             srsSettingsData: {
-                trialsPerRandomDysymbolia: 8,
+                //trialsPerRandomDysymbolia: 8,
                 reinforcementIntervalLength: 10,
             },
             kanjiData: [],
@@ -2065,15 +2070,16 @@ function saveToLocalStorage(){
 
 // Takes a kanji from the player's kanjiData and assigns a number indicating the priority of the next trial of it
 function assignStudyPriority(kanji){
-    if(kanji.trialHistory.length > 0){
-        return 0;
-    } else {
-        return 1000-kanji.index;
-    }
+    return 1000-kanji.index - kanji.trialHistory.length*100;
 }
 
 // after completing a trial, this function adds the trial to the kanji and updates all the information of it
 function addTrial(kanji, succeeded){
+    const masteryStageIntervals = [0,1,3,7,21,90,Infinity];
+
+    if(typeof kanji === "number"){
+        kanji = scene.player.kanjiData[kanji];
+    }
     kanji.trialHistory.push({
         dateStamp: new Date(),
         success: succeeded,
@@ -2081,6 +2087,7 @@ function addTrial(kanji, succeeded){
     if(kanji.daysUntilMasteryIncreaseOpportunity === 0){
         kanji.masteryStage++;
         kanji.highestMasteryStage = Math.max(kanji.masteryStage,kanji.highestMasteryStage);
+        kanji.daysUntilMasteryIncreaseOpportunity = masteryStageIntervals[kanji.masteryStage];
     }
     if(succeeded){
         kanji.trialSuccesses++;
@@ -2533,11 +2540,20 @@ function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp, registerTooltip
             }
         }
         if(registerTooltipBox !== null){
-            if(word[0].includes(registerTooltipBox.word)){
-                // Add tooltip box to scene
-                registerTooltipBox.x = word[1];
-                registerTooltipBox.y = word[2]-lineHeight;
-                scene.tooltipBoxes.push(registerTooltipBox);
+            for(let i=0;i<registerTooltipBox.tooltipTargets.length;i++){
+                if(word[0].includes(registerTooltipBox.tooltipTargets[i])){
+                    // Add tooltip box to scene
+                    scene.tooltipBoxes.push({
+                        x: word[1],
+                        y: word[2]-lineHeight,
+                        width: registerTooltipBox.width*registerTooltipBox.tooltipTargets[i].length,
+                        height: registerTooltipBox.height,
+                        spawnTime: 0,
+                        type: registerTooltipBox.type,
+                        index: registerTooltipBox.indexes[i],
+                        word: registerTooltipBox.tooltipTargets[i],
+                    });
+                }
             }
         }
         context.fillText(word[0],word[1],word[2]);
@@ -2733,6 +2749,55 @@ function updateAdventure(timeStamp){
         scene.currentGameClock = newTime;
     }
 
+    // Some local fuctions that will be useful for the update phase
+
+    // Return a dysymbolia cinematic object
+    let newDysymboliaCinematic = function(phase, trials, dysymboliaInfo, startTime = timeStamp, trialedKanjiIndexes = []){
+        if(dysymboliaInfo.length > 4){
+            trialedKanjiIndexes.push(dysymboliaInfo[4]);
+        }
+        return {
+            type: "dysymbolia",
+            startTime: startTime,
+            phaseStartTime: timeStamp,
+            // Phase 0 is the introduction phase where the text line is shown but no input has started yet.
+            // Phase 1 starts with the z key and the player is to input their answer
+            // Phase 2 is when the answer is inputted and an animation shows the answer.
+            // Phase 3 is when the animation is finished and the player can check the kanji story and the text line before the dialogue is finished
+            // The cinematic ends when the z key is pressed during phase 3
+            phaseNum: phase,
+            info: dysymboliaInfo,
+            particleSystem: scene.particleSystems[scene.particleSystems.length-1],
+            trialsLeft: trials,
+            //trialedKanji: trialedKanji,
+            // Indexes are their index in the player kanjidata array
+            trialedKanjiIndexes: trialedKanjiIndexes,
+
+            // True when the animation finishes
+            trialFinished: false,
+            finished: false,
+            result: null,
+
+            // Will apply effects after the animation is finished when this is still false
+            tooltipsRegistered: false,
+        };
+    }
+
+    // Get the kanji with the highest study priority and return it's player.kanjiData entry
+    let getNextKanji = function(){
+        let priority = assignStudyPriority(scene.player.kanjiData[0]);
+        let highestPriority = priority;
+        let highestPriorityIndex = 0;
+        for(let i=1;i<scene.player.kanjiData.length;i++){
+            priority = assignStudyPriority(scene.player.kanjiData[i]);
+            if(priority>highestPriority){
+                highestPriority = priority;
+                highestPriorityIndex = i;
+            }
+        }
+        return scene.player.kanjiData[highestPriorityIndex];
+    }
+
     const updateWorldScreen = function(){
         let lev = levels[scene.levelNum];
 
@@ -2741,21 +2806,6 @@ function updateAdventure(timeStamp){
                 playerSceneData.timeUntilDysymbolia = 0;
                 scene.player.statisticData.totalDysymboliaManualTriggers++;
             }
-        }
-
-        // Get the kanji with the highest study priority and return it's player.kanjiData entry
-        let getNextKanji = function(){
-            let priority = assignStudyPriority(scene.player.kanjiData[0]);
-            let highestPriority = priority;
-            let highestPriorityIndex = 0;
-            for(let i=1;i<scene.player.kanjiData.length;i++){
-                priority = assignStudyPriority(scene.player.kanjiData[1]);
-                if(priority>highestPriority){
-                    highestPriority = priority;
-                    highestPriorityIndex = i;
-                }
-            }
-            return scene.player.kanjiData[highestPriorityIndex];
         }
 
         // Handle dialogue
@@ -2785,12 +2835,18 @@ function updateAdventure(timeStamp){
                             if(scene.finishedInputting){
                                 if(scene.dialogue.cinematic.info[1].includes(scene.textEntered)){
                                     scene.dialogue.cinematic.result = "pass";
+                                    if(scene.dialogue.cinematic.info.length > 4){
+                                        addTrial(scene.dialogue.cinematic.info[4],true);
+                                    }
+
                                 } else {
                                     scene.dialogue.cinematic.result = "fail";
+                                    if(scene.dialogue.cinematic.info.length > 4){
+                                        addTrial(scene.dialogue.cinematic.info[4],false);
+                                    }
                                 }
                                 scene.inputting = false;
                                 scene.dialogue.cinematic.phaseStartTime = timeStamp;
-                                //scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine].replaceAll(scene.dialogue.cinematic.info[4],scene.dialogue.cinematic.info[3]);
                             }
                         } else {
                             // If animation finished, apply result, then start phase 3 if no trials left, otherwise get the next trial and start it from phase 1
@@ -2826,30 +2882,11 @@ function updateAdventure(timeStamp){
                                     scene.particleSystems.push(createParticleSystem(specialParticleSystem));
 
                                     playerSceneData.timeUntilDysymbolia = -1;
-                                    let kanjiInfo = adventureKanjiFileData[getNextKanji().index];
-                                    scene.dialogue.cinematic = {
-                                        type: "dysymbolia",
-                                        startTime: scene.dialogue.cinematic.startTime,
-                                        phaseStartTime: timeStamp,
-                                        // Phase 0 is the introduction phase where the text line is shown but no input has started yet.
-                                        // Phase 1 starts with the z key and the player is to input their answer
-                                        // Phase 2 is when the answer is inputted and an animation shows the answer.
-                                        // Phase 3 is when the animation is finished and the player can check the kanji story and the text line before the dialogue is finished
-                                        // The cinematic ends when the z key is pressed during phase 3
-                                        phaseNum: 1,
-                                        info: [kanjiInfo.symbol,[kanjiInfo.keyword.toLowerCase()],"white",kanjiInfo.symbol,kanjiInfo.symbol],
-                                        particleSystem: scene.particleSystems[scene.particleSystems.length-1],
-                                        trialsLeft: scene.dialogue.cinematic.trialsLeft,
+                                    let kanjiPlayerInfo = getNextKanji();
+                                    let kanjiFileInfo = adventureKanjiFileData[kanjiPlayerInfo.index];
+                                    scene.dialogue.cinematic = newDysymboliaCinematic(1,scene.dialogue.cinematic.trialsLeft,[kanjiFileInfo.symbol,[kanjiFileInfo.keyword.toLowerCase()],"white",kanjiFileInfo.symbol,kanjiPlayerInfo.index],scene.dialogue.cinematic.startTime,scene.dialogue.cinematic.trialedKanjiIndexes);
 
-                                        // True when the animation finishes
-                                        trialFinished: false,
-                                        finished: false,
-                                        result: null,
-
-                                        // Will apply effects after the animation is finished when this is still false
-                                        tooltipsRegistered: true,
-                                    };
-                                    scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine] + " " + kanjiInfo.symbol + "...";
+                                    scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine] + " " + kanjiFileInfo.symbol + "...";
                                     scene.inputting = true;
                                     scene.finishedInputting = false;
                                     scene.textEntered = "";;
@@ -3004,23 +3041,8 @@ function updateAdventure(timeStamp){
                             scene.particleSystems.push(createParticleSystem(specialParticleSystem));
                             playerSceneData.timeUntilDysymbolia = -1;
 
-                            // See the first instance of the dysymbolia cinematic object in this program for documentation
-                            scene.dialogue.cinematic = {
-                                type: "dysymbolia",
-                                startTime: timeStamp,
-                                phaseStartTime: timeStamp,
+                            scene.dialogue.cinematic = newDysymboliaCinematic(0,1,lineInfo.dysymbolia);
 
-                                phaseNum: 0,
-                                info: lineInfo.dysymbolia,
-                                particleSystem: scene.particleSystems[scene.particleSystems.length-1],
-                                trialsLeft: 1,
-
-                                trialFinished: false,
-                                finished: false,
-                                result: null,
-
-                                tooltipsRegistered: false
-                            };
                         } else if (lineInfo !== undefined && lineInfo.randomDysymbolia !== undefined){
                             let specialParticleSystem = scene.dialogue.lineInfo[scene.dialogue.currentLine].particleSystem;
                             specialParticleSystem.specialDrawLocation = true;
@@ -3028,24 +3050,11 @@ function updateAdventure(timeStamp){
                             scene.particleSystems.push(createParticleSystem(specialParticleSystem));
 
                             playerSceneData.timeUntilDysymbolia = -1;
-                            let kanjiInfo = adventureKanjiFileData[getNextKanji().index];
-                            scene.dialogue.cinematic = {
-                                type: "dysymbolia",
-                                startTime: timeStamp,
-                                phaseStartTime: timeStamp,
+                            let kanjiPlayerInfo = getNextKanji();
+                            let kanjiFileInfo = adventureKanjiFileData[kanjiPlayerInfo.index];
+                            scene.dialogue.cinematic = newDysymboliaCinematic(0,5,[kanjiFileInfo.symbol,[kanjiFileInfo.keyword.toLowerCase()],"white",kanjiFileInfo.symbol,kanjiPlayerInfo.index]);
 
-                                phaseNum: 0,
-                                info: [kanjiInfo.symbol,[kanjiInfo.keyword.toLowerCase()],"white",kanjiInfo.symbol,kanjiInfo.symbol],
-                                particleSystem: scene.particleSystems[scene.particleSystems.length-1],
-                                trialsLeft: 5,
-
-                                trialFinished: false,
-                                finished: false,
-                                result: null,
-
-                                tooltipsRegistered: true,
-                            };
-                            scene.dialogue.textLines[scene.dialogue.currentLine] = kanjiInfo.symbol + "...";
+                            scene.dialogue.textLines[scene.dialogue.currentLine] = kanjiFileInfo.symbol + "...";
                         }
                     }
                 } else if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseNum === 0){
@@ -3387,13 +3396,31 @@ function drawAdventure(timeStamp){
                 applyBlur();
 
                 if(scene.dialogue.cinematic !== null && scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseNum === 3 && !scene.dialogue.cinematic.tooltipsRegistered){
-                    drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp,
-                        {
-                            width: dialogueFontSize*scene.dialogue.cinematic.info[4].length, height: 20*scene.sizeMod,
-                            type: "dictionary", word: scene.dialogue.cinematic.info[4], spawnTime: 0,
+                    if(scene.dialogue.cinematic.info.length > 4){
+                        // TODO: figure out a way to refactor so this step isnt needed i swear
+                        let tooltipTargets = [];
+                        for(let i=0;i<scene.dialogue.cinematic.trialedKanjiIndexes.length;i++){
+                            tooltipTargets.push(adventureKanjiFileData[scene.dialogue.cinematic.trialedKanjiIndexes[i]].symbol);
                         }
-                    );
-                    note = "Hover your mouse over the Japanese text for more info.";
+                        drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp,
+                            {
+                                width: dialogueFontSize, height: 20*scene.sizeMod,
+                                type: "kanji", indexes: scene.dialogue.cinematic.trialedKanjiIndexes,
+                                tooltipTargets: tooltipTargets,
+                            }
+                        );
+                        note = "Hover your mouse over the kanji for more info.";
+                    } else {
+                        drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp,
+                            {
+                                width: dialogueFontSize, height: 20*scene.sizeMod,
+                                type: "dictionary", indexes: [null],
+                                tooltipTargets: [scene.dialogue.cinematic.info[3]],
+                            }
+                        );
+                        note = "Hover your mouse over the Japanese text for more info.";
+                    }
+
                     scene.dialogue.cinematic.tooltipsRegistered = true;
                 } else {
                     drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp);
@@ -3435,10 +3462,11 @@ function drawAdventure(timeStamp){
                         context.fillText("Enter keyword:", scene.worldX + w*scene.sizeMod/2, scene.worldY + (h-100)*scene.sizeMod/2);
 
                         context.fillStyle = "white";
-                        context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+100)*scene.sizeMod/2);
-
-                        context.fillStyle = "white";
                         context.fillText(scene.textEntered, scene.worldX + w*scene.sizeMod/2, scene.worldY + h*scene.sizeMod/2);
+
+                        context.font = `${Math.floor(20*scene.sizeMod)}px Arial`;
+                        context.fillStyle = "white";
+                        context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+100)*scene.sizeMod/2);
                     } else if (c.phaseNum < 3){
                         context.fillStyle = 'hsl(0, 100%, 100%, 80%)';
                         context.font = `${Math.floor(20*scene.sizeMod)}px zenMaruRegular`;
@@ -3451,10 +3479,10 @@ function drawAdventure(timeStamp){
                         if (animationProgress >= 1){
                             if(c.result === "pass"){
                                 // Green particle system
-                                scene.particleSystems.push(createParticleSystem({hue:120,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:25, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+                                scene.particleSystems.push(createParticleSystem({hue:120,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:25, particlesPerSec: 150,particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
                             } else {
                                 // Red particle system
-                                scene.particleSystems.push(createParticleSystem({hue:0,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:25, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
+                                scene.particleSystems.push(createParticleSystem({hue:0,saturation:100,lightness:50,x:scene.worldX + w*scene.sizeMod/2, y:scene.worldY +h*scene.sizeMod/2, temporary:true, particlesLeft:25, particlesPerSec: 150, particleSpeed: 200, particleAcceleration: -100, particleLifespan: 2000}));
                             }
                             c.trialsLeft--;
                             c.trialFinished = true;
@@ -3479,7 +3507,7 @@ function drawAdventure(timeStamp){
                                 }
                             }
 
-
+                            context.font = `${Math.floor(20*scene.sizeMod)}px Arial`;
                             context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 + 50*yMod)*scene.sizeMod/2);
                         } else {
                             // Play the fail animation
@@ -3493,6 +3521,7 @@ function drawAdventure(timeStamp){
                                 context.fillText(scene.textEntered[i], currentX + xMod*charWidth/2, scene.worldY + (h+50 - 50*yMod)*scene.sizeMod/2);
                                 currentX += charWidth * xMod;
                             }
+                            context.font = `${Math.floor(20*scene.sizeMod)}px Arial`;
                             context.fillText(c.info[0], scene.worldX + w*scene.sizeMod/2, scene.worldY + (h+50 + 50*yMod)*scene.sizeMod/2);
                         }
                     }

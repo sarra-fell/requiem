@@ -24,7 +24,7 @@
                         "face": "player",
                         "faceNum": 0,
                         "textSpeed": 120,
-                        "dysymbolia": ["水",["water","mizu"],"hsl(200, 100%, 80%)","water","水"],
+                        "dysymbolia": ["水",["water","mizu"],"hsl(200, 100%, 80%)","水"],
                         "particleSystem": {
                             "hue": [135], "saturation": [58], "lightness": [68],
                             "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
@@ -46,7 +46,7 @@
                     {
                         "face": "player",
                         "faceNum": 4,
-                        "dysymbolia": ["雲",["cloud","clouds","kumo"],"#737373","雲(くも)","雲"],
+                        "dysymbolia": ["雲",["cloud","clouds","kumo"],"#737373","雲"],
                         "particleSystem": {
                                 "hue": [0,0], "saturation": [0,0], "lightness": [100,85],
                                 "particlesPerSec": 30, "drawParticles": 0, "newParticle": 1,
@@ -81,7 +81,7 @@
                         "face": "player",
                         "faceNum": 5,
                         "textSpeed": 30,
-                        "dysymbolia": ["一",["one"],"white","one","一つ"],
+                        "dysymbolia": ["一",["one"],"white","一つ"],
                         "particleSystem": {
                             "hue": [0], "saturation": [30], "lightness": [80],
                             "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
@@ -164,6 +164,37 @@
                     {
                         "face": "player",
                         "faceNum": 2
+                    }
+                ]
+            },
+            "post dysymbolia 4": {
+                "textLines": [
+                    "I can feel it... aside from the pain. I'm getting something out of this. And I feel close to being able to figure out a way to control this a little.",
+                    "I should keep looking around and try and make that happen one more time."
+                ],
+                "lineInfo": [
+                    {
+                        "face": "player",
+                        "faceNum": 9
+                    },
+                    {
+                        "face": "player",
+                        "faceNum": 2
+                    }
+                ]
+            },
+            "post dysymbolia 5": {
+                "textLines": [
+                    "I feel an unfamiliar power. And I think I know how to use it somehow.",
+                    "(Try looking in the abilities tab in the menu)."
+                ],
+                "lineInfo": [
+                    {
+                        "face": "player",
+                        "faceNum": 9
+                    },
+                    {
+
                     }
                 ]
             },
