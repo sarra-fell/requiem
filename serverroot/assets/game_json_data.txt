@@ -395,6 +395,38 @@
                     }
                 ]
             }
+        },
+        "Basic Dysymbolia Mastery": {
+            "textLines": [
+                "Time to show this thing what's boss. Focus...",
+                "...",
+                "Succeed in capturing all the following kanji and the ability is yours! And don't worry, if you fail, you can try again as many times as you want. You'll probably have to try several times."
+            ],
+            "lineInfo": [
+                {
+                    "face": "player",
+                    "faceNum": 13
+                },
+                {
+                    "face": "player",
+                    "faceNum": 14
+                },
+                {
+
+                },
+                {
+                    "face": "player",
+                    "faceNum": 14,
+                    "abilityAquisition": true,
+                    "normalTrials": 3,
+                    "specialTrials": 2,
+                    "particleSystem": {
+                        "hue": [0], "saturation": [30], "lightness": [80],
+                        "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
+                        "particleSize": 4, "particleLifespan": 1400, "particleSpeed": 20
+                    }
+                }
+            ]
         }
     },
     "kanji": [
@@ -689,6 +721,7 @@
     "abilities": [
         {
             "name": "Basic Dysymbolia Mastery",
+            "jpName": "ディシンボリアの基本制御",
             "description": " Through experience with how it works and exerting some internal control, you are able to tame your dysymbolia a little. \n \n Equipping this passive ability increases your curse resistance by 10% and doubles the time between automatic dysymbolia triggers, but more importantly, after acquiring this ability, you can trigger dysymbolia by clicking the dysymbolia condition without even equpping this.",
             "types": [
                 "passive",
@@ -721,7 +754,7 @@
             ],
             "acquisitionPower": 5,
             "maxLevel": 1,
-            "special kanji": []
+            "special kanji": ["木","本"]
         },
         {
             "name": "Suppress Dysymbolia",
@@ -791,7 +824,7 @@
             ],
             "maxLevel": 4,
             "acquisitionPower": 5,
-            "specialKanji": [],
+            "specialKanji": ["木","本","体"],
             "levelingInfo": {}
         },
         {

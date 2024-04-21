@@ -2006,6 +2006,12 @@ function initializeNewSaveGame(){
             enabled: true,
             leechDetectionTriggered: false,
 
+            // If not null, indicates how long the interval between the last review and the next review this session should be
+            reviewStage: null,
+
+            // If not null, indicates the number of the trial where this kanji was studied last this session
+            lastTrialNum: null,
+
             trialSuccesses: 0,
             trialFailures: 0,
 
@@ -2032,6 +2038,8 @@ function initializeNewSaveGame(){
     for(let i=0;i<abilityFileData.length;i++){
         playerAbilityData.acquiredAbilities[abilityFileData[i]] = false;
     }
+
+    scene.sessionTrials = [];
 }
 
 function outputSaveGame(){
@@ -2068,9 +2076,24 @@ function saveToLocalStorage(){
     }
 }
 
-// Takes a kanji from the player's kanjiData and assigns a number indicating the priority of the next trial of it
-function assignStudyPriority(kanji){
-    return 1000-kanji.index - kanji.trialHistory.length*100;
+// Takes a kanji from the player's kanjiData and assigns a number indicating the priority of the next trial of it.
+// This is where the srs lives
+function assignStudyPriority(kanji, currentDate, noNewKanji = false){
+    // Time passed in milliseconds since the last trial
+    let timePassed = Infinity;
+    if(kanji.trialHistory !== []){
+        if(noNewKanji){
+            return -10000;
+        }
+        timePassed = Math.abs(kanji.trialHistory[trialHistory.length-1].dateStamp - currentDate);
+    }
+
+    // Number of trials of other kanji since the last trial of this kanji
+    let trialsSinceLastTrial = null;
+    if(kanji.lastTrialNum !== null){
+        trialsSinceLastTrial = sessionTrials.length - kanji.lastTrialNum+1;
+    }
+    return 1000 - kanji.index - kanji.trialHistory.length*100;
 }
 
 // after completing a trial, this function adds the trial to the kanji and updates all the information of it
@@ -2084,7 +2107,7 @@ function addTrial(kanji, succeeded){
         dateStamp: new Date(),
         success: succeeded,
     });
-    if(kanji.daysUntilMasteryIncreaseOpportunity === 0){
+    if(succeeded && kanji.daysUntilMasteryIncreaseOpportunity === 0){
         kanji.masteryStage++;
         kanji.highestMasteryStage = Math.max(kanji.masteryStage,kanji.highestMasteryStage);
         kanji.daysUntilMasteryIncreaseOpportunity = masteryStageIntervals[kanji.masteryStage];
@@ -2351,11 +2374,11 @@ function initializeMenuTab(){
                 neutralColor: '#ff6', hoverColor: '#ffffb3', pressedColor: '#66f', color: '#ff6',
                 text: "Begin Acquisition", font: '13px zenMaruRegular', abilityIndex: playerAbilityInfo.index, fontSize: 14, enabled: true, temporaryMenuButton: true,
                 onClick: function(){
-                    if(player.abilityData.acquiringAbility === null && scene.dialogue === null){
-                        player.abilityData.acquiringAbility = this.abilityIndex;
+                    if(scene.player.abilityData.acquiringAbility === null && scene.dialogue === null){
+                        scene.player.abilityData.acquiringAbility = this.abilityIndex;
                         scene.player.sceneData.timeUntilDysymbolia = 0;
                     } else {
-                        alert("ur either already acquiring an ability or there is an active dialogue >:(")
+                        alert("ur either already acquiring an ability or there is an active dialogue >:(");
                     }
                 }
             });
@@ -2733,6 +2756,7 @@ function changeArea(iid,changePlayerLocation = false){
 }
 
 function updateAdventure(timeStamp){
+    let lev = levels[scene.levelNum];
     let playerSceneData = scene.player.sceneData;
     // Update in-game time
     let newTime = (scene.gameClockOfLastPause+Math.floor((timeStamp-scene.timeOfLastUnpause)/1000))%1440;
@@ -2741,6 +2765,11 @@ function updateAdventure(timeStamp){
     if(scene.dialogue === null && scene.menuScene === null && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
         if(playerSceneData.timeUntilDysymbolia > 0){
             playerSceneData.timeUntilDysymbolia-=1;
+        }
+
+        // Begin dysymbolia dialogue!
+        else if (scene.player.abilityData.acquiringAbility !== null){
+            initializeDialogue("randomDysymbolia",scene.player.abilityData.acquiringAbility.name,timeStamp);
         } else if (!scene.player.statisticData.finishedFirstRandomDysymboliaScene){
             initializeDialogue("randomDysymbolia","first",timeStamp);
             scene.player.statisticData.numFinishedTutorialScenes++;
@@ -2794,11 +2823,12 @@ function updateAdventure(timeStamp){
 
     // Get the kanji with the highest study priority and return it's player.kanjiData entry
     let getNextKanji = function(){
-        let priority = assignStudyPriority(scene.player.kanjiData[0]);
+        let currentDate = new Date();
+        let priority = assignStudyPriority(scene.player.kanjiData[0],currentDate);
         let highestPriority = priority;
         let highestPriorityIndex = 0;
         for(let i=1;i<scene.player.kanjiData.length;i++){
-            priority = assignStudyPriority(scene.player.kanjiData[i]);
+            priority = assignStudyPriority(scene.player.kanjiData[i],currentDate);
             if(priority>highestPriority){
                 highestPriority = priority;
                 highestPriorityIndex = i;
@@ -2853,7 +2883,7 @@ function updateAdventure(timeStamp){
                     scene.textEntered = "";;
                 }
             }
-        }
+        } // Advance cinematic state function ends here
 
         if(scene.dialogue.cinematic !== null){
             advanceCinematicState();
@@ -2929,13 +2959,24 @@ function updateAdventure(timeStamp){
                     scene.dialogue.cinematic = newDysymboliaCinematic(0,5,[kanjiFileInfo.symbol,[kanjiFileInfo.keyword.toLowerCase()],"white",kanjiFileInfo.symbol,kanjiPlayerInfo.index]);
 
                     scene.dialogue.textLines[scene.dialogue.currentLine] = kanjiFileInfo.symbol + "...";
+                } else if (lineInfo !== undefined && lineInfo.abilityAcquisition !== undefined){
+                    let specialParticleSystem = scene.dialogue.lineInfo[scene.dialogue.currentLine].particleSystem;
+                    specialParticleSystem.specialDrawLocation = true;
+
+                    scene.particleSystems.push(createParticleSystem(specialParticleSystem));
+
+                    playerSceneData.timeUntilDysymbolia = -1;
+                    let kanjiPlayerInfo = getNextKanji();
+                    let kanjiFileInfo = adventureKanjiFileData[kanjiPlayerInfo.index];
+                    scene.dialogue.cinematic = newDysymboliaCinematic(0,lineInfo.normalTrials,[kanjiFileInfo.symbol,[kanjiFileInfo.keyword.toLowerCase()],"white",kanjiFileInfo.symbol,kanjiPlayerInfo.index]);
+
+                    scene.dialogue.textLines[scene.dialogue.currentLine] = kanjiFileInfo.symbol + "...";
                 }
             }
         }
     }
 
     const updateWorldScreen = function(){
-        let lev = levels[scene.levelNum];
 
         if(mouseDown && scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "condition" && scene.tooltipBoxes[scene.currentTooltip.index].condition.name === "Dysymbolia" && scene.player.abilityData.basicDysymboliaControl){
             if(playerSceneData.timeUntilDysymbolia > 0){
@@ -3652,12 +3693,26 @@ function drawAdventure(timeStamp){
             for(let i=0;i<Math.ceil(adventureKanjiFileData.length/rowAmount);i++){
                 for(let j=0; j<Math.min(rowAmount,adventureKanjiFileData.length-i*rowAmount);j++){
                     let currentIndex = j + i*rowAmount;
+                    let kanjiInfo = playerKanjiData[currentIndex];
+                    let masteryStageColors = [
+                        'hsla(20, 40%, 50%, 1)',
+                        'hsla(120, 40%, 50%, 1)',
+                        'hsla(280, 40%, 50%, 1)',
+                        'hsla(230, 40%, 50%, 1)',
+                        'hsla(355, 60%, 50%, 1)',
+                        'hsla(60, 75%, 65%, 1)',
+                    ]
+
                     context.lineWidth = 2;
                     let textFill = 'white';
+                    // Change colors based on the kanji info
                     if(scene.selectedKanji === currentIndex){
                         context.strokeStyle = 'hsla(60, 100%, 75%, 1)';
-                    } else if(playerKanjiData[currentIndex].enabled){
-                        context.strokeStyle = 'hsla(20, 40%, 50%, 1)';
+                        if(!playerKanjiData[currentIndex].enabled){
+                            textFill = 'hsla(0, 0%, 60%, 1)';
+                        }
+                    } else if(kanjiInfo.enabled){
+                        context.strokeStyle = masteryStageColors[kanjiInfo.masteryStage];
                     } else {
                         context.strokeStyle = 'hsla(0, 0%, 60%, 1)';
                         textFill = 'hsla(0, 0%, 60%, 1)';
