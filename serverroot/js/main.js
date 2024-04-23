@@ -1535,11 +1535,12 @@ function initializeScene(sceneName){
                 finishedNightScene: false,
                 finishedFirstRandomDysymboliaScene: false,
                 finishedFivePowerScene: false,
-                numFinishedTutorialScenes: 0,
+                totalSceneDysymboliaExperienced: 0,
                 stepCount: 0,
                 enemiesDefeated: 0,
                 totalDysymboliaManualTriggers: 0,
                 totalKanjiMastery: 0,
+                totalPowerGained:0,
             },
             srsSettingsData: {
                 //trialsPerRandomDysymbolia: 8,
@@ -1606,6 +1607,8 @@ function initializeScene(sceneName){
         scene.timeOfLastUnpause = scene.timeOfSceneChange;
         scene.gameClockOfLastPause = 600;
 
+        scene.trialsSinceLastNewKanji = 0;
+        scene.trialsThisSession = 0;
 
         bgColor = 'rgb(103,131,92)';
         initializeNewSaveGame();
@@ -2004,13 +2007,6 @@ function initializeNewSaveGame(){
             trialHistory: [],
 
             enabled: true,
-            leechDetectionTriggered: false,
-
-            // If not null, indicates how long the interval between the last review and the next review this session should be
-            reviewStage: null,
-
-            // If not null, indicates the number of the trial where this kanji was studied last this session
-            lastTrialNum: null,
 
             trialSuccesses: 0,
             trialFailures: 0,
@@ -2021,8 +2017,25 @@ function initializeNewSaveGame(){
             daysUntilMasteryIncreaseOpportunity: 0,
             masteryStage: 0,
 
-            // Mastery stage can go down after a long vacation but highest mastery stage will be used to calculate mastery score
-            highestMasteryStage: 0,
+            // Mastery stage can go down after a long vacation but highest mastery stage will be used to calculate mastery score, maybe?
+            //highestMasteryStage: 0,
+
+            /**** Internal SRS Variables ****/
+
+            // This will get calculated whenever the game is saved and used to find kanji to trial for the first time in later sessions
+            daysUntilNextScheduledTrial: 0,
+
+            // If not null, indicates how long the interval between the last review and the next review this session should be, in seconds
+            // Used to find kanji to trial for the second or later time in the session
+            reviewStage: null,
+
+            // After a trial, this will go up or down based on the circumstances, and if it gets too high from too many trial failures, the kanji will be identified as leech
+            leechScore: 0,
+            leechDetectionTriggered: false,
+
+            // If not null, indicates the number of the trial where this kanji was studied last this session
+            // How many trials gone by since the last trial is a variable used to determine when it gets trialed
+            lastTrialNum: null,
         });
     }
 
@@ -2079,21 +2092,35 @@ function saveToLocalStorage(){
 // Takes a kanji from the player's kanjiData and assigns a number indicating the priority of the next trial of it.
 // This is where the srs lives
 function assignStudyPriority(kanji, currentDate, noNewKanji = false){
-    // Time passed in milliseconds since the last trial
+    // Time passed in seconds since the last trial
     let timePassed = Infinity;
-    if(kanji.trialHistory !== []){
+    if(kanji.trialHistory.length>0){
         if(noNewKanji){
             return -10000;
         }
-        timePassed = Math.abs(kanji.trialHistory[trialHistory.length-1].dateStamp - currentDate);
+        timePassed = Math.abs(kanji.trialHistory[kanji.trialHistory.length-1].dateStamp - currentDate)/1000;
     }
 
     // Number of trials of other kanji since the last trial of this kanji
     let trialsSinceLastTrial = null;
     if(kanji.lastTrialNum !== null){
-        trialsSinceLastTrial = sessionTrials.length - kanji.lastTrialNum+1;
+        trialsSinceLastTrial = scene.trialsThisSession - (kanji.lastTrialNum+1);
     }
-    return 1000 - kanji.index - kanji.trialHistory.length*100;
+
+    if(kanji.reviewStage !== null){
+        // Each trial since the last trial counts for 25 seconds of extra time passed, in seconds
+        let weightedTimePassed = timePassed + trialsSinceLastTrial*25;
+
+        let ratio = weightedTimePassed/(kanji.reviewStage);
+
+        // Algorithm is subject to change
+        return Math.log(ratio*100)*100 + Math.max(ratio-0.75,0)*3000;
+
+    } else if (kanji.daysUntilNextScheduledTrial>0){
+        return (-kanji.index/10)*kanji.daysUntilNextScheduledTrial;
+    } else {
+        return (scene.trialsSinceLastNewKanji+1)*400 - kanji.index/10 - kanji.trialHistory.length*100;
+    }
 }
 
 // after completing a trial, this function adds the trial to the kanji and updates all the information of it
@@ -2107,6 +2134,15 @@ function addTrial(kanji, succeeded){
         dateStamp: new Date(),
         success: succeeded,
     });
+
+    kanji.lastTrialNum = scene.trialsThisSession;
+    scene.trialsThisSession++;
+    if(kanji.masteryStage === 0){
+        scene.trialsSinceLastNewKanji = 0;
+    } else {
+        scene.trialsSinceLastNewKanji++;
+    }
+
     if(succeeded && kanji.daysUntilMasteryIncreaseOpportunity === 0){
         kanji.masteryStage++;
         kanji.highestMasteryStage = Math.max(kanji.masteryStage,kanji.highestMasteryStage);
@@ -2114,8 +2150,20 @@ function addTrial(kanji, succeeded){
     }
     if(succeeded){
         kanji.trialSuccesses++;
+        if(kanji.reviewStage !== null){
+            kanji.reviewStage = kanji.reviewStage*4*kanji.masteryStage;
+        } else {
+            kanji.reviewStage = Infinity;
+            kanji.daysUntilNextScheduledTrial = kanji.daysUntilMasteryIncreaseOpportunity;
+        }
     } else {
         kanji.trialFailures++;
+        if(kanji.reviewStage !== null){
+            kanji.reviewStage = kanji.reviewStage*0.75;
+        } else {
+            // Starts at 20 seconds
+            kanji.reviewStage = 20;
+        }
     }
 }
 
@@ -2772,7 +2820,6 @@ function updateAdventure(timeStamp){
             initializeDialogue("randomDysymbolia",scene.player.abilityData.acquiringAbility.name,timeStamp);
         } else if (!scene.player.statisticData.finishedFirstRandomDysymboliaScene){
             initializeDialogue("randomDysymbolia","first",timeStamp);
-            scene.player.statisticData.numFinishedTutorialScenes++;
             scene.player.statisticData.finishedFirstRandomDysymboliaScene = true;
         } else {
             initializeDialogue("randomDysymbolia","auto",timeStamp);
@@ -2858,10 +2905,17 @@ function updateAdventure(timeStamp){
                     for(let i = scene.tooltipBoxes.length-1;i>=0;i--){
                         if(scene.tooltipBoxes[i].type === "dictionary" || scene.tooltipBoxes[i].type === "kanji"){
                             scene.tooltipBoxes.splice(i,1);
+                            if(scene.currentTooltip !== null && scene.currentTooltip.index === i){
+                                scene.currentTooltip = null;
+                            }
                         }
                     }
-                    if(scene.dialogue.scenario.includes("tutorial") || scene.dialogue.scenario === "first"){
-                        initializeDialogue("scenes","post dysymbolia "+scene.player.statisticData.numFinishedTutorialScenes,timeStamp);
+                    if(scene.dialogue.scenario.includes("tutorial") || scene.dialogue.category === "randomDysymbolia"){
+                        if(scene.player.statisticData.totalPowerGained <= 5){
+                            initializeDialogue("scenes","post dysymbolia "+scene.player.statisticData.totalPowerGained,timeStamp);
+                        } else {
+                            scene.dialogue = null;
+                        }
                     } else {
                         scene.dialogue = null;
                     }
@@ -2880,7 +2934,7 @@ function updateAdventure(timeStamp){
                     scene.dialogue.textLines[scene.dialogue.currentLine] = scene.dialogue.textLines[scene.dialogue.currentLine] + " " + kanjiFileInfo.symbol + "...";
                     scene.inputting = true;
                     scene.finishedInputting = false;
-                    scene.textEntered = "";;
+                    scene.textEntered = "";
                 }
             }
         } // Advance cinematic state function ends here
@@ -2926,7 +2980,7 @@ function updateAdventure(timeStamp){
                     }
                     let conditionalEval = false;
                     if(lineInfo.conditional === "is wary of scene dysymbolia"){
-                        if(scene.player.statisticData.numFinishedTutorialScenes > 1){
+                        if(scene.player.statisticData.totalSceneDysymboliaExperienced > 1){
                             conditionalEval = true;
                         }
                     }
@@ -3032,6 +3086,7 @@ function updateAdventure(timeStamp){
                             scene.dialogue.cinematic.phaseStartTime = timeStamp;
                             if(scene.dialogue.cinematic.trialsLeft <= 0){
                                 scene.player.combatData.power = Math.min(scene.player.combatData.powerSoftcap,scene.player.combatData.power+1);
+                                scene.player.statisticData.totalPowerGained++;
                             }
                             if(scene.dialogue.cinematic.result === "pass") {
                                 // TODO: add option to not auto advance the cinematic state when the player passes by pressing a different key or something
@@ -3171,7 +3226,7 @@ function updateAdventure(timeStamp){
                         } else {
                             initializeDialogue("scenes","tutorial fruit scene",timeStamp,collision.index);
                             scene.player.statisticData.finishedFruitScene = true;
-                            scene.player.statisticData.numFinishedTutorialScenes++;
+                            scene.player.statisticData.totalSceneDysymboliaExperienced++;
                         }
                     }
                     if(dialogueFileData.hasOwnProperty(entity.id.toLowerCase())){
@@ -3192,7 +3247,7 @@ function updateAdventure(timeStamp){
                     } else {
                         initializeDialogue("scenes","tutorial water scene",timeStamp);
                         scene.player.statisticData.finishedWaterScene = true;
-                        scene.player.statisticData.numFinishedTutorialScenes++;
+                        scene.player.statisticData.totalSceneDysymboliaExperienced++;
                     }
                 } else if(collision === 3){
                     if(scene.player.statisticData.finishedFruitScene){
@@ -3200,7 +3255,7 @@ function updateAdventure(timeStamp){
                     } else {
                         initializeDialogue("scenes","tutorial fruit scene",timeStamp);
                         scene.player.statisticData.finishedFruitScene = true;
-                        scene.player.statisticData.numFinishedTutorialScenes++;
+                        scene.player.statisticData.totalSceneDysymboliaExperienced++;
                     }
                 } else if(collision === 7){
                     if(scene.player.statisticData.finishedCloudScene){
@@ -3208,7 +3263,7 @@ function updateAdventure(timeStamp){
                     } else {
                         initializeDialogue("scenes","tutorial cloud scene",timeStamp);
                         scene.player.statisticData.finishedCloudScene = true;
-                        scene.player.statisticData.numFinishedTutorialScenes++;
+                        scene.player.statisticData.totalSceneDysymboliaExperienced++;
                     }
                 } else if(collision === 8){
                     initializeDialogue("world","sunflower",timeStamp);
@@ -3218,7 +3273,6 @@ function updateAdventure(timeStamp){
                     if(lev.stairDestination === "Floating_Island_Dungeon_0" && !scene.player.statisticData.finishedDungeonScene){
                         initializeDialogue("scenes","tutorial dungeon scene",timeStamp);
                         scene.player.statisticData.finishedDungeonScene = true;
-                        scene.player.statisticData.numFinishedTutorialScenes++;
                     } else {
                         changeArea(lev.stairDestination,true);
                     }
