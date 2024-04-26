@@ -396,37 +396,45 @@
                 ]
             }
         },
-        "Basic Dysymbolia Mastery": {
-            "textLines": [
-                "Time to show this thing what's boss. Focus...",
-                "...",
-                "Succeed in capturing all the following kanji and the ability is yours! And don't worry, if you fail, you can try again as many times as you want. You'll probably have to try several times."
-            ],
-            "lineInfo": [
-                {
-                    "face": "player",
-                    "faceNum": 13
-                },
-                {
-                    "face": "player",
-                    "faceNum": 14
-                },
-                {
+        "abilityAcquisition": {
+            "Basic Dysymbolia Mastery": {
+                "textLines": [
+                    "Time to show this thing what's boss. Focus...",
+                    "...",
+                    "Succeed in capturing all the following kanji and the ability is yours! And don't worry, if you fail, you can try again as many times as you want. You'll probably have to try several times.",
+                    ""
+                ],
+                "lineInfo": [
+                    {
+                        "face": "player",
+                        "faceNum": 13
+                    },
+                    {
+                        "face": "player",
+                        "faceNum": 14
+                    },
+                    {
 
-                },
-                {
-                    "face": "player",
-                    "faceNum": 14,
-                    "abilityAquisition": true,
-                    "normalTrials": 3,
-                    "specialTrials": 2,
-                    "particleSystem": {
-                        "hue": [0], "saturation": [30], "lightness": [80],
-                        "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
-                        "particleSize": 4, "particleLifespan": 1400, "particleSpeed": 20
+                    },
+                    {
+                        "face": "player",
+                        "faceNum": 14,
+                        "abilityAcquisition": true,
+                        "normalTrials": 3,
+                        "specialTrials": 2,
+                        "particleSystem": {
+                            "hue": [0], "saturation": [30], "lightness": [80],
+                            "particlesPerSec": 15, "drawParticles": 0, "newParticle": 1,
+                            "particleSize": 4, "particleLifespan": 1400, "particleSpeed": 20
+                        },
+                        "specialParticleSystem": {
+                            "hue": [280], "saturation": [100], "lightness": [70],
+                            "particlesPerSec": 30, "drawParticles": 0, "newParticle": 1,
+                            "particleSize": 5, "particleLifespan": 700, "particleSpeed": 40
+                        }
                     }
-                }
-            ]
+                ]
+            }
         }
     },
     "kanji": [
@@ -754,7 +762,7 @@
             ],
             "acquisitionPower": 5,
             "maxLevel": 1,
-            "special kanji": ["木","本"]
+            "specialKanji": ["木","本"]
         },
         {
             "name": "Suppress Dysymbolia",
@@ -781,7 +789,7 @@
             ],
             "acquisitionPower": 5,
             "maxLevel": 1,
-            "special kanji": []
+            "specialKanji": []
         },
         {
             "name": "Body Strengthen",
@@ -851,7 +859,7 @@
             ],
             "maxLevel": 20,
             "acquisitionPower": 5,
-            "special kanji": [],
+            "specialKanji": [],
             "levelingInfo": {}
         }
     ]
