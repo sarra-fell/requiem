@@ -96,7 +96,9 @@
                     "Here it is... the dark, suspicious stairs. Just what I needed. I guess I should probably go down there though, there might be something important.",
                     "Who knows, maybe even a person, this place looks tended to after all.",
                     "It can't be that bad, let's just take a peep. You can do it, you can do it, you can do it...",
-                    "Abort, abort, abort, have to run... why did it have to be this close to the entrance???"
+                    "Abort, abort, abort, have to run... why did it have to be this close to the entrance???",
+                    "An enemy has made contact, so you are now in combat. When you make an action, the enemy will also have a chance to take an action, so choose wisely.",
+                    "Fortunately, you are still right by the stairs, so you can use it to escape whenever you want."
                 ],
                 "lineInfo": [
                     {
@@ -115,7 +117,10 @@
                         "face": "player",
                         "faceNum": 9,
                         "areaChange": "Floating_Island_Dungeon_0",
-                        "cinematic": "tutorial dungeon scene"
+                        "takeEnemyTurn": 1
+                    },
+                    {
+
                     }
                 ]
             },
@@ -402,7 +407,10 @@
                     "Time to show this thing what's boss. Focus...",
                     "...",
                     "Succeed in capturing all the following kanji and the ability is yours! And don't worry, if you fail, you can try again as many times as you want. You'll probably have to try several times.",
-                    ""
+                    "",
+                    "Ugh, I didn't quite get it this time. I know I can do it though. Should I try again?",
+                    "I think I managed to get it this time! There's no way this won't help.",
+                    "Make sure to remember to equip it in the menu!"
                 ],
                 "lineInfo": [
                     {
@@ -432,6 +440,20 @@
                             "particlesPerSec": 30, "drawParticles": 0, "newParticle": 1,
                             "particleSize": 5, "particleLifespan": 700, "particleSpeed": 40
                         }
+                    },
+                    {
+                        "face": "player",
+                        "faceNum": 9,
+                        "playerResponces": ["Yes","No"],
+                        "selectedResponce": 0,
+                        "responceEffects": ["jump to 2","end"]
+                    },
+                    {
+                        "face": "player",
+                        "faceNum": 13
+                    },
+                    {
+
                     }
                 ]
             }
@@ -679,6 +701,9 @@
                     "number": 5
                 }
             ],
+            "pages": [
+
+            ],
             "entryText": " Welcome to currently unnamed kanji learning game!  \n \n Arrow keys to move around. Press Z to interact with things in front of you. I made it really, really simple so theres not so much you have to remember. Try interacting with a lot of things! \n \n Hover your mouse over items and conditions, and click on the theory write-ups in the theory tab and click on the kanji in the kanji tab for more info on them. \n \n You might have to use the rest of your keyboard to type at times. I wonder what that dysymbolia thing is all about??? \n \n Hope you liked those 5 gems I gave you, they are very pretty. If you want more, try unlocking more theory pages! I explain what this theory tab is all about in the next page. You could read it if you want. Or you could just grab the gems and leave without reading it, not my place to judge. \n \n - Sarracenia"
         },
         {
@@ -861,6 +886,45 @@
             "acquisitionPower": 5,
             "specialKanji": [],
             "levelingInfo": {}
+        }
+    ],
+    "items": [
+        {
+            "name": "Love Fruit",
+            "desc": "A mysterious fruit shaped like a heart. Like everything else on this floating island, it looks too good to be true. Heals $healAmount$ HP when consumed, and like any other food, cures hunger. (Double click to use items!).",
+            "type": "Consumable",
+            "color": "red",
+            "subtypes": ["food"],
+            "stack": true,
+            "imageLocationInfo": ["tile",0,[32,64]],
+            "effectList": ["heal","satiate"],
+            "effects": {
+                "healAmount": 10,
+                "satiation": "normal"
+            }
+        }
+    ],
+    "enemies": [
+        {
+            "name": "Green Lizard",
+            "hp": 15,
+            "attacks": [
+                {
+                    "name": "bite",
+                    "power": 3
+                },
+                {
+                    "name": "toxic tongue",
+                    "power": 1,
+                    "condition": {
+                        "name": "Lizard Toxin",
+                        "desc": "Poisoned with a small lizards' toxin. It doesn't really hurt *too* much and wears off quickly although you should still be careful. Losing a small amount of HP and brings you closer to hunger.",
+                        "minDuration": 2,
+                        "maxDuration": 4
+                    }
+                }
+            ],
+            "kanji": ["四","刃","小"]
         }
     ]
 }

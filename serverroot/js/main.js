@@ -838,7 +838,7 @@ the player pressed enter
 let downPressed=false,upPressed=false,leftPressed=false,rightPressed=false;
 
 // variables set to be true by input event listeners and set back to false after being handled by scene update
-let zClicked=false,xClicked=false,doubleClicked=false;
+let downClicked=false,upClicked=false,zClicked=false,xClicked=false,doubleClicked=false;
 
 // for player movement
 let currentDirection = null;
@@ -853,9 +853,9 @@ let mouseDownX=-1, mouseDownY=-1;
 window.addEventListener('keydown',function(e) {
     switch (e.key) {
        case 'ArrowLeft': leftPressed=true; currentDirection="left"; break;
-       case 'ArrowUp': upPressed=true; currentDirection="up"; break;
+       case 'ArrowUp': upPressed=true; upClicked=true; currentDirection="up"; break;
        case 'ArrowRight': rightPressed=true; currentDirection="right"; break;
-       case 'ArrowDown': downPressed=true; currentDirection="down"; break;
+       case 'ArrowDown': downPressed=true; downClicked=true; currentDirection="down"; break;
        case 'Enter': scene.finishedInputting=true; break;
        case 'X': xClicked=true;
        case 'x': xClicked=true;
@@ -1084,7 +1084,7 @@ const wrapText = function(ctx, text, y, maxWidth, lineHeight, japanese = false) 
 
 // Draws the current tooltip
 function drawTooltip() {
-    let draw = function(titleColor,titleText,bodyText,jp = false,titleShadow=0){
+    let draw = function(titleColor,titleText,bodyText,jp = false,titleShadow=0,shadowColor = "hsl(0, 15%, 0%, 70%)"){
         let wrappedText = wrapText(context, bodyText, mouseY+74, 360, 16, jp);
 
         const boxX = mouseX+12;
@@ -1110,7 +1110,7 @@ function drawTooltip() {
         context.textAlign = 'center';
         context.fillStyle = titleColor;
         context.save();
-        context.shadowColor = "hsl(0, 15%, 0%, 70%)";
+        context.shadowColor = shadowColor;
         context.shadowBlur = titleShadow;
         context.fillText(titleText, boxX+offsetX+125, boxY+offsetY+32);
         context.restore();
@@ -1142,7 +1142,7 @@ function drawTooltip() {
                 let trialsLeft = scene.dialogue.cinematic.trialsLeft;
                 let specialTrialsLeft = scene.dialogue.cinematic.specialTrialsLeft;
                 if(condition.golden){
-                    draw(condition.color,condition.name,"いい度胸だ。", true, 12);
+                    draw(condition.color,condition.name,"いい度胸だ。", true, 12, "hsl(280, 100%, 70%, 70%)");
                 } else {
                     if(trialsLeft < 2){
                         draw(condition.color,condition.name,"ここが貴方のいるべき場所じゃない。戻ってください。", true, 12);
@@ -1620,6 +1620,8 @@ function initializeScene(sceneName){
             cinematic (object) when any kind of special scene is playing during a dialogue. when not null the dialogue will not be continued with the z button
         */
         scene.dialogue = null;
+        scene.combat = null;
+        scene.roomEnemies = [];
 
         // Game time is paused during dialogue, dysymbolia, and when menu is opened.
         // THis allows time to be updated appropriately when we have the timestamp and ingame time of the last pause
@@ -2101,6 +2103,7 @@ function loadSaveGame(){
         scene.dialogue = save.dialogue;
         scene.levelNum = save.levelNum;
 
+        // Particle systems have to be made again or nullified
         for(let i=0;i<scene.player.conditions.length;i++){
             let condition = scene.player.conditions[i];
             if(condition.name === "Dysymbolia"){
@@ -2108,11 +2111,23 @@ function loadSaveGame(){
             }
         }
 
+        if(scene.player.abilityData.acquiringAbility !== null){
+            let buttonDimensions = {x:scene.worldX+18*16*scene.sizeMod*2+123, y:scene.worldY+700, width:120, height:30};
+            scene.acquisitionButtonParticleSystem = createParticleSystem({
+                x: [buttonDimensions.x,buttonDimensions.x+buttonDimensions.width], y:[buttonDimensions.y,buttonDimensions.y], 
+                hue: 280, saturation: 100, lightness: 55, startingAlpha: 0.7,
+                particlesPerSec: 70, drawParticles: drawParticlesTypeZero, newParticle: newParticleTypeTwo,
+                particleSize: 10, particleLifespan: 550, mod: 1.2, shift: 1.3, particleSpeed: 260, gravity: -300,
+                sourceType: "line", specialDrawLocation: true,
+            });
+            scene.particleSystems.push(scene.acquisitionButtonParticleSystem);
+        }
+
         scene.sessionTrials = [];
 
         alert("successfully loaded i think");
     }
-    catch {
+    catch (err) {
         alert("save failed: "+err);
     }
 }
@@ -2122,7 +2137,7 @@ function saveToLocalStorage(){
         localStorage.setItem("save 1",JSON.stringify(outputSaveGame()));
         alert("successfully saved... something. hopefully you'll be able to load this");
     }
-    catch {
+    catch (err) {
         alert("save failed: "+err);
     }
 }
@@ -2542,13 +2557,6 @@ function initializeDialogue(category, scenario, timeStamp, entityIndex = null){
         scenario: scenario,
     };
     scene.gameClockOfLastPause = scene.currentGameClock;
-    /*if(scene.dialogue.lineInfo[0] !== undefined && scene.dialogue.lineInfo[0].dysymbolia !== undefined){
-        scene.dialogue.cinematic = {
-            type: "dysymbolia",
-            startTime: timeStamp,
-            info: scene.dialogue.lineInfo.dysymbolia,
-        }
-    }*/
 }
 
 // Draws text one word at a time to be able to finely control what is written, designed to be a version of wrapText with much more features,
@@ -2834,13 +2842,22 @@ function isCollidingOnTile(x, y, checkAdjacent = false){
 // Takes the Iid of the area to be changed to because thats what the level neighbours are identified by
 // Or level name works too
 function changeArea(iid,changePlayerLocation = false){
+    let initializeArea = function(){
+        let lev = levels[scene.levelNum];
+        if(changePlayerLocation){
+            scene.player.sceneData.location = lev.defaultLocation;
+            scene.player.sceneData.graphicLocation = lev.defaultLocation;
+        }
+        for(let i=0;i<levels[scene.levelNum].entities.length;i++){
+            if(lev.entities[i].type === "enemy"){
+                scene.roomEnemies.push(lev.entities[i]);
+            }
+        }
+    }
     for(let i in levels){
         if(levels[i].iid === iid || levels[i].identifier === iid){
             scene.levelNum = i;
-            if(changePlayerLocation){
-                scene.player.sceneData.location = levels[i].defaultLocation;
-                scene.player.sceneData.graphicLocation = levels[i].defaultLocation;
-            }
+            initializeArea();
             return;
         }
     }
@@ -2946,8 +2963,34 @@ function updateAdventure(timeStamp){
         return scene.player.kanjiData[highestPriorityIndex];
     }
 
+    // All enemies in the room get a chance to make one action
+    let takeEnemyActions = function(){
+        // return one of the 4 directions or "adjacent" if already there
+        let routeTowardsPlayer = function(enemyX,enemyY,playerX,playerY){
+            return "adjacent";
+        }
+        let takeCombatAction = function(enemy){
+
+        }
+        if(scene.combat !== null){
+            takeCombatAction(scene.roomEnemies[scene.combat.enemyIndex]);
+            scene.enemy.turnCount++;
+        } else {
+            for(let i=0;i<scene.roomEnemies.length;i++){
+                let enemy = scene.roomEnemies[i];
+                let step = routeTowardsPlayer();
+                if(step === "adjacent"){
+                    scene.combat = {
+                        enemyIndex: i,
+                        turnCount: 0,
+                    }
+                }
+            }
+        }
+    }
+
     // Usually called when the player presses a key but can be called for other reasons during a cinematic
-    let advanceDialogueState = function(){
+    let advanceDialogueState = function(advanceToNextLine = true){
         // Advance the cinematic state
         let advanceCinematicState = function(){
             if(scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseNum === 0){
@@ -2978,6 +3021,16 @@ function updateAdventure(timeStamp){
                             } else {
                                 scene.dialogue = null;
                             }
+                        } else if(scene.dialogue.category === "abilityAcquisition"){
+                            scene.dialogue.cinematic = null;
+                            if(!scene.dialogue.dysymboliaFailed){
+                                scene.dialogue.currentLine++; scene.dialogue.currentLine++;
+                                advanceDialogueState(false);
+                            } else {
+                                advanceDialogueState();
+                            }
+
+                            return;
                         } else {
                             scene.dialogue = null;
                         }
@@ -2986,6 +3039,8 @@ function updateAdventure(timeStamp){
                         for(let i in scene.player.conditions){
                             if(scene.player.conditions[i].name === "Dysymbolia"){
                                 scene.player.conditions[i].golden = true;
+                                scene.player.conditions[i].color = `hsl(60,100%,65%)`;
+                                updateConditionTooltips();
                             }
                         }
 
@@ -3030,9 +3085,35 @@ function updateAdventure(timeStamp){
             }
         } // Advance cinematic state function ends here
 
+        let applyConditionalEffect = function(eff){
+            if(eff === "end"){
+                currentDirection = scene.dialogue.playerDirection;
+                scene.dialogue = null;
+                scene.timeOfLastUnpause = timeStamp;
+            } else if (eff === "continue"){
+                // do nothing lol
+            } else if (eff === "altText"){
+                scene.dialogue.textLines[scene.dialogue.currentLine] = lineInfo.altText;
+            } else if (eff.includes("jump to")){
+                scene.dialogue.currentLine = parseInt(eff[eff.length-1]);
+                advanceToNextLine = false;
+            }
+        }
+
         if(scene.dialogue.cinematic !== null){
             advanceCinematicState();
         } else {
+            // First, apply effects of the previous player responce if there was one
+            if(scene.dialogue.lineInfo[scene.dialogue.currentLine].playerResponces){
+                let lineData = scene.dialogue.lineInfo[scene.dialogue.currentLine];
+                if(lineData && lineData.selectedResponce !== undefined){
+                    applyConditionalEffect(lineData.responceEffects[lineData.selectedResponce]);
+                }
+                if(scene.dialogue === null){
+                    return;
+                }
+            }
+
             if(scene.dialogue.textLines.length <= scene.dialogue.currentLine+1){
                 // Finish dialogue if no more line
                 currentDirection = scene.dialogue.playerDirection;
@@ -3041,7 +3122,9 @@ function updateAdventure(timeStamp){
             } else {
                 // Otherwise advance line
                 scene.dialogue.lineStartTime = timeStamp;
-                scene.dialogue.currentLine++;
+                if(advanceToNextLine){
+                    scene.dialogue.currentLine++;
+                }
 
                 // Apply effects that are on the new line
                 if(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem !== undefined){
@@ -3054,21 +3137,13 @@ function updateAdventure(timeStamp){
                 if(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange !== undefined){
                     changeArea(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange,true);
                 }
+                if(scene.dialogue.lineInfo[scene.dialogue.currentLine].takeEnemyTurn !== undefined){
+                    takeEnemyActions();
+                }
                 let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine];
 
                 // Check for a conditional on the new line and evaluate
                 if(lineInfo !== undefined && lineInfo.conditional !== undefined){
-                    let applyConditionalEffect = function(eff){
-                        if(eff === "end"){
-                            currentDirection = scene.dialogue.playerDirection;
-                            scene.dialogue = null;
-                            scene.timeOfLastUnpause = timeStamp;
-                        } else if (eff === "continue"){
-                            // do nothing lol
-                        } else if (eff === "altText"){
-                            scene.dialogue.textLines[scene.dialogue.currentLine] = lineInfo.altText;
-                        }
-                    }
                     let conditionalEval = false;
                     if(lineInfo.conditional === "is wary of scene dysymbolia"){
                         if(scene.player.statisticData.totalSceneDysymboliaExperienced > 1){
@@ -3106,6 +3181,8 @@ function updateAdventure(timeStamp){
 
                     scene.dialogue.textLines[scene.dialogue.currentLine] = kanjiFileInfo.symbol + "...";
                 } else if (lineInfo !== undefined && lineInfo.abilityAcquisition !== undefined){
+                    scene.dialogue.dysymboliaFailed = false;
+
                     let specialParticleSystem = scene.dialogue.lineInfo[scene.dialogue.currentLine].particleSystem;
                     specialParticleSystem.specialDrawLocation = true;
 
@@ -3165,6 +3242,9 @@ function updateAdventure(timeStamp){
                                     scene.dialogue.cinematic.result = "fail";
                                     if(scene.dialogue.cinematic.info.length > 4){
                                         addTrial(scene.dialogue.cinematic.info[4],false);
+                                        if(scene.dialogue.category === "abilityAcquisition"){
+                                            scene.dialogue.dysymboliaFailed = true;
+                                        }
                                     }
                                 }
                                 scene.inputting = false;
@@ -3372,6 +3452,30 @@ function updateAdventure(timeStamp){
                 }
             }
             zClicked = false;
+        }
+        if(upClicked){
+            upClicked=false;
+            if(scene.dialogue){
+                let lineData = scene.dialogue.lineInfo[scene.dialogue.currentLine];
+                if(lineData && lineData.selectedResponce !== undefined){
+                    lineData.selectedResponce--;
+                    if(lineData.selectedResponce < 0){
+                        lineData.selectedResponce = lineData.playerResponces.length-1;
+                    }
+                }
+            }
+        }
+        if(downClicked){
+            downClicked=false;
+            if(scene.dialogue){
+                let lineData = scene.dialogue.lineInfo[scene.dialogue.currentLine];
+                if(lineData && lineData.selectedResponce !== undefined){
+                    lineData.selectedResponce++;
+                    if(lineData.selectedResponce > lineData.playerResponces.length-1){
+                        lineData.selectedResponce=0;
+                    }
+                }
+            }
         }
 
     }; // Update world screen function ends here
@@ -3592,6 +3696,7 @@ function drawAdventure(timeStamp){
 
             const faceCharacter = scene.dialogue.lineInfo[scene.dialogue.currentLine].face;
             const faceNum = scene.dialogue.lineInfo[scene.dialogue.currentLine].faceNum;
+
             context.fillStyle = textColor;
             let dialogueFontSize = Math.floor(16*scene.sizeMod)
             context.font = `${dialogueFontSize}px zenMaruRegular`;
@@ -3667,6 +3772,27 @@ function drawAdventure(timeStamp){
                 drawDialogueForNobody();
             }
             context.imageSmoothingEnabled = false;
+
+            const playerResponces = scene.dialogue.lineInfo[scene.dialogue.currentLine].playerResponces;
+            if(playerResponces !== undefined){
+                context.fillStyle = 'hsl(0, 100%, 0%, 70%)';
+                context.save();
+                context.shadowColor = "hsl(0, 15%, 0%, 70%)";
+                context.shadowBlur = 15;
+                context.beginPath();
+                context.roundRect(scene.worldX+w*scene.sizeMod*0.4, scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod*1.8, w*scene.sizeMod*0.57, scene.sizeMod*65, 15);
+                context.fill();
+                context.restore();
+
+                context.fillStyle = textColor;
+                for(let i=0;i<playerResponces.length;i++) {
+                    let text = playerResponces[i];
+                    if(scene.dialogue.lineInfo[scene.dialogue.currentLine].selectedResponce === i){
+                        text = "> " + text;
+                    }
+                    context.fillText(text, scene.worldX+w*scene.sizeMod*0.45,scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod*1.52 + 20*scene.sizeMod*i);
+                };
+            }
 
             // Draw post blur cinematic elements
             if(scene.dialogue.cinematic !== null && scene.dialogue.cinematic.type === "dysymbolia" && scene.dialogue.cinematic.phaseNum > 0){
@@ -3758,10 +3884,10 @@ function drawAdventure(timeStamp){
                     context.font = `${60*scene.sizeMod}px Arial`;
                     context.textAlign = 'center';
                     context.fillStyle = 'white';
-                    context.fillText(c.info[0], scene.worldX+scene.sizeMod*80, scene.worldY+scene.sizeMod*80);
+                    context.fillText(c.info[0], scene.worldX+scene.sizeMod*85, scene.worldY+scene.sizeMod*80);
 
                     context.font = `${24*scene.sizeMod}px zenMaruMedium`;
-                    context.fillText(kanjiInfo.keyword, scene.worldX+scene.sizeMod*80, scene.worldY+scene.sizeMod*120);
+                    context.fillText(kanjiInfo.keyword, scene.worldX+scene.sizeMod*85, scene.worldY+scene.sizeMod*120);
 
                     context.textAlign = 'left';
                     context.font = `${14*scene.sizeMod}px zenMaruRegular`;
@@ -3769,12 +3895,12 @@ function drawAdventure(timeStamp){
                     wrappedText.forEach(function(item) {
                         // item[0] is the text
                         // item[1] is the y coordinate to fill the text at
-                        context.fillText(item[0], scene.worldX+scene.sizeMod*150, item[1]);
+                        context.fillText(item[0], scene.worldX+scene.sizeMod*180, item[1]);
                     });
 
                     // Divider bar
                     context.fillStyle = 'hsl(0, 100%, 100%, 60%)';
-                    context.fillRect(scene.worldX+scene.sizeMod*130, scene.worldY+scene.sizeMod*30, 2, h*scene.sizeMod*0.25 - scene.sizeMod*40);
+                    context.fillRect(scene.worldX+scene.sizeMod*160, scene.worldY+scene.sizeMod*30, 2, h*scene.sizeMod*0.25 - scene.sizeMod*40);
                 }
             }
         }
@@ -4357,7 +4483,6 @@ function drawAdventure(timeStamp){
                     ps.lightness = 0;
 
                     if(condition.golden){
-                        condition.color = `hsl(60,100%,55%)`;
                         ps.hue = 280;
                         ps.saturation = 100;
                         ps.lightness = 40;
