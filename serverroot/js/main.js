@@ -207,6 +207,7 @@ var adventureKanjiFileData = [];
 var theoryWriteupData = [];
 var abilityFileData = [];
 var abilityIcons = [];
+var enemyFileData = [];
 
 // Loads the data !!!
 let dialogueLoaded = false;
@@ -216,6 +217,7 @@ function processGameJsonData(data) {
     adventureKanjiFileData = gameData.kanji;
     theoryWriteupData = gameData.theory;
     abilityFileData = gameData.abilities;
+    enemyFileData = gameData.enemies;
 
     dialogueFileData.scenes = dialogueData.scenes;
     dialogueFileData.world = dialogueData.worldDialogue;
@@ -294,7 +296,7 @@ function processLevelData(data) {
         levels[i].gridHeight = collisionLayerData.__cHei;
         for (let j in entityLayerData.entityInstances){
             const e = entityLayerData.entityInstances[j];
-            let entityData = {id: e.__identifier, px: e.px, src: [32,0], type: e.__tags[0],width: e.width,height: e.height};
+            let entityData = {id: e.__identifier, location: e.px, graphicLocation: [e.px[0], e.px[1]], src: [32,0], type: e.__tags[0],width: e.width,height: e.height};
             for (let k in e.fieldInstances){
                 const field = e.fieldInstances[k];
                 if(field.__identifier === "FacingDirection"){
@@ -1511,6 +1513,7 @@ function initializeScene(sceneName){
                 graphicLocation: levels[0].defaultLocation,
                 src: [32,0],
                 name: "Mari", jpName: "マリィ",
+                color: "#caa8ff",
                 dysymboliaActive: true,
 
                 // Measured in in-game seconds. -1 means there is a current dysymbolia event
@@ -2114,7 +2117,7 @@ function loadSaveGame(){
         if(scene.player.abilityData.acquiringAbility !== null){
             let buttonDimensions = {x:scene.worldX+18*16*scene.sizeMod*2+123, y:scene.worldY+700, width:120, height:30};
             scene.acquisitionButtonParticleSystem = createParticleSystem({
-                x: [buttonDimensions.x,buttonDimensions.x+buttonDimensions.width], y:[buttonDimensions.y,buttonDimensions.y], 
+                x: [buttonDimensions.x,buttonDimensions.x+buttonDimensions.width], y:[buttonDimensions.y,buttonDimensions.y],
                 hue: 280, saturation: 100, lightness: 55, startingAlpha: 0.7,
                 particlesPerSec: 70, drawParticles: drawParticlesTypeZero, newParticle: newParticleTypeTwo,
                 particleSize: 10, particleLifespan: 550, mod: 1.2, shift: 1.3, particleSpeed: 260, gravity: -300,
@@ -2819,13 +2822,13 @@ function isCollidingOnTile(x, y, checkAdjacent = false){
         return lev.collisions[tileNum];
     } else {
         for(let i in lev.entities) {
-            if (lev.entities[i].px[0]<=x && lev.entities[i].px[1]<=y &&
-                lev.entities[i].px[0]+lev.entities[i].width>x && lev.entities[i].px[1]+lev.entities[i].height>y){
+            if (lev.entities[i].location[0]<=x && lev.entities[i].location[1]<=y &&
+                lev.entities[i].location[0]+lev.entities[i].width>x && lev.entities[i].location[1]+lev.entities[i].height>y){
 
                 // Fruit tree only counts if you collide with the bottom
                 if(lev.entities[i].id === "Fruit_Tree"){
-                    if (lev.entities[i].px[0]<=x && lev.entities[i].px[1]+32<=y &&
-                        lev.entities[i].px[0]+lev.entities[i].width>x && lev.entities[i].px[1]+lev.entities[i].height>y){
+                    if (lev.entities[i].location[0]<=x && lev.entities[i].location[1]+32<=y &&
+                        lev.entities[i].location[0]+lev.entities[i].width>x && lev.entities[i].location[1]+lev.entities[i].height>y){
                         // ok
                     } else {
                         continue;
@@ -2850,7 +2853,11 @@ function changeArea(iid,changePlayerLocation = false){
         }
         for(let i=0;i<levels[scene.levelNum].entities.length;i++){
             if(lev.entities[i].type === "enemy"){
-                scene.roomEnemies.push(lev.entities[i]);
+                let enemy = lev.entities[i];
+                let enemyInfo = enemyFileData[enemy.fileDataIndex];
+                enemy.hp = enemy.maxHp = enemyInfo.hp;
+
+                scene.roomEnemies.push(enemy);
             }
         }
     }
@@ -2969,12 +2976,16 @@ function updateAdventure(timeStamp){
         let routeTowardsPlayer = function(enemyX,enemyY,playerX,playerY){
             return "adjacent";
         }
-        let takeCombatAction = function(enemy){
-
+        let takeCombatAction = function(enemy,enemyIndex){
+            let enemyInfo = enemyFileData[enemyIndex];
+            scene.combat.currentEnemyAction = {
+                actionInfo: enemyInfo.actions[0],
+                startTime: timeStamp,
+            };
         }
         if(scene.combat !== null){
             takeCombatAction(scene.roomEnemies[scene.combat.enemyIndex]);
-            scene.enemy.turnCount++;
+            scene.combat.turnCount++;
         } else {
             for(let i=0;i<scene.roomEnemies.length;i++){
                 let enemy = scene.roomEnemies[i];
@@ -2982,11 +2993,33 @@ function updateAdventure(timeStamp){
                 if(step === "adjacent"){
                     scene.combat = {
                         enemyIndex: i,
+                        currentEnemyAction: null,
+                        enemyActionEffectApplied: false,
                         turnCount: 0,
                     }
+                    takeCombatAction(scene.roomEnemies[i],i);
+                    scene.combat.turnCount++;
                 }
             }
         }
+    }
+
+    let applyEnemyActionEffect = function(){
+        scene.player.combatData.hp -= 3;
+        scene.activeDamage = {
+            // If startFrame is positive, there is currently active damage.
+            startFrame: timeStamp,
+
+            // Duration of the current damage
+            duration: 1,
+
+            // How much the screen was shaken by
+            offset: [0,0],
+
+            // Last time the screen was shaken to not shake every single frame
+            timeOfLastShake: -1,
+        };
+        scene.combat.enemyActionEffectApplied = true;
     }
 
     // Usually called when the player presses a key but can be called for other reasons during a cinematic
@@ -3122,6 +3155,15 @@ function updateAdventure(timeStamp){
             } else {
                 // Otherwise advance line
                 scene.dialogue.lineStartTime = timeStamp;
+
+                if(scene.dialogue.lineInfo[scene.dialogue.currentLine].takeEnemyTurn !== undefined){
+                    takeEnemyActions();
+                    currentDirection = scene.dialogue.playerDirection;
+                    scene.dialogue = null;
+                    scene.timeOfLastUnpause = timeStamp;
+                    return;
+                }
+
                 if(advanceToNextLine){
                     scene.dialogue.currentLine++;
                 }
@@ -3136,9 +3178,6 @@ function updateAdventure(timeStamp){
                 }
                 if(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange !== undefined){
                     changeArea(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange,true);
-                }
-                if(scene.dialogue.lineInfo[scene.dialogue.currentLine].takeEnemyTurn !== undefined){
-                    takeEnemyActions();
                 }
                 let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine];
 
@@ -3204,6 +3243,39 @@ function updateAdventure(timeStamp){
             if(playerSceneData.timeUntilDysymbolia > 0){
                 playerSceneData.timeUntilDysymbolia = 0;
                 scene.player.statisticData.totalDysymboliaManualTriggers++;
+            }
+        }
+
+        if(scene.combat !== null && scene.combat.enemyAction !== null){
+            // Update enemy action
+            let timeElapsed = (timeStamp - scene.combat.currentEnemyAction.startTime);
+            let enemy = scene.roomEnemies[scene.combat.enemyIndex];
+            if(timeElapsed < 400){
+                let factor = timeElapsed/2000;
+                enemy.graphicLocation[0] = (enemy.location[0]+playerSceneData.location[0]*factor)/(1+factor);
+                enemy.graphicLocation[1] = (enemy.location[1]+playerSceneData.location[1]*factor)/(1+factor);
+            } else if(timeElapsed<600){
+                if(!scene.combat.enemyActionEffectApplied){
+                    applyEnemyActionEffect();
+                }
+                let midfactor = 1/5;
+                let midpoint = [(enemy.location[0]+playerSceneData.location[0]*midfactor)/(1+midfactor),(enemy.location[1]+playerSceneData.location[1]*midfactor)/(1+midfactor)];
+                let newfactor = (timeElapsed-200)/300;
+                enemy.graphicLocation[0] = (midpoint[0]*(1-newfactor) + playerSceneData.location[0]*newfactor);
+                enemy.graphicLocation[1] = (midpoint[1]*(1-newfactor) + playerSceneData.location[1]*newfactor);
+            } else if(timeElapsed<800){
+                let factor = (timeElapsed-600)/1000;
+                enemy.graphicLocation[0] = (enemy.location[0]*factor+playerSceneData.location[0])/(1+factor);
+                enemy.graphicLocation[1] = (enemy.location[1]*factor+playerSceneData.location[1])/(1+factor);
+            } else if(timeElapsed<1000){
+                let midfactor = 1/5;
+                let midpoint = [(enemy.location[0]*midfactor+playerSceneData.location[0])/(1+midfactor),(enemy.location[1]*midfactor+playerSceneData.location[1])/(1+midfactor)];
+                let newfactor = (timeElapsed-800)/200;
+                enemy.graphicLocation[0] = (midpoint[0]*(1-newfactor) + enemy.location[0]*newfactor);
+                enemy.graphicLocation[1] = (midpoint[1]*(1-newfactor) + enemy.location[1]*newfactor);
+            } else {
+                enemy.graphicLocation = [enemy.location[0],enemy.location[1]];
+                scene.combat.enemyAction = null;
             }
         }
 
@@ -3628,20 +3700,22 @@ function drawAdventure(timeStamp){
             }
         }
 
+        drawCharacter("witch",playerSceneData.src,scene.worldX+playerSceneData.graphicLocation[0]*scene.sizeMod,scene.worldY+playerSceneData.graphicLocation[1]*scene.sizeMod);
+
         for (let i in lev.entities){
             const e = lev.entities[i];
             if(e.type === "character"){
-                drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*scene.sizeMod+scene.worldX,e.px[1]*scene.sizeMod+scene.worldY);
+                drawCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0]*scene.sizeMod+scene.worldX,e.graphicLocation[1]*scene.sizeMod+scene.worldY);
             } else if(e.type === "location"){
                 // do nothing
             } else if(e.id === "Fruit_Tree"){
-                deferredTiles.push(...drawFruitTree(e,0,e.px[0]*scene.sizeMod+scene.worldX,e.px[1]*scene.sizeMod+scene.worldY));
+                deferredTiles.push(...drawFruitTree(e,0,e.graphicLocation[0]*scene.sizeMod+scene.worldX,e.graphicLocation[1]*scene.sizeMod+scene.worldY));
             } else if(e.type === "enemy"){
-                drawCharacter(e.id.toLowerCase(),e.src,e.px[0]*scene.sizeMod+scene.worldX,e.px[1]*scene.sizeMod+scene.worldY,48);
+                drawCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0]*scene.sizeMod+scene.worldX,e.graphicLocation[1]*scene.sizeMod+scene.worldY,48);
             }
 
         }
-        drawCharacter("witch",playerSceneData.src,scene.worldX+playerSceneData.graphicLocation[0]*scene.sizeMod,scene.worldY+playerSceneData.graphicLocation[1]*scene.sizeMod);
+
 
         // Draw foreground elements
         for (const dt of deferredRawTiles){
@@ -4413,8 +4487,8 @@ function drawAdventure(timeStamp){
 
         context.font = '24px zenMaruRegular';
         context.textAlign = 'center';
-        context.fillStyle = "#d5a6ff";
-        context.fillText("Mari", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+100);
+        context.fillStyle = scene.player.sceneData.color;
+        context.fillText(scene.player.sceneData.name, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+100);
 
         context.font = '18px zenMaruMedium';
         context.textAlign = 'left';
@@ -4500,6 +4574,34 @@ function drawAdventure(timeStamp){
             } else {
                 context.fillText(condition.name, conditionX, scene.worldY+220);
             }
+        }
+
+        // Draw combat info
+        if(scene.combat){
+            let enemy = scene.roomEnemies[scene.combat.enemyIndex];
+            let enemyInfo = enemyFileData[enemy.fileDataIndex];
+
+            context.fillStyle = 'hsla(0, 0%, 50%, 0.7)';
+            context.save();
+            context.shadowColor = enemyInfo.color;
+            context.shadowBlur = 7;
+            context.beginPath();
+            context.roundRect(scene.worldX+18*16*scene.sizeMod*2+30 + 20, scene.worldY+300, 263, 170, 10);
+            context.fill();
+            context.restore();
+
+            context.font = '20px zenMaruRegular';
+            context.textAlign = 'center';
+            context.fillStyle = enemyInfo.color;
+            context.fillText(enemyInfo.name, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+325);
+
+            context.font = '18px zenMaruMedium';
+            context.textAlign = 'left';
+            context.fillStyle = "White";
+            context.fillText("HP: ", scene.worldX+18*16*scene.sizeMod*2+30 + 45, scene.worldY+360);
+
+            context.fillStyle = "#40d600";
+            context.fillText(enemy.hp+"/"+enemy.maxHp, scene.worldX+18*16*scene.sizeMod*2+30 + 45+context.measureText("HP: ").width, scene.worldY+360);
         }
     }
 }

@@ -97,8 +97,7 @@
                     "Who knows, maybe even a person, this place looks tended to after all.",
                     "It can't be that bad, let's just take a peep. You can do it, you can do it, you can do it...",
                     "Abort, abort, abort, have to run... why did it have to be this close to the entrance???",
-                    "An enemy has made contact, so you are now in combat. When you make an action, the enemy will also have a chance to take an action, so choose wisely.",
-                    "Fortunately, you are still right by the stairs, so you can use it to escape whenever you want."
+                    ""
                 ],
                 "lineInfo": [
                     {
@@ -119,9 +118,17 @@
                         "areaChange": "Floating_Island_Dungeon_0",
                         "takeEnemyTurn": 1
                     },
-                    {
-
-                    }
+                    {}
+                ]
+            },
+            "tutorial dungeon scene 1": {
+                "textLines": [
+                    "An enemy has made contact, so you are now in combat. When you make an action, the enemy will also have a chance to take an action, so choose wisely.",
+                    "Fortunately, you are still right by the stairs, so you can use it to escape whenever you want."
+                ],
+                "lineInfo": [
+                    {},
+                    {}
                 ]
             },
             "post dysymbolia 1": {
@@ -907,8 +914,10 @@
     "enemies": [
         {
             "name": "Green Lizard",
+            "jpName": "緑トカゲ",
+            "color": "#a8ffa8",
             "hp": 15,
-            "attacks": [
+            "actions": [
                 {
                     "name": "bite",
                     "power": 3
@@ -918,7 +927,7 @@
                     "power": 1,
                     "condition": {
                         "name": "Lizard Toxin",
-                        "desc": "Poisoned with a small lizards' toxin. It doesn't really hurt *too* much and wears off quickly although you should still be careful. Losing a small amount of HP and brings you closer to hunger.",
+                        "desc": "Poisoned with a small lizards' toxin. It doesn't make you feel *too* sick and wears off quickly although you should still be careful. Losing a small amount of HP and brings you closer to hunger.",
                         "minDuration": 2,
                         "maxDuration": 4
                     }

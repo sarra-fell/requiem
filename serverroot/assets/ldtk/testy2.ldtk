@@ -11,7 +11,7 @@
 	"iid": "cb2aa240-1460-11ee-ba8d-351ab09cf8e1",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 92,
+	"nextUid": 93,
 	"identifierStyle": "Capitalize",
 	"toc": [],
 	"worldLayout": "Free",
@@ -826,6 +826,43 @@
 						"id": "V_String",
 						"params": ["Down"]
 					},
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "OnlySame",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				},
+				{
+					"identifier": "fileDataIndex",
+					"doc": null,
+					"__type": "Int",
+					"uid": 92,
+					"type": "F_Int",
+					"isArray": false,
+					"canBeNull": false,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "Hidden",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "StraightArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorShowInWorld": true,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": null,
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -8265,10 +8302,13 @@
 							"height": 32,
 							"defUid": 79,
 							"px": [256,288],
-							"fieldInstances": [{ "__identifier": "FacingDirection", "__type": "LocalEnum.FacingDirection", "__value": "Up", "__tile": null, "defUid": 91, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["Up"]
-							}] }],
+							"fieldInstances": [
+								{ "__identifier": "FacingDirection", "__type": "LocalEnum.FacingDirection", "__value": "Up", "__tile": null, "defUid": 91, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Up"]
+								}] },
+								{ "__identifier": "fileDataIndex", "__type": "Int", "__value": 0, "__tile": null, "defUid": 92, "realEditorValues": [{ "id": "V_Int", "params": [0] }] }
+							],
 							"__worldX": 2112,
 							"__worldY": 288
 						}
