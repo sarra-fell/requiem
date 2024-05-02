@@ -615,7 +615,7 @@ var scene = {
     // Becomes an object with property timeStamp (when hovering began) and index (index in tooltipBoxes)
     currentTooltip: null,
 
-    // Functions called in responce to user input change this to the name of the scene that needs to be changed to instead of directly calling
+    // Functions called in response to user input change this to the name of the scene that needs to be changed to instead of directly calling
     //initializeScene. The reason for this is concurrency safety - otherwise the chance that the scene is changed during the middle of
     //one run of the game loop *may* be non-zero which would cause extremely unpredictable behavior
     //im not sure if that would actually be possible or not but this is to be safe
@@ -2088,8 +2088,11 @@ function outputSaveGame(){
         player: scene.player,
 
         clock: scene.currentGameClock,
+        gameClockOfLastPause: scene.gameClockOfLastPause,
 
         dialogue: scene.dialogue,
+
+        combat: scene.combat,
 
         levelNum: scene.levelNum,
     }
@@ -2103,7 +2106,9 @@ function loadSaveGame(){
         //alert(save);
         scene.player = save.player;
         scene.currentGameClock = save.clock;
+        scene.gameClockOfLastPause = save.gameClockOfLastPause;
         scene.dialogue = save.dialogue;
+        scene.combat = save.combat;
         scene.levelNum = save.levelNum;
 
         // Particle systems have to be made again or nullified
@@ -2841,36 +2846,6 @@ function isCollidingOnTile(x, y, checkAdjacent = false){
     return null;
 }
 
-// Changes the area (level) in adventure mode
-// Takes the Iid of the area to be changed to because thats what the level neighbours are identified by
-// Or level name works too
-function changeArea(iid,changePlayerLocation = false){
-    let initializeArea = function(){
-        let lev = levels[scene.levelNum];
-        if(changePlayerLocation){
-            scene.player.sceneData.location = lev.defaultLocation;
-            scene.player.sceneData.graphicLocation = lev.defaultLocation;
-        }
-        for(let i=0;i<levels[scene.levelNum].entities.length;i++){
-            if(lev.entities[i].type === "enemy"){
-                let enemy = lev.entities[i];
-                let enemyInfo = enemyFileData[enemy.fileDataIndex];
-                enemy.hp = enemy.maxHp = enemyInfo.hp;
-
-                scene.roomEnemies.push(enemy);
-            }
-        }
-    }
-    for(let i in levels){
-        if(levels[i].iid === iid || levels[i].identifier === iid){
-            scene.levelNum = i;
-            initializeArea();
-            return;
-        }
-    }
-    throw "changeArea: New area not found: " + iid;
-}
-
 function updateAdventure(timeStamp){
     let lev = levels[scene.levelNum];
     let playerSceneData = scene.player.sceneData;
@@ -2878,7 +2853,7 @@ function updateAdventure(timeStamp){
     let newTime = (scene.gameClockOfLastPause+Math.floor((timeStamp-scene.timeOfLastUnpause)/1000))%1440;
 
     // If a second went by, update everything that needs to be updated by the second
-    if(scene.dialogue === null && scene.menuScene === null && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
+    if(scene.dialogue === null && scene.menuScene === null && scene.combat === null && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
         if(playerSceneData.timeUntilDysymbolia > 0){
             playerSceneData.timeUntilDysymbolia-=1;
         }
@@ -2937,6 +2912,41 @@ function updateAdventure(timeStamp){
         };
     }
 
+    // Changes the area (level) in adventure mode
+    // Takes the Iid of the area to be changed to because thats what the level neighbours are identified by
+    // Or level name works too
+    function changeArea(iid,changePlayerLocation = false){
+        let initializeArea = function(){
+            let lev = levels[scene.levelNum];
+            scene.roomEnemies = [];
+            if(changePlayerLocation){
+                scene.player.sceneData.location = [lev.defaultLocation[0],lev.defaultLocation[1]];
+                scene.player.sceneData.graphicLocation = [lev.defaultLocation[0],lev.defaultLocation[1]];
+            }
+            for(let i=0;i<levels[scene.levelNum].entities.length;i++){
+                if(lev.entities[i].type === "enemy"){
+                    let enemy = lev.entities[i];
+                    let enemyInfo = enemyFileData[enemy.fileDataIndex];
+                    enemy.hp = enemy.maxHp = enemyInfo.hp;
+
+                    scene.roomEnemies.push(enemy);
+                }
+            }
+        }
+        for(let i in levels){
+            if(levels[i].iid === iid || levels[i].identifier === iid){
+                scene.levelNum = i;
+                if(scene.combat){
+                    scene.combat = null;
+                    scene.timeOfLastUnpause = timeStamp;
+                }
+                initializeArea();
+                return;
+            }
+        }
+        throw "changeArea: New area not found: " + iid;
+    }
+
     // Get the kanji with the highest study priority and return it's player.kanjiData entry
     let getNextKanji = function(noNewKanji = false, special = false){
         let currentDate = new Date();
@@ -2982,9 +2992,10 @@ function updateAdventure(timeStamp){
                 actionInfo: enemyInfo.actions[0],
                 startTime: timeStamp,
             };
+            scene.combat.enemyActionEffectApplied = false;
         }
         if(scene.combat !== null){
-            takeCombatAction(scene.roomEnemies[scene.combat.enemyIndex]);
+            takeCombatAction(scene.roomEnemies[scene.combat.enemyIndex],scene.combat.enemyIndex);
             scene.combat.turnCount++;
         } else {
             for(let i=0;i<scene.roomEnemies.length;i++){
@@ -2994,14 +3005,23 @@ function updateAdventure(timeStamp){
                     scene.combat = {
                         enemyIndex: i,
                         currentEnemyAction: null,
+                        currentPlayerAction: null,
                         enemyActionEffectApplied: false,
+                        playerActionEffectApplied: false,
                         turnCount: 0,
                     }
                     takeCombatAction(scene.roomEnemies[i],i);
+                    scene.gameClockOfLastPause = scene.currentGameClock;
                     scene.combat.turnCount++;
                 }
             }
         }
+    }
+
+    let applyPlayerActionEffect = function(){
+        let enemy = scene.roomEnemies[scene.combat.enemyIndex];
+        enemy.hp -= 3;
+        scene.combat.playerActionEffectApplied = true;
     }
 
     let applyEnemyActionEffect = function(){
@@ -3040,6 +3060,13 @@ function updateAdventure(timeStamp){
                         scene.textEntered = "";
                         playerSceneData.timeUntilDysymbolia = 60;
                         note = "無";
+                        for(let i in scene.player.conditions){
+                            if(scene.player.conditions[i].name === "Dysymbolia"){
+                                scene.player.conditions[i].golden = false;
+                                scene.player.conditions[i].color = `white`;
+                                updateConditionTooltips();
+                            }
+                        }
                         for(let i = scene.tooltipBoxes.length-1;i>=0;i--){
                             if(scene.tooltipBoxes[i].type === "dictionary" || scene.tooltipBoxes[i].type === "kanji"){
                                 scene.tooltipBoxes.splice(i,1);
@@ -3057,6 +3084,17 @@ function updateAdventure(timeStamp){
                         } else if(scene.dialogue.category === "abilityAcquisition"){
                             scene.dialogue.cinematic = null;
                             if(!scene.dialogue.dysymboliaFailed){
+                                // Acquire ability!
+                                let playerAbilityInfo = scene.player.abilityData.list[scene.player.abilityData.acquiringAbility];
+                                let abilityInfo = abilityFileData[playerAbilityInfo.index]
+
+                                scene.player.combatData.power -= abilityInfo.acquisitionPower;
+                                playerAbilityInfo.acquired = true;
+                                scene.player.abilityData.acquiredAbilities[abilityInfo.name] = true;
+                                scene.player.abilityData.acquiringAbility = null;
+                                scene.acquisitionButtonParticleSystem.temporary = true;
+                                scene.acquisitionButtonParticleSystem.particlesLeft = 0;
+
                                 scene.dialogue.currentLine++; scene.dialogue.currentLine++;
                                 advanceDialogueState(false);
                             } else {
@@ -3118,7 +3156,7 @@ function updateAdventure(timeStamp){
             }
         } // Advance cinematic state function ends here
 
-        let applyConditionalEffect = function(eff){
+        let applyConditionalEffect = function(eff,lineInfo){
             if(eff === "end"){
                 currentDirection = scene.dialogue.playerDirection;
                 scene.dialogue = null;
@@ -3136,11 +3174,11 @@ function updateAdventure(timeStamp){
         if(scene.dialogue.cinematic !== null){
             advanceCinematicState();
         } else {
-            // First, apply effects of the previous player responce if there was one
-            if(scene.dialogue.lineInfo[scene.dialogue.currentLine].playerResponces){
-                let lineData = scene.dialogue.lineInfo[scene.dialogue.currentLine];
-                if(lineData && lineData.selectedResponce !== undefined){
-                    applyConditionalEffect(lineData.responceEffects[lineData.selectedResponce]);
+            // First, apply effects of the previous player response if there was one
+            if(scene.dialogue.lineInfo[scene.dialogue.currentLine].playerResponses){
+                let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine];
+                if(lineInfo && lineInfo.selectedResponse !== undefined){
+                    applyConditionalEffect(lineInfo.responseEffects[lineInfo.selectedResponse],lineInfo);
                 }
                 if(scene.dialogue === null){
                     return;
@@ -3190,9 +3228,9 @@ function updateAdventure(timeStamp){
                         }
                     }
                     if(conditionalEval){
-                        applyConditionalEffect(lineInfo.conditionalSuccess);
+                        applyConditionalEffect(lineInfo.conditionalSuccess,lineInfo);
                     } else {
-                        applyConditionalEffect(lineInfo.conditionalFail);
+                        applyConditionalEffect(lineInfo.conditionalFail,lineInfo);
                     }
                 }
 
@@ -3246,36 +3284,61 @@ function updateAdventure(timeStamp){
             }
         }
 
-        if(scene.combat !== null && scene.combat.enemyAction !== null){
-            // Update enemy action
-            let timeElapsed = (timeStamp - scene.combat.currentEnemyAction.startTime);
-            let enemy = scene.roomEnemies[scene.combat.enemyIndex];
+        let updateBasicAttackAnimation = function(user,receiver,timeElapsed){
             if(timeElapsed < 400){
                 let factor = timeElapsed/2000;
-                enemy.graphicLocation[0] = (enemy.location[0]+playerSceneData.location[0]*factor)/(1+factor);
-                enemy.graphicLocation[1] = (enemy.location[1]+playerSceneData.location[1]*factor)/(1+factor);
+                user.graphicLocation[0] = (user.location[0]+receiver.location[0]*factor)/(1+factor);
+                user.graphicLocation[1] = (user.location[1]+receiver.location[1]*factor)/(1+factor);
             } else if(timeElapsed<600){
                 if(!scene.combat.enemyActionEffectApplied){
                     applyEnemyActionEffect();
                 }
                 let midfactor = 1/5;
-                let midpoint = [(enemy.location[0]+playerSceneData.location[0]*midfactor)/(1+midfactor),(enemy.location[1]+playerSceneData.location[1]*midfactor)/(1+midfactor)];
-                let newfactor = (timeElapsed-200)/300;
-                enemy.graphicLocation[0] = (midpoint[0]*(1-newfactor) + playerSceneData.location[0]*newfactor);
-                enemy.graphicLocation[1] = (midpoint[1]*(1-newfactor) + playerSceneData.location[1]*newfactor);
+                let midpoint = [(user.location[0]+receiver.location[0]*midfactor)/(1+midfactor),(user.location[1]+receiver.location[1]*midfactor)/(1+midfactor)];
+                let newfactor = (timeElapsed-200)/(300*1.5);
+                user.graphicLocation[0] = (midpoint[0]*(1-newfactor) + receiver.location[0]*newfactor);
+                user.graphicLocation[1] = (midpoint[1]*(1-newfactor) + receiver.location[1]*newfactor);
             } else if(timeElapsed<800){
                 let factor = (timeElapsed-600)/1000;
-                enemy.graphicLocation[0] = (enemy.location[0]*factor+playerSceneData.location[0])/(1+factor);
-                enemy.graphicLocation[1] = (enemy.location[1]*factor+playerSceneData.location[1])/(1+factor);
+                user.graphicLocation[0] = (user.location[0]*factor+receiver.location[0])/(1+factor);
+                user.graphicLocation[1] = (user.location[1]*factor+receiver.location[1])/(1+factor);
             } else if(timeElapsed<1000){
                 let midfactor = 1/5;
-                let midpoint = [(enemy.location[0]*midfactor+playerSceneData.location[0])/(1+midfactor),(enemy.location[1]*midfactor+playerSceneData.location[1])/(1+midfactor)];
-                let newfactor = (timeElapsed-800)/200;
-                enemy.graphicLocation[0] = (midpoint[0]*(1-newfactor) + enemy.location[0]*newfactor);
-                enemy.graphicLocation[1] = (midpoint[1]*(1-newfactor) + enemy.location[1]*newfactor);
+                let midpoint = [(user.location[0]*midfactor+receiver.location[0])/(1+midfactor),(user.location[1]*midfactor+receiver.location[1])/(1+midfactor)];
+                let newfactor = (timeElapsed-800)/(200*1.5);
+                user.graphicLocation[0] = (midpoint[0]*(1-newfactor) + user.location[0]*newfactor);
+                user.graphicLocation[1] = (midpoint[1]*(1-newfactor) + user.location[1]*newfactor);
             } else {
-                enemy.graphicLocation = [enemy.location[0],enemy.location[1]];
-                scene.combat.enemyAction = null;
+                user.graphicLocation = [user.location[0],user.location[1]];
+                return "finished";
+            }
+            return "unfinished";
+        }
+
+        if(scene.combat !== null && scene.combat.currentEnemyAction !== null){
+            // Enemy attack animation
+            let timeElapsed = (timeStamp - scene.combat.currentEnemyAction.startTime);
+            let enemy = scene.roomEnemies[scene.combat.enemyIndex];
+
+            if(updateBasicAttackAnimation(enemy,playerSceneData,timeElapsed) === "finished"){
+                scene.combat.currentEnemyAction = null;
+                if(!scene.player.statisticData.finishedDungeonScene){
+                    initializeDialogue("scenes","tutorial dungeon scene 2",timeStamp)
+                    scene.player.statisticData.finishedDungeonScene=true;
+                }
+            } else if(timeElapsed > 600 && !scene.combat.enemyActionEffectApplied){
+                applyEnemyActionEffect();
+            }
+        } else if (scene.combat !== null && scene.combat.currentPlayerAction !== null){
+            // Player attack animation
+            let timeElapsed = (timeStamp - scene.combat.currentPlayerAction.startTime);
+            let enemy = scene.roomEnemies[scene.combat.enemyIndex];
+
+            if(updateBasicAttackAnimation(playerSceneData, enemy, timeElapsed) === "finished"){
+                scene.combat.currentPlayerAction = null;
+                takeEnemyActions();
+            } else if(timeElapsed > 600 && !scene.combat.playerActionEffectApplied){
+                applyPlayerActionEffect();
             }
         }
 
@@ -3284,7 +3347,7 @@ function updateAdventure(timeStamp){
             // If player was moving when dialogue started, make sure to end it when its time to end it
             if(scene.movingDirection !== null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
                 scene.movingDirection = null;
-                playerSceneData.graphicLocation = playerSceneData.location;
+                playerSceneData.graphicLocation = [playerSceneData.location[0],playerSceneData.location[1]];
                 playerSceneData.src[0]=32;
                 scene.whichFoot = (scene.whichFoot+1)%2;
             }
@@ -3434,7 +3497,7 @@ function updateAdventure(timeStamp){
                 }
             } else if(movingAnimationDuration + scene.startedMovingTime < timeStamp){
                 scene.movingDirection = null;
-                playerSceneData.graphicLocation = playerSceneData.location;
+                playerSceneData.graphicLocation = [playerSceneData.location[0],playerSceneData.location[1]];
                 playerSceneData.src[0]=32;
                 scene.whichFoot = (scene.whichFoot+1)%2;
             }
@@ -3446,6 +3509,12 @@ function updateAdventure(timeStamp){
             // Handle dialogue update on z press
             if(scene.dialogue !== null){
                 advanceDialogueState();
+            } else if(scene.combat !== null && scene.combat.currentEnemyAction === null && scene.combat.currentPlayerAction === null){
+                scene.combat.currentPlayerAction = {
+                    actionInfo: "basic attack",
+                    startTime: timeStamp,
+                };
+                scene.combat.playerActionEffectApplied = false;
             } else { // If no dialogue, check for object interaction via collision
                 let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],currentDirection);
                 if(collision !== null && typeof collision === "object"){
@@ -3514,10 +3583,11 @@ function updateAdventure(timeStamp){
                     console.log(lev.stairDestination);
                     //changeArea(lev.stairDestination,true);
                     if(lev.stairDestination === "Floating_Island_Dungeon_0" && !scene.player.statisticData.finishedDungeonScene){
-                        initializeDialogue("scenes","tutorial dungeon scene",timeStamp);
-                        scene.player.statisticData.finishedDungeonScene = true;
+                        initializeDialogue("scenes","tutorial dungeon scene",timeStamp)
                     } else {
-                        changeArea(lev.stairDestination,true);
+                        if(!scene.combat || !scene.combat.currentEnemyAction){
+                            changeArea(lev.stairDestination,true);
+                        }
                     }
                 } else {
 
@@ -3529,10 +3599,10 @@ function updateAdventure(timeStamp){
             upClicked=false;
             if(scene.dialogue){
                 let lineData = scene.dialogue.lineInfo[scene.dialogue.currentLine];
-                if(lineData && lineData.selectedResponce !== undefined){
-                    lineData.selectedResponce--;
-                    if(lineData.selectedResponce < 0){
-                        lineData.selectedResponce = lineData.playerResponces.length-1;
+                if(lineData && lineData.selectedResponse !== undefined){
+                    lineData.selectedResponse--;
+                    if(lineData.selectedResponse < 0){
+                        lineData.selectedResponse = lineData.playerResponses.length-1;
                     }
                 }
             }
@@ -3541,10 +3611,10 @@ function updateAdventure(timeStamp){
             downClicked=false;
             if(scene.dialogue){
                 let lineData = scene.dialogue.lineInfo[scene.dialogue.currentLine];
-                if(lineData && lineData.selectedResponce !== undefined){
-                    lineData.selectedResponce++;
-                    if(lineData.selectedResponce > lineData.playerResponces.length-1){
-                        lineData.selectedResponce=0;
+                if(lineData && lineData.selectedResponse !== undefined){
+                    lineData.selectedResponse++;
+                    if(lineData.selectedResponse > lineData.playerResponses.length-1){
+                        lineData.selectedResponse=0;
                     }
                 }
             }
@@ -3700,7 +3770,11 @@ function drawAdventure(timeStamp){
             }
         }
 
-        drawCharacter("witch",playerSceneData.src,scene.worldX+playerSceneData.graphicLocation[0]*scene.sizeMod,scene.worldY+playerSceneData.graphicLocation[1]*scene.sizeMod);
+        if(scene.combat && scene.combat.currentPlayerAction){
+
+        } else {
+            drawCharacter("witch",playerSceneData.src,scene.worldX+playerSceneData.graphicLocation[0]*scene.sizeMod,scene.worldY+playerSceneData.graphicLocation[1]*scene.sizeMod);
+        }
 
         for (let i in lev.entities){
             const e = lev.entities[i];
@@ -3713,9 +3787,11 @@ function drawAdventure(timeStamp){
             } else if(e.type === "enemy"){
                 drawCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0]*scene.sizeMod+scene.worldX,e.graphicLocation[1]*scene.sizeMod+scene.worldY,48);
             }
-
         }
 
+        if(scene.combat && scene.combat.currentPlayerAction){
+            drawCharacter("witch",playerSceneData.src,scene.worldX+playerSceneData.graphicLocation[0]*scene.sizeMod,scene.worldY+playerSceneData.graphicLocation[1]*scene.sizeMod);
+        }
 
         // Draw foreground elements
         for (const dt of deferredRawTiles){
@@ -3847,8 +3923,8 @@ function drawAdventure(timeStamp){
             }
             context.imageSmoothingEnabled = false;
 
-            const playerResponces = scene.dialogue.lineInfo[scene.dialogue.currentLine].playerResponces;
-            if(playerResponces !== undefined){
+            const playerResponses = scene.dialogue.lineInfo[scene.dialogue.currentLine].playerResponses;
+            if(playerResponses !== undefined){
                 context.fillStyle = 'hsl(0, 100%, 0%, 70%)';
                 context.save();
                 context.shadowColor = "hsl(0, 15%, 0%, 70%)";
@@ -3859,9 +3935,9 @@ function drawAdventure(timeStamp){
                 context.restore();
 
                 context.fillStyle = textColor;
-                for(let i=0;i<playerResponces.length;i++) {
-                    let text = playerResponces[i];
-                    if(scene.dialogue.lineInfo[scene.dialogue.currentLine].selectedResponce === i){
+                for(let i=0;i<playerResponses.length;i++) {
+                    let text = playerResponses[i];
+                    if(scene.dialogue.lineInfo[scene.dialogue.currentLine].selectedResponse === i){
                         text = "> " + text;
                     }
                     context.fillText(text, scene.worldX+w*scene.sizeMod*0.45,scene.worldY+(h*scene.sizeMod)-96*scene.sizeMod*1.52 + 20*scene.sizeMod*i);

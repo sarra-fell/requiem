@@ -121,12 +121,17 @@
                     {}
                 ]
             },
-            "tutorial dungeon scene 1": {
+            "tutorial dungeon scene 2": {
                 "textLines": [
-                    "An enemy has made contact, so you are now in combat. When you make an action, the enemy will also have a chance to take an action, so choose wisely.",
-                    "Fortunately, you are still right by the stairs, so you can use it to escape whenever you want."
+                    "Ow... why does it have to attack me???",
+                    "An enemy has made contact, so you are now in combat. When you make an action, the enemy will also have a chance to take an action, so choose wisely. Although, you can only run and press Z for a normal attack, right now.",
+                    "Fortunately, you are still right by the stairs, so you can use it to escape."
                 ],
                 "lineInfo": [
+                    {
+                        "face": "player",
+                        "faceNum": 9
+                    },
                     {},
                     {}
                 ]
@@ -451,9 +456,9 @@
                     {
                         "face": "player",
                         "faceNum": 9,
-                        "playerResponces": ["Yes","No"],
-                        "selectedResponce": 0,
-                        "responceEffects": ["jump to 2","end"]
+                        "playerResponses": ["Yes","No"],
+                        "selectedResponse": 0,
+                        "responseEffects": ["jump to 2","end"]
                     },
                     {
                         "face": "player",
@@ -920,7 +925,8 @@
             "actions": [
                 {
                     "name": "bite",
-                    "power": 3
+                    "power": 3,
+                    "animation": 0
                 },
                 {
                     "name": "toxic tongue",
@@ -930,7 +936,8 @@
                         "desc": "Poisoned with a small lizards' toxin. It doesn't make you feel *too* sick and wears off quickly although you should still be careful. Losing a small amount of HP and brings you closer to hunger.",
                         "minDuration": 2,
                         "maxDuration": 4
-                    }
+                    },
+                    "animation": 0
                 }
             ],
             "kanji": ["四","刃","小"]
