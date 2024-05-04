@@ -470,6 +470,7 @@ function handleLevelData() {
 var levelClient = new XMLHttpRequest();
 levelClient.onload = handleLevelData;
 levelClient.open("GET", "assets/ldtk/testy2.ldtk");
+//levelClient.open("GET", "assets/ldtk/testy3.ldtk");
 levelClient.send();
 
 function handleDeckData() {
@@ -951,6 +952,10 @@ window.addEventListener('mousemove',function(e) {
             scene.currentTooltip = null
         }
     }
+
+    if(scene.handleDraggingObject !== undefined && scene.draggingObject){
+        scene.handleDraggingObject("mousemove");
+    }
 },false);
 
 window.addEventListener('mousedown',function(e) {
@@ -972,10 +977,18 @@ window.addEventListener('mousedown',function(e) {
             }
     }
 
+    if(scene.handleDraggingObject !== undefined){
+        scene.handleDraggingObject("mousedown");
+    }
+
 },false);
 
 window.addEventListener('mouseup',function(e) {
     mouseDown=false;
+
+    if(scene.handleDraggingObject !== undefined && scene.draggingObject){
+        scene.handleDraggingObject("mouseup");
+    }
 },false);
 
 window.addEventListener('click',function(e) {
@@ -1472,7 +1485,7 @@ function initializeScene(sceneName){
             switchScene: null};
 
     // Find the scene definition for the scene
-    for(let i in sceneDefinitions){
+    for(let i=0;i<sceneDefinitions.length;i++){
         if(sceneName === sceneDefinitions[i].name){
             scene.index = i;
             scene.buttons = sceneDefinitions[i].buttons;
@@ -1544,6 +1557,10 @@ function initializeScene(sceneName){
                 // Dictionary of booleans, is the named ability acquired?
                 acquiredAbilities: {},
 
+                // Array of integer indexes for listed abilities
+                // The ones that are over the maximum amount of abilities are ignored
+                equippedAbilities: [null,null,null,null,null,null,null,null,null,null],
+
                 acquiringAbility: null,
 
                 basicDysymboliaControl: true
@@ -1591,6 +1608,9 @@ function initializeScene(sceneName){
 
         scene.worldX = 80;
         scene.worldY = 20;
+
+        scene.camX = 0;
+        scene.camY = 0;
 
         // The number of characters displayed per second
         scene.defaultTextSpeed = 200;
@@ -2073,7 +2093,7 @@ function initializeNewSaveGame(){
 
     let playerAbilityData = scene.player.abilityData;
     for(let i=0;i<abilityFileData.length;i++){
-        playerAbilityData.acquiredAbilities[abilityFileData[i]] = false;
+        playerAbilityData.acquiredAbilities[abilityFileData[i].name] = false;
     }
 
     scene.sessionTrials = [];
@@ -2099,10 +2119,10 @@ function outputSaveGame(){
     return saveGame;
 }
 
-function loadSaveGame(){
+function loadSaveGame(slot){
     try {
         //alert(localStorage.getItem("save 1"));
-        let save = JSON.parse(localStorage.getItem("save 1"));
+        let save = JSON.parse(localStorage.getItem("save "+slot));
         //alert(save);
         scene.player = save.player;
         scene.currentGameClock = save.clock;
@@ -2140,9 +2160,9 @@ function loadSaveGame(){
     }
 }
 
-function saveToLocalStorage(){
+function saveToLocalStorage(slot){
     try {
-        localStorage.setItem("save 1",JSON.stringify(outputSaveGame()));
+        localStorage.setItem("save "+slot,JSON.stringify(outputSaveGame()));
         alert("successfully saved... something. hopefully you'll be able to load this");
     }
     catch (err) {
@@ -2157,7 +2177,7 @@ function assignStudyPriority(kanji, currentDate, noNewKanji = false){
     let timePassed = Infinity;
     if(kanji.trialHistory.length>0){
         if(noNewKanji){
-            return -10000;
+            return -1000000;
         }
         timePassed = Math.abs(kanji.trialHistory[kanji.trialHistory.length-1].dateStamp - currentDate)/1000;
     }
@@ -2360,6 +2380,8 @@ function initializeMenuTab(){
             scene.tooltipBoxes.splice(i,1);
         } else if(scene.tooltipBoxes[i].type === "ability menu ability") {
             scene.tooltipBoxes.splice(i,1);
+        } else if(scene.tooltipBoxes[i].type === "write-up entry") {
+            scene.tooltipBoxes.splice(i,1);
         }
     }
     for(let i = scene.buttons.length-1;i>=0;i--){
@@ -2474,6 +2496,7 @@ function initializeMenuTab(){
         if(!scene.hasOwnProperty("selectedAbility")){
             scene.selectedAbility = 0;
         }
+        scene.handleDraggingObject = undefined;
 
         let playerAbilityInfo = playerAbilityList[scene.selectedAbility];
         let abilityInfo = abilityFileData[playerAbilityInfo.index];
@@ -2498,28 +2521,84 @@ function initializeMenuTab(){
                 }
             });
         }
-    } else if(scene.menuScene === "Save") {
-        scene.buttons.push({
-            x:scene.worldX+247+125, y:scene.worldY+200, width:250, height:40,
-            neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-            text: "Save Game to Local Storage", font: '17px zenMaruRegular', fontSize: 17, enabled: true, temporaryMenuButton: true,
-            onClick: function(){
-                // Only designed to be used during certain states of the game
-                if(scene.dialogue === null || scene.dialogue.cinematic === null){
-                    saveToLocalStorage();
+
+        scene.handleDraggingObject = function(action){
+            if(action==="mousedown"){
+                if(scene.currentTooltip && scene.tooltipBoxes[scene.currentTooltip.index].type === "ability menu ability" && scene.player.abilityData.acquiredAbilities[scene.player.abilityData.list[scene.tooltipBoxes[scene.currentTooltip.index].index].name]){
+                    scene.draggingObject = [scene.tooltipBoxes[scene.currentTooltip.index].x,scene.tooltipBoxes[scene.currentTooltip.index].y,mouseX,mouseY,scene.tooltipBoxes[scene.currentTooltip.index].index];
                 } else {
-                    alert("Game is not currently in a savable state. Maybe finish whatever you were doing in the world?")
+                    for(let i=0;i<scene.player.abilityData.abilitySlots;i++){
+                        let box = {
+                            x: scene.worldX+247+250-scene.player.abilityData.abilitySlots*25+50*i,
+                            y: scene.worldY+135,
+                            width: 45,
+                            height: 45
+                        };
+                        if (mouseX >= box.x && mouseX <= box.x + box.width && mouseY >= box.y && mouseY <= box.y + box.height) {
+                            if(scene.player.abilityData.equippedAbilities[i] !== null){
+                                scene.draggingObject = [box.x,box.y,mouseX,mouseY,scene.player.abilityData.equippedAbilities[i]];
+                                scene.player.abilityData.equippedAbilities[i] = null;
+                            }
+                            break;
+                        }
+                    }
                 }
+
+            } else if(action==="mousemove"){
+                //scene.draggingObject[2] = mouseX;
+                //scene.draggingObject[3] = mouseY;
+            } else if(action==="mouseup"){
+                for(let i=0;i<scene.player.abilityData.abilitySlots;i++){
+                    let box = {
+                        x: scene.worldX+247+250-scene.player.abilityData.abilitySlots*25+50*i,
+                        y: scene.worldY+135,
+                        width: 45,
+                        height: 45
+                    };
+                    if (mouseX >= box.x && mouseX <= box.x + box.width && mouseY >= box.y && mouseY <= box.y + box.height) {
+                        scene.player.abilityData.equippedAbilities[i] = scene.draggingObject[4];
+                        for(let j=0;j<scene.player.abilityData.equippedAbilities.length;j++){
+                            if(j !== i && scene.player.abilityData.equippedAbilities[j] === scene.draggingObject[4]){
+                                scene.player.abilityData.equippedAbilities[j] = null;
+                            }
+                        }
+                        break;
+                    }
+                }
+                scene.draggingObject = null;
             }
-        });
-        scene.buttons.push({
-            x:scene.worldX+247+115, y:scene.worldY+300, width:270, height:40,
-            neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
-            text: "Load Game from Local Storage", font: '17px zenMaruRegular', fontSize: 17, enabled: true, temporaryMenuButton: true,
-            onClick: function(){
-                loadSaveGame();
-            }
-        });
+        }
+        if(scene.draggingObject === undefined){
+            scene.draggingObject = null
+        }
+
+    } else if(scene.menuScene === "Save") {
+        for(let i=0;i<5;i++){
+            scene.buttons.push({
+                x:scene.worldX+247+90, y:scene.worldY+150+i*40, width:310, height:35,
+                neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+                text: "Save Game to Local Storage Slot "+i, font: '17px zenMaruRegular', fontSize: 17, enabled: true, temporaryMenuButton: true,
+                slot: i,
+                onClick: function(){
+                    // Only designed to be used during certain states of the game
+                    if(scene.dialogue === null || scene.dialogue.cinematic === null){
+                        saveToLocalStorage(this.slot);
+                    } else {
+                        alert("Game is not currently in a savable state. Maybe finish whatever you were doing in the world?")
+                    }
+                }
+            });
+            scene.buttons.push({
+                x:scene.worldX+247+87, y:scene.worldY+370+i*40, width:320, height:35,
+                neutralColor: '#b3b3ff', hoverColor: '#e6e6ff', pressedColor: '#ff66ff', color: '#b3b3ff',
+                text: "Load Game from Local Storage Slot "+i, font: '17px zenMaruRegular', fontSize: 17, enabled: true, temporaryMenuButton: true,
+                slot: i,
+                onClick: function(){
+                    loadSaveGame(this.slot);
+                }
+            });
+        }
+
         updateInventory();
     } else {
         updateInventory();
@@ -2964,12 +3043,12 @@ function updateAdventure(timeStamp){
             }
         } else {
             let specialKanji = abilityFileData[scene.player.abilityData.acquiringAbility].specialKanji;
-            let priority = assignStudyPriority(scene.player.kanjiData[specialKanji[0]],currentDate,noNewKanji);
+            let priority = assignStudyPriority(scene.player.kanjiData[specialKanji[0]],currentDate,false);
             let highestPriority = priority;
             highestPriorityIndex = specialKanji[0];
 
             for(let i=1;i<specialKanji.length;i++){
-                priority = assignStudyPriority(scene.player.kanjiData[specialKanji[i]],currentDate,noNewKanji);
+                priority = assignStudyPriority(scene.player.kanjiData[specialKanji[i]],currentDate,false);
                 if(priority>highestPriority){
                     highestPriority = priority;
                     highestPriorityIndex = specialKanji[i];
@@ -3140,7 +3219,7 @@ function updateAdventure(timeStamp){
 
                     playerSceneData.timeUntilDysymbolia = -1;
                     let kanjiPlayerInfo = null;
-                    if(scene.dialogue.cinematic.specialTrialsLeft>1){
+                    if(scene.dialogue.cinematic.specialTrialsLeft>0){
                         kanjiPlayerInfo = getNextKanji(true);
                     } else {
                         kanjiPlayerInfo = getNextKanji();
@@ -3692,6 +3771,17 @@ function drawAdventure(timeStamp){
 
     const drawWorldScreen = function(){
         let lev = levels[scene.levelNum];
+
+        let cameraCenterLocation;
+        if(scene.moving){
+            cameraCenterLocation = playerSceneData.graphicLocation;
+        } else {
+            cameraCenterLocation = playerSceneData.location;
+        }
+
+        if(cameraCenterLocation[0] < w/2){
+
+        }
 
         // Draw tile layers
         let deferredRawTiles = [];
@@ -4370,11 +4460,24 @@ function drawAdventure(timeStamp){
 
             // Draw ability bar
             for(let i=0;i<playerAbilityData.abilitySlots;i++){
-                context.lineWidth = 2;
-                context.strokeStyle = 'hsla(0, 30%, 60%, 1)';
-                context.beginPath();
-                context.roundRect(scene.worldX+247+250-playerAbilityData.abilitySlots*25+50*i, scene.worldY+currentY, 45, 45, 3);
-                context.stroke();
+                if(playerAbilityData.equippedAbilities[i] !== null){
+                    context.drawImage(abilityIcons[ scene.player.abilityData.list[playerAbilityData.equippedAbilities[i]].index ],scene.worldX+247+250-playerAbilityData.abilitySlots*25+50*i,scene.worldY+currentY,45,45);
+
+                    context.lineWidth = 2;
+                    context.strokeStyle = 'hsla(0, 30%, 60%, 1)';
+                    context.beginPath();
+                    context.roundRect(scene.worldX+247+250-playerAbilityData.abilitySlots*25+50*i, scene.worldY+currentY, 45, 45, 3);
+                    context.stroke();
+                } else {
+                    context.lineWidth = 2;
+                    context.strokeStyle = 'hsla(0, 30%, 60%, 1)';
+                    context.beginPath();
+                    context.roundRect(scene.worldX+247+250-playerAbilityData.abilitySlots*25+50*i, scene.worldY+currentY, 45, 45, 3);
+
+                    context.fillStyle = 'black';
+                    context.fill();
+                    context.stroke();
+                }
             }
 
             currentY += 65;
@@ -4411,6 +4514,7 @@ function drawAdventure(timeStamp){
             }
 
             if(scene.selectedAbility !== null){
+                // Draw ability information on the right side
                 isToDrawStatusBar = false;
 
                 let playerAbilityInfo = playerAbilityData.list[scene.selectedAbility];
@@ -4475,9 +4579,23 @@ function drawAdventure(timeStamp){
                         context.fillText(`${scene.player.combatData.power}/${abilityInfo.acquisitionPower} power to acquire!`, scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+currentY+28);
                     }
                 }
-                if(scene.player.abilityData.acquiringAbility === playerAbilityInfo.index){
+                if(playerAbilityData.acquiringAbility === playerAbilityInfo.index){
                     scene.acquisitionButtonParticleSystem.drawParticles(performance.now());
                 }
+                if(playerAbilityData.acquiredAbilities[playerAbilityInfo.name]){
+                    context.textAlign = 'center';
+                    context.fillStyle = "white";
+                    context.font = '22px zenMaruBlack';
+                    context.fillText("Acquired", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+670);
+
+                    context.font = '18px zenMaruMedium';
+                    context.fillText("Drag to Equip!", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+710);
+                }
+            }
+
+            if(scene.draggingObject){
+                let offsetX = mouseX - scene.draggingObject[2], offsetY = mouseY - scene.draggingObject[3];
+                context.drawImage(abilityIcons[ playerAbilityData.list[scene.draggingObject[4]].index ],scene.draggingObject[0]+offsetX,scene.draggingObject[1]+offsetY,45,45);
             }
         } // Draw ability screen function ends here
 
@@ -4528,7 +4646,11 @@ function drawAdventure(timeStamp){
         context.fillText("Abilities", scene.worldX+18*16*scene.sizeMod*2+30 + 150, scene.worldY+505);
 
         // Draw ability bar
-        for(let i=0;i<5;i++){
+        for(let i=0;i<scene.player.abilityData.abilitySlots;i++){
+            if(scene.player.abilityData.equippedAbilities[i] !== null){
+                context.drawImage(abilityIcons[ scene.player.abilityData.list[scene.player.abilityData.equippedAbilities[i]].index ],scene.worldX+18*16*scene.sizeMod*2+30 + 28+50*i,scene.worldY+535,45,45);
+            }
+
             context.lineWidth = 2;
             context.strokeStyle = 'hsla(0, 30%, 60%, 1)';
             context.beginPath();
