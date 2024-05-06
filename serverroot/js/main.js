@@ -296,7 +296,10 @@ function processLevelData(data) {
         levels[i].gridHeight = collisionLayerData.__cHei;
         for (let j in entityLayerData.entityInstances){
             const e = entityLayerData.entityInstances[j];
-            let entityData = {id: e.__identifier, location: e.px, graphicLocation: [e.px[0], e.px[1]], src: [32,0], type: e.__tags[0],width: e.width,height: e.height};
+            let entityData = {id: e.__identifier, location: e.px, graphicLocation: [e.px[0], e.px[1]], src: [32,0], type: e.__tags[0],width: e.width,height: e.height,bitrate:32};
+            /*if(e.__identifier === "Lizard"){
+                entityData.bitrate = 48;
+            }*/
             for (let k in e.fieldInstances){
                 const field = e.fieldInstances[k];
                 if(field.__identifier === "FacingDirection"){
@@ -1525,6 +1528,8 @@ function initializeScene(sceneName){
                 location: levels[0].defaultLocation,
                 graphicLocation: levels[0].defaultLocation,
                 src: [32,0],
+                bitrate: 32,
+                animation: null,
                 name: "Mari", jpName: "マリィ",
                 color: "#caa8ff",
                 dysymboliaActive: true,
@@ -3363,7 +3368,31 @@ function updateAdventure(timeStamp){
             }
         }
 
-        let updateBasicAttackAnimation = function(user,receiver,timeElapsed){
+        const updateMovementAnimation = function(user,timeElapsed){
+            // Draw player
+            if(scene.movingDirection !== null){
+                // Between 0 and 1 where 0 is the very beginning and 1 is finished
+                let animationCompletion = (timeStamp - scene.startedMovingTime)/movingAnimationDuration;
+
+                if(animationCompletion > 0.25 && animationCompletion < 0.75){
+                    user.src = [user.whichFoot*2*32,spritesheetOrientationPosition[scene.movingDirection]*32];
+                } else {
+                    user.src = [32,spritesheetOrientationPosition[scene.movingDirection]*32];
+                }
+
+                if(scene.movingDirection === "up"){
+                    user.graphicLocation = [user.location[0],user.location[1]+scene.tileSize*(1-animationCompletion)];
+                } else if(scene.movingDirection === "left"){
+                    user.graphicLocation = [user.location[0]+scene.tileSize*(1-animationCompletion),user.location[1]];
+                } else if(scene.movingDirection === "right"){
+                    user.graphicLocation = [user.location[0]-scene.tileSize*(1-animationCompletion),user.location[1]];
+                } else if(scene.movingDirection === "down"){
+                    user.graphicLocation = [user.location[0],user.location[1]-scene.tileSize*(1-animationCompletion)];
+                }
+            }
+        }
+
+        const updateBasicAttackAnimation = function(user,receiver,timeElapsed){
             if(timeElapsed < 400){
                 let factor = timeElapsed/2000;
                 user.graphicLocation[0] = (user.location[0]+receiver.location[0]*factor)/(1+factor);
@@ -3390,6 +3419,18 @@ function updateAdventure(timeStamp){
             } else {
                 user.graphicLocation = [user.location[0],user.location[1]];
                 return "finished";
+            }
+
+            if(timeElapsed < 150){
+                user.src[0] = user.bitrate;
+            } else if(timeElapsed < 425) {
+                user.src[0] = 0;
+            } else if(timeElapsed < 575){
+                user.src[0] = user.bitrate;
+            } else if(timeElapsed < 875){
+                user.src[0] = user.bitrate*2;
+            } else {
+                user.src[0] = user.bitrate;
             }
             return "unfinished";
         }
@@ -3517,8 +3558,11 @@ function updateAdventure(timeStamp){
                     let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"down");
                     if(collision===null){
                         playerSceneData.location[1]+=32;
-                        scene.movingDirection = "down";
-                        scene.startedMovingTime = timeStamp;
+                        playerSceneData.animation = {
+                            name: "basic movement",
+                            startTime: timeStamp,
+                            direction: "down"
+                        }
                         scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
@@ -3532,8 +3576,11 @@ function updateAdventure(timeStamp){
                     let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"left");
                     if(collision===null){
                         playerSceneData.location[0]-=32;
-                        scene.movingDirection = "left";
-                        scene.startedMovingTime = timeStamp;
+                        playerSceneData.animation = {
+                            name: "basic movement",
+                            startTime: timeStamp,
+                            direction: "left"
+                        }
                         scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
@@ -3547,8 +3594,11 @@ function updateAdventure(timeStamp){
                     let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"right");
                     if(collision===null){
                         playerSceneData.location[0]+=32;
-                        scene.movingDirection = "right";
-                        scene.startedMovingTime = timeStamp;
+                        playerSceneData.animation = {
+                            name: "basic movement",
+                            startTime: timeStamp,
+                            direction: "right"
+                        }
                         scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
@@ -3562,8 +3612,11 @@ function updateAdventure(timeStamp){
                     let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"up");
                     if(collision===null){
                         playerSceneData.location[1]-=32;
-                        scene.movingDirection = "up";
-                        scene.startedMovingTime = timeStamp;
+                        playerSceneData.animation = {
+                            name: "basic movement",
+                            startTime: timeStamp,
+                            direction: "up"
+                        }
                         scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
@@ -3578,7 +3631,7 @@ function updateAdventure(timeStamp){
                 scene.movingDirection = null;
                 playerSceneData.graphicLocation = [playerSceneData.location[0],playerSceneData.location[1]];
                 playerSceneData.src[0]=32;
-                scene.whichFoot = (scene.whichFoot+1)%2;
+                playerSceneData.whichFoot = (playerSceneData.whichFoot+1)%2;
             }
         }
         if(xClicked){
@@ -3835,28 +3888,6 @@ function drawAdventure(timeStamp){
                 context.fillText(`${hours}:0${minutes} AM`,scene.worldX+15, scene.worldY+30);
             } else {
                 context.fillText(`${hours}:${minutes} AM`,scene.worldX+15, scene.worldY+30);
-            }
-        }
-
-        // Draw player
-        if(scene.movingDirection !== null){
-            // Between 0 and 1 where 0 is the very beginning and 1 is finished
-            let animationCompletion = (timeStamp - scene.startedMovingTime)/movingAnimationDuration;
-
-            if(animationCompletion > 0.25 && animationCompletion < 0.75){
-                playerSceneData.src = [scene.whichFoot*2*32,spritesheetOrientationPosition[scene.movingDirection]*32];
-            } else {
-                playerSceneData.src = [32,spritesheetOrientationPosition[scene.movingDirection]*32];
-            }
-
-            if(scene.movingDirection === "up"){
-                playerSceneData.graphicLocation = [playerSceneData.location[0],playerSceneData.location[1]+scene.tileSize*(1-animationCompletion)];
-            } else if(scene.movingDirection === "left"){
-                playerSceneData.graphicLocation = [playerSceneData.location[0]+scene.tileSize*(1-animationCompletion),playerSceneData.location[1]];
-            } else if(scene.movingDirection === "right"){
-                playerSceneData.graphicLocation = [playerSceneData.location[0]-scene.tileSize*(1-animationCompletion),playerSceneData.location[1]];
-            } else if(scene.movingDirection === "down"){
-                playerSceneData.graphicLocation = [playerSceneData.location[0],playerSceneData.location[1]-scene.tileSize*(1-animationCompletion)];
             }
         }
 
