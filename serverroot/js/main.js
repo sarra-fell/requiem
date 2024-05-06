@@ -6,7 +6,7 @@ window.onload = init;
     My spaced repetition implementation
 */
 
-// The srs object functions as a namespace for data related to the srs
+// was originally going to be the srs but is now just a thing that handles the daily deck. not connected to adventure
 var srs = {
     // Slime forest variables saved elsewhere for reference
 
@@ -84,9 +84,9 @@ var srs = {
 
         }
         const FileSystem = require("fs");
-     FileSystem.writeFile('file.json', JSON.stringify(proj), (error) => {
-        if (error) throw error;
-      });
+        FileSystem.writeFile('file.json', JSON.stringify(proj), (error) => {
+            if (error) throw error;
+        });
         const file = new File(['fook u'], 'note.txt', {
             type: 'text/plain',
         })
@@ -472,8 +472,8 @@ function handleLevelData() {
 
 var levelClient = new XMLHttpRequest();
 levelClient.onload = handleLevelData;
-levelClient.open("GET", "assets/ldtk/testy2.ldtk");
-//levelClient.open("GET", "assets/ldtk/testy3.ldtk");
+//levelClient.open("GET", "assets/ldtk/testy2.ldtk");
+levelClient.open("GET", "assets/ldtk/testy3.ldtk");
 levelClient.send();
 
 function handleDeckData() {
@@ -1622,15 +1622,6 @@ function initializeScene(sceneName){
 
         // Counts the minutes elapsed from 0:00 in the day, for now it goes up 1 every second
         scene.currentGameClock = 600;
-
-        // True when the player is currently moving to the tile they are "at" and the walking animation is playing
-        scene.moving = false;
-
-        // Direction player is currently moving in, if they are moving
-        scene.movingDirection = null;
-
-        // Switch foots each step taken
-        scene.whichFoot = 0;
 
         scene.menuTabList = ["Inventory","Abilities","Kanji List","Theory","Settings","Save"];
 
@@ -2791,15 +2782,15 @@ function drawDialogueText(x, y, maxWidth, lineHeight, timeStamp, registerTooltip
 }
 
 // Draws a tile
-function drawTile(type, src, x, y, bitrate = 32){
-    context.drawImage(tilesets.tilesetImages[type], src[0], src[1], bitrate, bitrate, x, y, bitrate*scene.sizeMod+1, bitrate*scene.sizeMod+1);
+function drawTile(type, src, x, y, bitrate = 32, sizeMod = 1){
+    context.drawImage(tilesets.tilesetImages[type], src[0], src[1], bitrate, bitrate, x, y, bitrate*sizeMod, bitrate*sizeMod);
 }
 
 // Draws a character
-function drawCharacter(character, src, x, y){
+function drawCharacter(character, src, x, y, sizeMod){
     context.imageSmoothingEnabled = true;
     let bitrate = characterBitrates[character];
-    let size = 32*scene.sizeMod;
+    let size = 32*sizeMod;
     let image = characterSpritesheets[character];
     if(typeof image === "object"){
         context.drawImage(image, src[0]*(bitrate/32), src[1]*(bitrate/32), bitrate, bitrate, x, y, size, size);
@@ -2811,7 +2802,7 @@ function drawCharacter(character, src, x, y){
 
 // Requires the tileset "Grassy_Biome_Things" and draws a fruit tree given the data stored in the entity about it's fruit
 // Returns array of tiles to defer
-function drawFruitTree(tree,tilesetNum,x,y){
+function drawFruitTree(tree,tilesetNum,x,y,camX,camY){
     let bitrate = 32;
     let deferredTiles = [];
     if(tree.hasLeftFruit){
@@ -2939,7 +2930,7 @@ function updateAdventure(timeStamp){
     // If a second went by, update everything that needs to be updated by the second
     if(scene.dialogue === null && scene.menuScene === null && scene.combat === null && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
         if(playerSceneData.timeUntilDysymbolia > 0){
-            playerSceneData.timeUntilDysymbolia-=1;
+            //playerSceneData.timeUntilDysymbolia-=1;
         }
 
         // Begin dysymbolia dialogue!
@@ -3368,27 +3359,29 @@ function updateAdventure(timeStamp){
             }
         }
 
-        const updateMovementAnimation = function(user,timeElapsed){
-            // Draw player
-            if(scene.movingDirection !== null){
-                // Between 0 and 1 where 0 is the very beginning and 1 is finished
-                let animationCompletion = (timeStamp - scene.startedMovingTime)/movingAnimationDuration;
+        const updateMovementAnimation = function(user,animationInfo){
+            // Between 0 and 1 where 0 is the very beginning and 1 is finished
+            let animationCompletion = (timeStamp - animationInfo.startTime)/movingAnimationDuration;
 
-                if(animationCompletion > 0.25 && animationCompletion < 0.75){
-                    user.src = [user.whichFoot*2*32,spritesheetOrientationPosition[scene.movingDirection]*32];
-                } else {
-                    user.src = [32,spritesheetOrientationPosition[scene.movingDirection]*32];
-                }
+            if(animationCompletion >= 1){
+                user.animation = null;
+                user.graphicLocation = [user.location[0],user.location[1]];
+                return;
+            }
+            if(animationCompletion > 0.25 && animationCompletion < 0.75){
+                user.src = [user.whichFoot*2*32,spritesheetOrientationPosition[animationInfo.direction]*32];
+            } else {
+                user.src = [32,spritesheetOrientationPosition[animationInfo.direction]*32];
+            }
 
-                if(scene.movingDirection === "up"){
-                    user.graphicLocation = [user.location[0],user.location[1]+scene.tileSize*(1-animationCompletion)];
-                } else if(scene.movingDirection === "left"){
-                    user.graphicLocation = [user.location[0]+scene.tileSize*(1-animationCompletion),user.location[1]];
-                } else if(scene.movingDirection === "right"){
-                    user.graphicLocation = [user.location[0]-scene.tileSize*(1-animationCompletion),user.location[1]];
-                } else if(scene.movingDirection === "down"){
-                    user.graphicLocation = [user.location[0],user.location[1]-scene.tileSize*(1-animationCompletion)];
-                }
+            if(animationInfo.direction === "up"){
+                user.graphicLocation = [user.location[0],user.location[1]+scene.tileSize*(1-animationCompletion)];
+            } else if(animationInfo.direction === "left"){
+                user.graphicLocation = [user.location[0]+scene.tileSize*(1-animationCompletion),user.location[1]];
+            } else if(animationInfo.direction === "right"){
+                user.graphicLocation = [user.location[0]-scene.tileSize*(1-animationCompletion),user.location[1]];
+            } else if(animationInfo.direction === "down"){
+                user.graphicLocation = [user.location[0],user.location[1]-scene.tileSize*(1-animationCompletion)];
             }
         }
 
@@ -3435,43 +3428,23 @@ function updateAdventure(timeStamp){
             return "unfinished";
         }
 
-        if(scene.combat !== null && scene.combat.currentEnemyAction !== null){
-            // Enemy attack animation
-            let timeElapsed = (timeStamp - scene.combat.currentEnemyAction.startTime);
-            let enemy = scene.roomEnemies[scene.combat.enemyIndex];
-
-            if(updateBasicAttackAnimation(enemy,playerSceneData,timeElapsed) === "finished"){
-                scene.combat.currentEnemyAction = null;
-                if(!scene.player.statisticData.finishedDungeonScene){
-                    initializeDialogue("scenes","tutorial dungeon scene 2",timeStamp)
-                    scene.player.statisticData.finishedDungeonScene=true;
+        const initializeAnimation = function(animation,user,info){
+            if(animation === "basic movement"){
+                if(user.hasOwnProperty("whichFoot")){
+                    user.whichFoot = (user.whichFoot+1)%2;
+                } else {
+                    user.whichFoot = 0;
                 }
-            } else if(timeElapsed > 600 && !scene.combat.enemyActionEffectApplied){
-                applyEnemyActionEffect();
-            }
-        } else if (scene.combat !== null && scene.combat.currentPlayerAction !== null){
-            // Player attack animation
-            let timeElapsed = (timeStamp - scene.combat.currentPlayerAction.startTime);
-            let enemy = scene.roomEnemies[scene.combat.enemyIndex];
-
-            if(updateBasicAttackAnimation(playerSceneData, enemy, timeElapsed) === "finished"){
-                scene.combat.currentPlayerAction = null;
-                takeEnemyActions();
-            } else if(timeElapsed > 600 && !scene.combat.playerActionEffectApplied){
-                applyPlayerActionEffect();
+                user.animation = {
+                    name: "basic movement",
+                    startTime: timeStamp,
+                    direction: info,
+                }
             }
         }
 
         // Handle dialogue
         if(scene.dialogue !== null){
-            // If player was moving when dialogue started, make sure to end it when its time to end it
-            if(scene.movingDirection !== null && movingAnimationDuration + scene.startedMovingTime < timeStamp){
-                scene.movingDirection = null;
-                playerSceneData.graphicLocation = [playerSceneData.location[0],playerSceneData.location[1]];
-                playerSceneData.src[0]=32;
-                scene.whichFoot = (scene.whichFoot+1)%2;
-            }
-
             // Handle cinematic
             if(scene.dialogue.cinematic !== null){
                 // Handle scene dysynbolia
@@ -3544,25 +3517,21 @@ function updateAdventure(timeStamp){
             // If there isnt a cinematic theres nothing to handle about the dialogue in update phase
         } else {
             // If not in dialogue, handle movement
-            if(currentDirection === "down"){
-                playerSceneData.src = [32,0];
-            } else if (currentDirection === "left") {
-                playerSceneData.src = [32,32];
-            } else if(currentDirection === "right"){
-                playerSceneData.src = [32,32*2];
-            } else if(currentDirection === "up"){
-                playerSceneData.src = [32,32*3];
-            }
-            if(scene.movingDirection===null){
+            if(playerSceneData.animation===null){
+                if(currentDirection === "down"){
+                    playerSceneData.src = [32,0];
+                } else if (currentDirection === "left") {
+                    playerSceneData.src = [32,32];
+                } else if(currentDirection === "right"){
+                    playerSceneData.src = [32,32*2];
+                } else if(currentDirection === "up"){
+                    playerSceneData.src = [32,32*3];
+                }
                 if(currentDirection === "down" && downPressed){
                     let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"down");
                     if(collision===null){
                         playerSceneData.location[1]+=32;
-                        playerSceneData.animation = {
-                            name: "basic movement",
-                            startTime: timeStamp,
-                            direction: "down"
-                        }
+                        initializeAnimation("basic movement",playerSceneData,currentDirection);
                         scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
@@ -3576,11 +3545,7 @@ function updateAdventure(timeStamp){
                     let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"left");
                     if(collision===null){
                         playerSceneData.location[0]-=32;
-                        playerSceneData.animation = {
-                            name: "basic movement",
-                            startTime: timeStamp,
-                            direction: "left"
-                        }
+                        initializeAnimation("basic movement",playerSceneData,currentDirection);
                         scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
@@ -3594,11 +3559,7 @@ function updateAdventure(timeStamp){
                     let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"right");
                     if(collision===null){
                         playerSceneData.location[0]+=32;
-                        playerSceneData.animation = {
-                            name: "basic movement",
-                            startTime: timeStamp,
-                            direction: "right"
-                        }
+                        initializeAnimation("basic movement",playerSceneData,currentDirection);
                         scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
@@ -3612,11 +3573,7 @@ function updateAdventure(timeStamp){
                     let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"up");
                     if(collision===null){
                         playerSceneData.location[1]-=32;
-                        playerSceneData.animation = {
-                            name: "basic movement",
-                            startTime: timeStamp,
-                            direction: "up"
-                        }
+                        initializeAnimation("basic movement",playerSceneData,currentDirection);
                         scene.player.statisticData.stepCount++;
                     } else if (collision === "bounds"){
                         for(const n of levels[scene.levelNum].neighbours){
@@ -3627,13 +3584,43 @@ function updateAdventure(timeStamp){
                         }
                     }
                 }
-            } else if(movingAnimationDuration + scene.startedMovingTime < timeStamp){
-                scene.movingDirection = null;
-                playerSceneData.graphicLocation = [playerSceneData.location[0],playerSceneData.location[1]];
-                playerSceneData.src[0]=32;
-                playerSceneData.whichFoot = (playerSceneData.whichFoot+1)%2;
             }
         }
+
+        // Handle combat action and combat animation
+        if(scene.combat !== null && scene.combat.currentEnemyAction !== null){
+            // Enemy attack animation
+            let timeElapsed = (timeStamp - scene.combat.currentEnemyAction.startTime);
+            let enemy = scene.roomEnemies[scene.combat.enemyIndex];
+
+            if(updateBasicAttackAnimation(enemy,playerSceneData,timeElapsed) === "finished"){
+                scene.combat.currentEnemyAction = null;
+                if(!scene.player.statisticData.finishedDungeonScene){
+                    initializeDialogue("scenes","tutorial dungeon scene 2",timeStamp)
+                    scene.player.statisticData.finishedDungeonScene=true;
+                }
+            } else if(timeElapsed > 600 && !scene.combat.enemyActionEffectApplied){
+                applyEnemyActionEffect();
+            }
+        } else if (scene.combat !== null && scene.combat.currentPlayerAction !== null){
+            // Player attack animation
+            let timeElapsed = (timeStamp - scene.combat.currentPlayerAction.startTime);
+            let enemy = scene.roomEnemies[scene.combat.enemyIndex];
+
+            if(updateBasicAttackAnimation(playerSceneData, enemy, timeElapsed) === "finished"){
+                scene.combat.currentPlayerAction = null;
+                takeEnemyActions();
+            } else if(timeElapsed > 600 && !scene.combat.playerActionEffectApplied){
+                applyPlayerActionEffect();
+            }
+        }
+
+        // Handle movement animation
+        if(playerSceneData.animation && playerSceneData.animation.name === "basic movement"){
+            updateMovementAnimation(playerSceneData,playerSceneData.animation);
+        }
+
+        // Handle input
         if(xClicked){
             xClicked = false;
         }
@@ -3792,8 +3779,8 @@ function updateAdventure(timeStamp){
 
 function drawAdventure(timeStamp){
     // world width and height
-    let w = 18*scene.tileSize+1;
-    let h = 18*scene.tileSize+1;
+    let w = 18*scene.tileSize;
+    let h = 18*scene.tileSize;
 
     let playerSceneData = scene.player.sceneData;
 
@@ -3826,17 +3813,45 @@ function drawAdventure(timeStamp){
         let lev = levels[scene.levelNum];
 
         let cameraCenterLocation;
-        if(scene.moving){
+        if(playerSceneData.animation && playerSceneData.animation.name === "basic movement"){
             cameraCenterLocation = playerSceneData.graphicLocation;
         } else {
             cameraCenterLocation = playerSceneData.location;
         }
 
-        if(cameraCenterLocation[0] < w/2){
+        let camX;
+        let camY;
 
+        if(cameraCenterLocation[0] <= w/2) {
+            camX = 0;
+        } else if(cameraCenterLocation[0] >= lev.gridWidth*scene.tileSize-(w/2)) {
+            camX = lev.gridWidth*scene.tileSize-w;
+        } else {
+            camX = cameraCenterLocation[0]-(w/2);
+        }
+
+        if(cameraCenterLocation[1] <= h/2) {
+            camY = 0;
+        } else if(cameraCenterLocation[1] >= lev.gridHeight*scene.tileSize-(h/2)) {
+            camY = lev.gridHeight*scene.tileSize-h;
+        } else {
+            camY = cameraCenterLocation[1]-(h/2);
         }
 
         // Draw tile layers
+
+        // Given absolute x and y of a tile, draw it relative to the camera, but only if it is visible
+        const cameraTile = function(type, src, x, y){
+            if(x-camX > -33 && x-camX < w && y-camY > -33 && y-camY < h){
+                drawTile(type, src, scene.worldX+x*scene.sizeMod-camX, scene.worldY+y*scene.sizeMod-camY,32,scene.sizeMod);
+            }
+        }
+        const cameraCharacter = function(character, src, x, y){
+            if(x-camX > -33 && x-camX < w && y-camY > -33 && y-camY < h){
+                drawCharacter(character, src, scene.worldX+x*scene.sizeMod-camX, scene.worldY+y*scene.sizeMod-camY,scene.sizeMod);
+            }
+        }
+
         let deferredRawTiles = [];
         let deferredTiles = [];
         for (let i=lev.tileLayers.length-1;i>=0;i--) {
@@ -3846,17 +3861,16 @@ function drawAdventure(timeStamp){
                     if(tilesets.tilesetTileInfo[i].Front[t.t]){
                         deferredRawTiles.push({tilesetNum: i, tile: t});
                     } else {
-                        drawTile(i, t.src, scene.worldX+t.px[0]*scene.sizeMod, scene.worldY+t.px[1]*scene.sizeMod, 32);
+                        cameraTile(i, t.src, t.px[0], t.px[1]);
                     }
                 }
             } else if(layer.name === "Water_Tiles") {
                 for (let t of layer.tiles){
-                    drawTile(i, [32*Math.floor( (timeStamp/400) % 4),0], scene.worldX+t.px[0]*scene.sizeMod, scene.worldY+t.px[1]*scene.sizeMod, 32);
+                    cameraTile(i, [32*Math.floor( (timeStamp/400) % 4),0], t.px[0], t.px[1]);
                 }
             } else {
                 for (let t of layer.tiles){
-                    let bitrate = 32;
-                    drawTile(i, t.src, scene.worldX+t.px[0]*(32/bitrate)*scene.sizeMod, scene.worldY+t.px[1]*(32/bitrate)*scene.sizeMod, bitrate);
+                    cameraTile(i, t.src, t.px[0], t.px[1]);
                 }
             }
         }
@@ -3894,32 +3908,32 @@ function drawAdventure(timeStamp){
         if(scene.combat && scene.combat.currentPlayerAction){
 
         } else {
-            drawCharacter("witch",playerSceneData.src,scene.worldX+playerSceneData.graphicLocation[0]*scene.sizeMod,scene.worldY+playerSceneData.graphicLocation[1]*scene.sizeMod);
+            cameraCharacter("witch",playerSceneData.src,playerSceneData.graphicLocation[0],playerSceneData.graphicLocation[1]);
         }
 
         for (let i in lev.entities){
             const e = lev.entities[i];
             if(e.type === "character"){
-                drawCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0]*scene.sizeMod+scene.worldX,e.graphicLocation[1]*scene.sizeMod+scene.worldY);
+                cameraCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0]*scene.sizeMod,e.graphicLocation[1]);
             } else if(e.type === "location"){
                 // do nothing
             } else if(e.id === "Fruit_Tree"){
-                deferredTiles.push(...drawFruitTree(e,0,e.graphicLocation[0]*scene.sizeMod+scene.worldX,e.graphicLocation[1]*scene.sizeMod+scene.worldY));
+                //deferredTiles.push(...drawFruitTree(e,0,e.graphicLocation[0]*scene.sizeMod+scene.worldX,e.graphicLocation[1]*scene.sizeMod+scene.worldY));
             } else if(e.type === "enemy"){
-                drawCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0]*scene.sizeMod+scene.worldX,e.graphicLocation[1]*scene.sizeMod+scene.worldY,48);
+                cameraCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0],e.graphicLocation[1],48);
             }
         }
 
         if(scene.combat && scene.combat.currentPlayerAction){
-            drawCharacter("witch",playerSceneData.src,scene.worldX+playerSceneData.graphicLocation[0]*scene.sizeMod,scene.worldY+playerSceneData.graphicLocation[1]*scene.sizeMod);
+            cameraCharacter("witch",playerSceneData.src,playerSceneData.graphicLocation[0],playerSceneData.graphicLocation[1]);
         }
 
         // Draw foreground elements
         for (const dt of deferredRawTiles){
-            drawTile(dt.tilesetNum, dt.tile.src, scene.worldX+dt.tile.px[0]*scene.sizeMod, scene.worldY+dt.tile.px[1]*scene.sizeMod, 32);
+            cameraTile(dt.tilesetNum, dt.tile.src, dt.tile.px[0], dt.tile.px[1]);
         }
         for (const dt of deferredTiles){
-            drawTile(dt.tilesetNum, dt.tile.src, dt.tile.px[0], dt.tile.px[1], 32);
+            cameraTile(dt.tilesetNum, dt.tile.src, dt.tile.px[0], dt.tile.px[1]);
         }
 
         // Apply time of day brightness effect
