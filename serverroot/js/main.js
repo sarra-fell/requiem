@@ -251,6 +251,9 @@ function processGameJsonData(data) {
 // Levels isnt the most amazing word for it technically but it is the terminology that ldtk uses so thats the terms we are using
 var levels = [];
 
+// Information on the connections between levels. currently an array of connections that is to be iterated through when looking for the other side of a connection.
+var connections = [];
+
 let levelsLoaded = false;
 function processLevelData(data) {
     //console.log(data);
@@ -292,6 +295,12 @@ function processLevelData(data) {
         const entityLayerData = levelData.layerInstances[0];
         const collisionLayerData = levelData.layerInstances[levelData.layerInstances.length-1];
 
+        levels[i].collisions = collisionLayerData.intGridCsv;
+        levels[i].iid = levelData.iid;
+        levels[i].identifier = levelData.identifier;
+        levels[i].stairDestination = levelData.fieldInstances[0].__value;
+        levels[i].neighbours = levelData.__neighbours;
+
         levels[i].gridWidth = collisionLayerData.__cWid;
         levels[i].gridHeight = collisionLayerData.__cHei;
         for (let j in entityLayerData.entityInstances){
@@ -320,6 +329,15 @@ function processLevelData(data) {
             if(e.__identifier === "Witch"){
                 levels[i].defaultLocation = e.px;
             }
+            if(e.__identifier === "Stairs"){
+                connections.push(
+                    {
+                        connectionId: e.connectionId,
+                        exitLocation: e.exitLocation,
+                        area: levelData.iid,
+                    }
+                );
+            }
         }
 
         for(let j=0;j<numTileLayers;j++){
@@ -333,11 +351,6 @@ function processLevelData(data) {
             }
             levels[i].tileLayers.push(tileLayer);
         }
-        levels[i].collisions = collisionLayerData.intGridCsv;
-        levels[i].iid = levelData.iid;
-        levels[i].identifier = levelData.identifier;
-        levels[i].stairDestination = levelData.fieldInstances[0].__value;
-        levels[i].neighbours = levelData.__neighbours;
         /*if(levels[i].water.length < 2){
             throw "You have no water and no hot boyfriend";
         }*/
@@ -2800,57 +2813,6 @@ function drawCharacter(character, src, x, y, sizeMod){
     context.imageSmoothingEnabled = false;
 }
 
-// Requires the tileset "Grassy_Biome_Things" and draws a fruit tree given the data stored in the entity about it's fruit
-// Returns array of tiles to defer
-function drawFruitTree(tree,tilesetNum,x,y,camX,camY){
-    let bitrate = 32;
-    let deferredTiles = [];
-    if(tree.hasLeftFruit){
-        deferredTiles.push({
-            tilesetNum: tilesetNum,
-            tile: {
-                src: [bitrate*3,0],
-                px: [x,y]
-            }
-        });
-    } else {
-        deferredTiles.push({
-            tilesetNum: tilesetNum,
-            tile: {
-                src: [bitrate*1,0],
-                px: [x,y]
-            },
-            raw: false,
-        });
-    }
-    if(tree.hasRightFruit){
-        deferredTiles.push({
-            tilesetNum: tilesetNum,
-            tile: {
-                src: [bitrate*4,0],
-                px: [x+bitrate*scene.sizeMod,y]
-            },
-            raw: false,
-        });
-    } else {
-        deferredTiles.push({
-            tilesetNum: tilesetNum,
-            tile: {
-                src: [bitrate*2,0],
-                px: [x+bitrate*scene.sizeMod,y]
-            },
-            raw: false,
-        });
-    }
-    if(tree.hasBottomFruit){
-        drawTile(tilesetNum,[bitrate*3,bitrate],x,y+bitrate*scene.sizeMod);
-        drawTile(tilesetNum,[bitrate*4,bitrate],x+bitrate*scene.sizeMod,y+bitrate*scene.sizeMod);
-    } else {
-        drawTile(tilesetNum,[bitrate*1,bitrate],x,y+bitrate*scene.sizeMod);
-        drawTile(tilesetNum,[bitrate*2,bitrate],x+bitrate*scene.sizeMod,y+bitrate*scene.sizeMod);
-    }
-    return deferredTiles;
-}
 function removeFruit(tree){
     if(tree.hasBottomFruit){
         tree.hasBottomFruit = false;
@@ -2865,7 +2827,7 @@ function drawItemIcon(itemId,x,y){
     let info = itemInfo[itemId];
 
     if(info.imageLocationInfo[0] === "tile"){
-        drawTile(info.imageLocationInfo[1],info.imageLocationInfo[2],x,y);
+        drawTile(info.imageLocationInfo[1],info.imageLocationInfo[2],x,y,32,1.4);
     }
 }
 
@@ -2930,7 +2892,7 @@ function updateAdventure(timeStamp){
     // If a second went by, update everything that needs to be updated by the second
     if(scene.dialogue === null && scene.menuScene === null && scene.combat === null && (newTime > scene.currentGameClock || (scene.currentGameClock === 1439 && newTime !== 1439))){
         if(playerSceneData.timeUntilDysymbolia > 0){
-            //playerSceneData.timeUntilDysymbolia-=1;
+            playerSceneData.timeUntilDysymbolia-=1;
         }
 
         // Begin dysymbolia dialogue!
@@ -2990,13 +2952,20 @@ function updateAdventure(timeStamp){
     // Changes the area (level) in adventure mode
     // Takes the Iid of the area to be changed to because thats what the level neighbours are identified by
     // Or level name works too
-    function changeArea(iid,changePlayerLocation = false){
+    function changeArea(iid,stairs = null){
         let initializeArea = function(){
             let lev = levels[scene.levelNum];
             scene.roomEnemies = [];
-            if(changePlayerLocation){
-                scene.player.sceneData.location = [lev.defaultLocation[0],lev.defaultLocation[1]];
-                scene.player.sceneData.graphicLocation = [lev.defaultLocation[0],lev.defaultLocation[1]];
+            if(stairs){
+                for(let i=0;i<connections.length;i++){
+                    if(connections[i].connectionId === stairs.connectionId && connections[i].area === iid){
+                        let exitLocation = connections[i].exitLocation;
+                        scene.player.sceneData.location = [exitLocation[0]*scene.tileSize,exitLocation[1]*scene.tileSize];
+                        scene.player.sceneData.graphicLocation = [exitLocation[0]*scene.tileSize,exitLocation[1]*scene.tileSize];
+                        break;
+                    }
+                }
+
             }
             for(let i=0;i<levels[scene.levelNum].entities.length;i++){
                 if(lev.entities[i].type === "enemy"){
@@ -3628,12 +3597,13 @@ function updateAdventure(timeStamp){
             // Handle dialogue update on z press
             if(scene.dialogue !== null){
                 advanceDialogueState();
-            } else if(scene.combat !== null && scene.combat.currentEnemyAction === null && scene.combat.currentPlayerAction === null){
-                scene.combat.currentPlayerAction = {
+            } else if(scene.combat !== null && scene.combat.currentEnemyAction !== null || scene.combat.currentPlayerAction !== null){
+                // While an action is undergoing do not allow interaction
+                /*scene.combat.currentPlayerAction = {
                     actionInfo: "basic attack",
                     startTime: timeStamp,
                 };
-                scene.combat.playerActionEffectApplied = false;
+                scene.combat.playerActionEffectApplied = false;*/
             } else { // If no dialogue, check for object interaction via collision
                 let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],currentDirection);
                 if(collision !== null && typeof collision === "object"){
@@ -3660,7 +3630,7 @@ function updateAdventure(timeStamp){
                             scene.player.statisticData.totalSceneDysymboliaExperienced++;
                         }
                     }
-                    if(dialogueFileData.hasOwnProperty(entity.id.toLowerCase())){
+                    if (entity.type === "character"/*dialogueFileData.hasOwnProperty(entity.id.toLowerCase())*/){
                         if(currentDirection === "down"){
                             entity.src[1] = spritesheetOrientationPosition.up * 32;
                         } else if (currentDirection === "right"){
@@ -3671,6 +3641,13 @@ function updateAdventure(timeStamp){
                             entity.src[1] = spritesheetOrientationPosition.down * 32;
                         }
                         initializeDialogue(entity.id.toLowerCase(),"initial",timeStamp,collision.index);
+                    } else if (entity.type === "enemy") {
+                        scene.combat.currentPlayerAction = {
+                            actionInfo: "basic attack",
+                            startTime: timeStamp,
+                            enemyEntityIndex: collision.index,
+                        };
+                        scene.combat.playerActionEffectApplied = false;
                     }
                 } else if(collision === 1){
                     if(scene.player.statisticData.finishedWaterScene){
@@ -3708,8 +3685,8 @@ function updateAdventure(timeStamp){
                             changeArea(lev.stairDestination,true);
                         }
                     }
-                } else {
-
+                } else if(collision !== null){
+                    console.warn("unknown collision type");
                 }
             }
             zClicked = false;
@@ -3837,18 +3814,20 @@ function drawAdventure(timeStamp){
         } else {
             camY = cameraCenterLocation[1]-(h/2);
         }
+        scene.camX = camX;
+        scene.camY = camY;
 
         // Draw tile layers
 
         // Given absolute x and y of a tile, draw it relative to the camera, but only if it is visible
         const cameraTile = function(type, src, x, y){
             if(x-camX > -33 && x-camX < w && y-camY > -33 && y-camY < h){
-                drawTile(type, src, scene.worldX+x*scene.sizeMod-camX, scene.worldY+y*scene.sizeMod-camY,32,scene.sizeMod);
+                drawTile(type, src, scene.worldX+x*scene.sizeMod-camX*scene.sizeMod, scene.worldY+y*scene.sizeMod-camY*scene.sizeMod,32,scene.sizeMod);
             }
         }
         const cameraCharacter = function(character, src, x, y){
             if(x-camX > -33 && x-camX < w && y-camY > -33 && y-camY < h){
-                drawCharacter(character, src, scene.worldX+x*scene.sizeMod-camX, scene.worldY+y*scene.sizeMod-camY,scene.sizeMod);
+                drawCharacter(character, src, scene.worldX+x*scene.sizeMod-camX*scene.sizeMod, scene.worldY+y*scene.sizeMod-camY*scene.sizeMod,scene.sizeMod);
             }
         }
 
@@ -3861,29 +3840,18 @@ function drawAdventure(timeStamp){
                     if(tilesets.tilesetTileInfo[i].Front[t.t]){
                         deferredRawTiles.push({tilesetNum: i, tile: t});
                     } else {
-                        cameraTile(i, t.src, t.px[0], t.px[1]);
+                        cameraTile(i, t.src, t.px[0], t.px[1],camX,camY);
                     }
                 }
             } else if(layer.name === "Water_Tiles") {
                 for (let t of layer.tiles){
-                    cameraTile(i, [32*Math.floor( (timeStamp/400) % 4),0], t.px[0], t.px[1]);
+                    cameraTile(i, [32*Math.floor( (timeStamp/400) % 4),0], t.px[0], t.px[1],camX,camY);
                 }
             } else {
                 for (let t of layer.tiles){
-                    cameraTile(i, t.src, t.px[0], t.px[1]);
+                    cameraTile(i, t.src, t.px[0], t.px[1],camX,camY);
                 }
             }
-        }
-
-        context.font = '16px zenMaruRegular';
-        context.fillStyle = textColor;
-        context.textAlign = "left";
-        context.fillText("Press Z to interact/continue dialogue",scene.worldX+100, scene.worldY+40+h*scene.sizeMod);
-
-        if(note !== "無"){
-            context.fillStyle = "hsla(61, 100%, 80%, 1)";
-            context.font = '20px zenMaruRegular';
-            context.fillText(note,scene.worldX+300, scene.worldY+70+h*scene.sizeMod);
         }
 
         context.font = '20px zenMaruMedium';
@@ -3905,35 +3873,87 @@ function drawAdventure(timeStamp){
             }
         }
 
+        // Requires the tileset "Grassy_Biome_Things" and draws a fruit tree given the data stored in the entity about it's fruit
+        // Returns array of tiles to defer
+        function drawFruitTree(tree,tilesetNum,x,y){
+            let bitrate = 32;
+            let deferredTiles = [];
+            if(tree.hasLeftFruit){
+                deferredTiles.push({
+                    tilesetNum: tilesetNum,
+                    tile: {
+                        src: [bitrate*3,0],
+                        px: [x,y]
+                    }
+                });
+            } else {
+                deferredTiles.push({
+                    tilesetNum: tilesetNum,
+                    tile: {
+                        src: [bitrate*1,0],
+                        px: [x,y]
+                    },
+                    raw: false,
+                });
+            }
+            if(tree.hasRightFruit){
+                deferredTiles.push({
+                    tilesetNum: tilesetNum,
+                    tile: {
+                        src: [bitrate*4,0],
+                        px: [x+bitrate,y]
+                    },
+                    raw: false,
+                });
+            } else {
+                deferredTiles.push({
+                    tilesetNum: tilesetNum,
+                    tile: {
+                        src: [bitrate*2,0],
+                        px: [x+bitrate,y]
+                    },
+                    raw: false,
+                });
+            }
+            if(tree.hasBottomFruit){
+                cameraTile(tilesetNum,[bitrate*3,bitrate],x,y+bitrate,camX,camY);
+                cameraTile(tilesetNum,[bitrate*4,bitrate],x+bitrate,y+bitrate,camX,camY);
+            } else {
+                cameraTile(tilesetNum,[bitrate*1,bitrate],x,y+bitrate,camX,camY);
+                cameraTile(tilesetNum,[bitrate*2,bitrate],x+bitrate,y+bitrate,camX,camY);
+            }
+            return deferredTiles;
+        }
+
         if(scene.combat && scene.combat.currentPlayerAction){
 
         } else {
-            cameraCharacter("witch",playerSceneData.src,playerSceneData.graphicLocation[0],playerSceneData.graphicLocation[1]);
+            cameraCharacter("witch",playerSceneData.src,playerSceneData.graphicLocation[0],playerSceneData.graphicLocation[1],camX,camY);
         }
 
         for (let i in lev.entities){
             const e = lev.entities[i];
             if(e.type === "character"){
-                cameraCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0]*scene.sizeMod,e.graphicLocation[1]);
+                cameraCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0]*scene.sizeMod,e.graphicLocation[1],camX,camY);
             } else if(e.type === "location"){
                 // do nothing
             } else if(e.id === "Fruit_Tree"){
-                //deferredTiles.push(...drawFruitTree(e,0,e.graphicLocation[0]*scene.sizeMod+scene.worldX,e.graphicLocation[1]*scene.sizeMod+scene.worldY));
+                deferredTiles.push(...drawFruitTree(e,0,e.graphicLocation[0],e.graphicLocation[1]));
             } else if(e.type === "enemy"){
-                cameraCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0],e.graphicLocation[1],48);
+                cameraCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0],e.graphicLocation[1],48,camX,camY);
             }
         }
 
         if(scene.combat && scene.combat.currentPlayerAction){
-            cameraCharacter("witch",playerSceneData.src,playerSceneData.graphicLocation[0],playerSceneData.graphicLocation[1]);
+            cameraCharacter("witch",playerSceneData.src,playerSceneData.graphicLocation[0],playerSceneData.graphicLocation[1],camX,camY);
         }
 
         // Draw foreground elements
         for (const dt of deferredRawTiles){
-            cameraTile(dt.tilesetNum, dt.tile.src, dt.tile.px[0], dt.tile.px[1]);
+            cameraTile(dt.tilesetNum, dt.tile.src, dt.tile.px[0], dt.tile.px[1],camX,camY);
         }
         for (const dt of deferredTiles){
-            cameraTile(dt.tilesetNum, dt.tile.src, dt.tile.px[0], dt.tile.px[1]);
+            cameraTile(dt.tilesetNum, dt.tile.src, dt.tile.px[0], dt.tile.px[1],camX,camY);
         }
 
         // Apply time of day brightness effect
@@ -4010,7 +4030,7 @@ function drawAdventure(timeStamp){
                         for(let i=0;i<scene.dialogue.cinematic.trialedKanjiIndexes.length;i++){
                             tooltipTargets.push(adventureKanjiFileData[scene.dialogue.cinematic.trialedKanjiIndexes[i]].symbol);
                         }
-                        drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp,
+                        drawDialogueText((96+18)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp,
                             {
                                 width: dialogueFontSize, height: 20*scene.sizeMod,
                                 type: "kanji", indexes: scene.dialogue.cinematic.trialedKanjiIndexes,
@@ -4019,7 +4039,7 @@ function drawAdventure(timeStamp){
                         );
                         note = "Hover your mouse over the kanji to review.";
                     } else {
-                        drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp,
+                        drawDialogueText((96+18)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp,
                             {
                                 width: dialogueFontSize, height: 20*scene.sizeMod,
                                 type: "dictionary", indexes: [null],
@@ -4031,7 +4051,7 @@ function drawAdventure(timeStamp){
 
                     scene.dialogue.cinematic.tooltipsRegistered = true;
                 } else {
-                    drawDialogueText((96+lev.gridWidth)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp);
+                    drawDialogueText((96+18)*scene.sizeMod+scene.worldX, (scene.worldY+h*scene.sizeMod-72*scene.sizeMod),(w*scene.sizeMod-124*scene.sizeMod),20*scene.sizeMod,timeStamp);
                 }
             };
             const drawDialogueForNonPlayer = function(facesImage){
@@ -4040,11 +4060,11 @@ function drawAdventure(timeStamp){
                 context.drawImage(facesImage, (faceNum%4)*faceBitrate, Math.floor(faceNum/4)*faceBitrate, faceBitrate, faceBitrate, -1*(scene.worldX+w*scene.sizeMod), scene.worldY+h*scene.sizeMod-96*scene.sizeMod, 96*scene.sizeMod, 96*scene.sizeMod);
                 context.restore();
                 applyBlur();
-                drawDialogueText((8+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-144*scene.sizeMod,20*scene.sizeMod,timeStamp);
+                drawDialogueText((8+18)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-144*scene.sizeMod,20*scene.sizeMod,timeStamp);
             };
             const drawDialogueForNobody = function(){
                 applyBlur();
-                drawDialogueText((8+lev.gridWidth)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-40*scene.sizeMod,20*scene.sizeMod,timeStamp);
+                drawDialogueText((8+18)*scene.sizeMod+scene.worldX,scene.worldY+h*scene.sizeMod-72*scene.sizeMod,w*scene.sizeMod-40*scene.sizeMod,20*scene.sizeMod,timeStamp);
             };
             context.imageSmoothingEnabled = true;
             if(faceCharacter==="Gladius"){
@@ -4188,6 +4208,25 @@ function drawAdventure(timeStamp){
                     context.fillRect(scene.worldX+scene.sizeMod*160, scene.worldY+scene.sizeMod*30, 2, h*scene.sizeMod*0.25 - scene.sizeMod*40);
                 }
             }
+        }
+
+        // Cover up the sides of the world
+        context.beginPath();
+        context.strokeStyle = bgColor;
+        let lineWidth = 500;
+        context.lineWidth = lineWidth;
+        context.rect(scene.worldX-lineWidth/2, scene.worldY-lineWidth/2, w*scene.sizeMod+lineWidth, h*scene.sizeMod+lineWidth);
+        context.stroke();
+
+        context.font = '16px zenMaruRegular';
+        context.fillStyle = textColor;
+        context.textAlign = "left";
+        context.fillText("Press Z to interact/continue dialogue",scene.worldX+100, scene.worldY+40+h*scene.sizeMod);
+
+        if(note !== "無"){
+            context.fillStyle = "hsla(61, 100%, 80%, 1)";
+            context.font = '20px zenMaruRegular';
+            context.fillText(note,scene.worldX+300, scene.worldY+70+h*scene.sizeMod);
         }
     }; // Draw world screen function ends here
 
@@ -4853,7 +4892,7 @@ sceneDefinitions.push({
     name: "adventure",
     update: updateAdventure,
     draw: drawAdventure,
-    buttons: [loveButton,backToHomeButton],
+    buttons: [loveButton],
 });
 
 /********************************* Card creation scene *************************************/
