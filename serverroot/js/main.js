@@ -279,7 +279,7 @@ function processLevelData(data) {
         }
     }
 
-    for (let i in levelsData){
+    for (let i=0;i<levelsData.length;i++){
         levels[i] = {
             gridWidth: -1,
             gridHeight: -1,
@@ -298,11 +298,24 @@ function processLevelData(data) {
         levels[i].collisions = collisionLayerData.intGridCsv;
         levels[i].iid = levelData.iid;
         levels[i].identifier = levelData.identifier;
-        levels[i].stairDestination = levelData.fieldInstances[0].__value;
         levels[i].neighbours = levelData.__neighbours;
 
         levels[i].gridWidth = collisionLayerData.__cWid;
         levels[i].gridHeight = collisionLayerData.__cHei;
+
+        for(let j=0;j<numTileLayers;j++){
+            let tileLayerData = levelData.layerInstances[j+1];
+            let tileLayer = {
+                name: tileLayerData.__identifier,
+                uid: tileLayerData.__tilesetDefUid,
+                tiles: [],
+            }
+            for (const t of tileLayerData.gridTiles){
+                tileLayer.tiles.push({src: t.src, px: t.px, t: t.t});
+            }
+            levels[i].tileLayers.push(tileLayer);
+        }
+
         for (let j in entityLayerData.entityInstances){
             const e = entityLayerData.entityInstances[j];
             let entityData = {id: e.__identifier, location: e.px, graphicLocation: [e.px[0], e.px[1]], src: [32,0], type: e.__tags[0],width: e.width,height: e.height,bitrate:32};
@@ -311,15 +324,16 @@ function processLevelData(data) {
             }*/
             for (let k in e.fieldInstances){
                 const field = e.fieldInstances[k];
-                if(field.__identifier === "FacingDirection"){
-                    if(field.__value === "Down"){
-                        entityData.src = [32,0];
-                    } else if(field.__value === "Left"){
-                        entityData.src = [32,32];
-                    } else if(field.__value === "Right"){
-                        entityData.src = [32,64];
-                    } else if(field.__value === "Up"){
-                        entityData.src = [32,96];
+                if(field.__identifier === "facingDirection"){
+                    entityData.src = [32,32*spritesheetOrientationPosition[field.__value]]
+                } else if(field.__identifier === "tile"){
+                    entityData.src = [field.__value.x,field.__value.y];
+                    for(let l=0;l<numTileLayers;l++){
+                        // Find the tileset index for the tile
+                        if(levels[i].tileLayers[l].uid === field.__value.tilesetUid){
+                            entityData.tilesetIndex = l;
+                            break;
+                        }
                     }
                 } else {
                     entityData[field.__identifier] = field.__value;
@@ -334,22 +348,11 @@ function processLevelData(data) {
                     {
                         connectionId: e.connectionId,
                         exitLocation: e.exitLocation,
+                        exitDirection: e.exitDirection,
                         area: levelData.iid,
                     }
                 );
             }
-        }
-
-        for(let j=0;j<numTileLayers;j++){
-            let tileLayerData = levelData.layerInstances[j+1];
-            let tileLayer = {
-                name: tileLayerData.__identifier,
-                tiles: [],
-            }
-            for (const t of tileLayerData.gridTiles){
-                tileLayer.tiles.push({src: t.src, px: t.px, t: t.t});
-            }
-            levels[i].tileLayers.push(tileLayer);
         }
         /*if(levels[i].water.length < 2){
             throw "You have no water and no hot boyfriend";
@@ -583,10 +586,10 @@ const ANDRO = 2;
 
 // Constants to indicate position of orientation on spritesheets
 var spritesheetOrientationPosition = {};
-Object.defineProperty( spritesheetOrientationPosition, "down", {value: 0});
-Object.defineProperty( spritesheetOrientationPosition, "left", {value: 1});
-Object.defineProperty( spritesheetOrientationPosition, "right", {value: 2});
-Object.defineProperty( spritesheetOrientationPosition, "up", {value: 3});
+Object.defineProperty( spritesheetOrientationPosition, "Down", {value: 0});
+Object.defineProperty( spritesheetOrientationPosition, "Left", {value: 1});
+Object.defineProperty( spritesheetOrientationPosition, "Right", {value: 2});
+Object.defineProperty( spritesheetOrientationPosition, "Up", {value: 3});
 
 
 // Simple function that returns true when all images are indicated complete, false otherwise
@@ -859,8 +862,11 @@ let downPressed=false,upPressed=false,leftPressed=false,rightPressed=false;
 // variables set to be true by input event listeners and set back to false after being handled by scene update
 let downClicked=false,upClicked=false,zClicked=false,xClicked=false,doubleClicked=false;
 
-// for player movement
-let currentDirection = null;
+// for player movement. handled by the input layer
+let currentDirection = "Down";
+
+// Changed by the scene when the direction is not to change regardless of input
+let currentDirectionFrozen = false;
 
 // Global state for tracking mouse. Global state = good
 let mouseDown=false, mouseX=0, mouseY=0;
@@ -871,10 +877,10 @@ let mouseDownX=-1, mouseDownY=-1;
 
 window.addEventListener('keydown',function(e) {
     switch (e.key) {
-       case 'ArrowLeft': leftPressed=true; currentDirection="left"; break;
-       case 'ArrowUp': upPressed=true; upClicked=true; currentDirection="up"; break;
-       case 'ArrowRight': rightPressed=true; currentDirection="right"; break;
-       case 'ArrowDown': downPressed=true; downClicked=true; currentDirection="down"; break;
+       case 'ArrowLeft': leftPressed=true; if(!currentDirectionFrozen) currentDirection="Left"; break;
+       case 'ArrowUp': upPressed=true; upClicked=true; if(!currentDirectionFrozen) currentDirection="Up"; break;
+       case 'ArrowRight': rightPressed=true; if(!currentDirectionFrozen) currentDirection="Right"; break;
+       case 'ArrowDown': downPressed=true; downClicked=true; if(!currentDirectionFrozen) currentDirection="Down"; break;
        case 'Enter': scene.finishedInputting=true; break;
        case 'X': xClicked=true;
        case 'x': xClicked=true;
@@ -894,28 +900,18 @@ window.addEventListener('keydown',function(e) {
 },false);
 
 function reassignCurrentDirection(){
-    upPressed ? currentDirection="up" :
-    rightPressed ? currentDirection="right" :
-    leftPressed ? currentDirection="left" :
-    downPressed ? currentDirection="down" : null;
-    /* Does the exact same thing as the above code but readable, the below code is probably preferred but i wanted to try something different
-    if(upPressed){
-        currentDirection="up";
-    } else if(rightPressed) {
-        currentDirection="right";
-    } else if(leftPressed) {
-        currentDirection="left";
-    } else if(downPressed) {
-        currentDirection="down";
-    }*/
+    upPressed ? currentDirection="Up" :
+    rightPressed ? currentDirection="Right" :
+    leftPressed ? currentDirection="Left" :
+    downPressed ? currentDirection="Down" : null;
 }
 
 window.addEventListener('keyup',function(e) {
     switch (e.key) {
-       case 'ArrowLeft': leftPressed=false; if (currentDirection==="left") reassignCurrentDirection(); break;
-       case 'ArrowUp': upPressed=false; if (currentDirection==="up") reassignCurrentDirection(); break;
-       case 'ArrowRight': rightPressed=false; if (currentDirection==="right") reassignCurrentDirection(); break;
-       case 'ArrowDown': downPressed=false; if (currentDirection==="down") reassignCurrentDirection(); break;
+       case 'ArrowLeft': leftPressed=false; if (!currentDirectionFrozen && currentDirection==="Left") reassignCurrentDirection(); break;
+       case 'ArrowUp': upPressed=false; if (!currentDirectionFrozen && currentDirection==="Up") reassignCurrentDirection(); break;
+       case 'ArrowRight': rightPressed=false; if (!currentDirectionFrozen && currentDirection==="Right") reassignCurrentDirection(); break;
+       case 'ArrowDown': downPressed=false; if (!currentDirectionFrozen && currentDirection==="Down") reassignCurrentDirection(); break;
        case '=': isLoggingFrame=true; break;
        case '~': showDevInfo=!showDevInfo; break;
 
@@ -1648,7 +1644,6 @@ function initializeScene(sceneName){
             currentLine (number of the current index for faces and lines to be displayed)
             faces (array)
             lines (array)
-            playerDirection (string) for maintaining currentDirection regardless of fiding with controls
             cinematic (object) when any kind of special scene is playing during a dialogue. when not null the dialogue will not be continued with the z button
         */
         scene.dialogue = null;
@@ -2646,13 +2641,18 @@ function initializeDialogue(category, scenario, timeStamp, entityIndex = null){
         currentLine: 0,
         textLines: dialogueFileData[category][scenario].textLines,
         lineInfo: dialogueFileData[category][scenario].lineInfo,
-        playerDirection: currentDirection,
         cinematic: null,
         entityIndex: entityIndex,
         category: category,
         scenario: scenario,
     };
     scene.gameClockOfLastPause = scene.currentGameClock;
+    currentDirectionFrozen = true;
+}
+function endDialogue(timeStamp){
+    currentDirectionFrozen = false;
+    scene.dialogue = null;
+    scene.timeOfLastUnpause = timeStamp;
 }
 
 // Draws text one word at a time to be able to finely control what is written, designed to be a version of wrapText with much more features,
@@ -2840,13 +2840,13 @@ function drawItemIcon(itemId,x,y){
 function isCollidingOnTile(x, y, checkAdjacent = false){
     let lev = levels[scene.levelNum];
     if(checkAdjacent){
-        if(checkAdjacent === "down"){
+        if(checkAdjacent === "Down"){
             y+=32;
-        } else if(checkAdjacent === "left"){
+        } else if(checkAdjacent === "Left"){
             x-=32;
-        } else if(checkAdjacent === "right"){
+        } else if(checkAdjacent === "Right"){
             x+=32;
-        } else if(checkAdjacent === "up"){
+        } else if(checkAdjacent === "Up"){
             y-=32;
         }
     }
@@ -2867,7 +2867,7 @@ function isCollidingOnTile(x, y, checkAdjacent = false){
             if (lev.entities[i].location[0]<=x && lev.entities[i].location[1]<=y &&
                 lev.entities[i].location[0]+lev.entities[i].width>x && lev.entities[i].location[1]+lev.entities[i].height>y){
 
-                // Fruit tree only counts if you collide with the bottom
+                // Fruit tree only counts if you collide with the bottom half
                 if(lev.entities[i].id === "Fruit_Tree"){
                     if (lev.entities[i].location[0]<=x && lev.entities[i].location[1]+32<=y &&
                         lev.entities[i].location[0]+lev.entities[i].width>x && lev.entities[i].location[1]+lev.entities[i].height>y){
@@ -2952,20 +2952,21 @@ function updateAdventure(timeStamp){
     // Changes the area (level) in adventure mode
     // Takes the Iid of the area to be changed to because thats what the level neighbours are identified by
     // Or level name works too
-    function changeArea(iid,stairs = null){
+    function changeArea(iid,connectionId = null){
         let initializeArea = function(){
             let lev = levels[scene.levelNum];
             scene.roomEnemies = [];
-            if(stairs){
+            if(connectionId){
+                // Changes the player's location to the exit location of the connected location
                 for(let i=0;i<connections.length;i++){
-                    if(connections[i].connectionId === stairs.connectionId && connections[i].area === iid){
+                    if(connections[i].connectionId === connectionId && connections[i].area === iid){
                         let exitLocation = connections[i].exitLocation;
                         scene.player.sceneData.location = [exitLocation[0]*scene.tileSize,exitLocation[1]*scene.tileSize];
                         scene.player.sceneData.graphicLocation = [exitLocation[0]*scene.tileSize,exitLocation[1]*scene.tileSize];
+                        scene.player.sceneData.src = [32,spritesheetOrientationPosition[connections[i].exitDirection]*32];
                         break;
                     }
                 }
-
             }
             for(let i=0;i<levels[scene.levelNum].entities.length;i++){
                 if(lev.entities[i].type === "enemy"){
@@ -3123,7 +3124,7 @@ function updateAdventure(timeStamp){
                             if(scene.player.statisticData.totalPowerGained <= 5){
                                 initializeDialogue("scenes","post dysymbolia "+scene.player.statisticData.totalPowerGained,timeStamp);
                             } else {
-                                scene.dialogue = null;
+                                endDialogue(timeStamp);
                             }
                         } else if(scene.dialogue.category === "abilityAcquisition"){
                             scene.dialogue.cinematic = null;
@@ -3147,7 +3148,7 @@ function updateAdventure(timeStamp){
 
                             return;
                         } else {
-                            scene.dialogue = null;
+                            endDialogue(timeStamp);
                         }
                     } else {
                         // Do a special trial
@@ -3202,9 +3203,7 @@ function updateAdventure(timeStamp){
 
         let applyConditionalEffect = function(eff,lineInfo){
             if(eff === "end"){
-                currentDirection = scene.dialogue.playerDirection;
-                scene.dialogue = null;
-                scene.timeOfLastUnpause = timeStamp;
+                endDialogue(timeStamp);
             } else if (eff === "continue"){
                 // do nothing lol
             } else if (eff === "altText"){
@@ -3231,18 +3230,14 @@ function updateAdventure(timeStamp){
 
             if(scene.dialogue.textLines.length <= scene.dialogue.currentLine+1){
                 // Finish dialogue if no more line
-                currentDirection = scene.dialogue.playerDirection;
-                scene.dialogue = null;
-                scene.timeOfLastUnpause = timeStamp;
+                endDialogue(timeStamp);
             } else {
                 // Otherwise advance line
                 scene.dialogue.lineStartTime = timeStamp;
 
                 if(scene.dialogue.lineInfo[scene.dialogue.currentLine].takeEnemyTurn !== undefined){
                     takeEnemyActions();
-                    currentDirection = scene.dialogue.playerDirection;
-                    scene.dialogue = null;
-                    scene.timeOfLastUnpause = timeStamp;
+                    endDialogue(timeStamp);
                     return;
                 }
 
@@ -3259,7 +3254,7 @@ function updateAdventure(timeStamp){
                     removeFruit(lev.entities[scene.dialogue.entityIndex]);
                 }
                 if(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange !== undefined){
-                    changeArea(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange,true);
+                    changeArea(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange,scene.dialogue.lineInfo[scene.dialogue.currentLine].connectionId);
                 }
                 let lineInfo = scene.dialogue.lineInfo[scene.dialogue.currentLine];
 
@@ -3343,13 +3338,13 @@ function updateAdventure(timeStamp){
                 user.src = [32,spritesheetOrientationPosition[animationInfo.direction]*32];
             }
 
-            if(animationInfo.direction === "up"){
+            if(animationInfo.direction === "Up"){
                 user.graphicLocation = [user.location[0],user.location[1]+scene.tileSize*(1-animationCompletion)];
-            } else if(animationInfo.direction === "left"){
+            } else if(animationInfo.direction === "Left"){
                 user.graphicLocation = [user.location[0]+scene.tileSize*(1-animationCompletion),user.location[1]];
-            } else if(animationInfo.direction === "right"){
+            } else if(animationInfo.direction === "Right"){
                 user.graphicLocation = [user.location[0]-scene.tileSize*(1-animationCompletion),user.location[1]];
-            } else if(animationInfo.direction === "down"){
+            } else if(animationInfo.direction === "Down"){
                 user.graphicLocation = [user.location[0],user.location[1]-scene.tileSize*(1-animationCompletion)];
             }
         }
@@ -3485,19 +3480,12 @@ function updateAdventure(timeStamp){
             }
             // If there isnt a cinematic theres nothing to handle about the dialogue in update phase
         } else {
-            // If not in dialogue, handle movement
+            // If not in an animation, handle movement
             if(playerSceneData.animation===null){
-                if(currentDirection === "down"){
-                    playerSceneData.src = [32,0];
-                } else if (currentDirection === "left") {
-                    playerSceneData.src = [32,32];
-                } else if(currentDirection === "right"){
-                    playerSceneData.src = [32,32*2];
-                } else if(currentDirection === "up"){
-                    playerSceneData.src = [32,32*3];
-                }
-                if(currentDirection === "down" && downPressed){
-                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"down");
+                playerSceneData.src = [32,spritesheetOrientationPosition[currentDirection]*32];
+
+                if(currentDirection === "Down" && downPressed){
+                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"Down");
                     if(collision===null){
                         playerSceneData.location[1]+=32;
                         initializeAnimation("basic movement",playerSceneData,currentDirection);
@@ -3507,11 +3495,12 @@ function updateAdventure(timeStamp){
                             if(n.dir === "s"){
                                 changeArea(n.levelIid);
                                 playerSceneData.location[1]=-32;
+                                break;
                             }
                         }
                     }
-                } else if(currentDirection === "left" && leftPressed){
-                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"left");
+                } else if(currentDirection === "Left" && leftPressed){
+                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"Left");
                     if(collision===null){
                         playerSceneData.location[0]-=32;
                         initializeAnimation("basic movement",playerSceneData,currentDirection);
@@ -3521,11 +3510,12 @@ function updateAdventure(timeStamp){
                             if(n.dir === "w"){
                                 changeArea(n.levelIid);
                                 playerSceneData.location[0]=18*32;
+                                break;
                             }
                         }
                     }
-                } else if(currentDirection === "right" && rightPressed){
-                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"right");
+                } else if(currentDirection === "Right" && rightPressed){
+                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"Right");
                     if(collision===null){
                         playerSceneData.location[0]+=32;
                         initializeAnimation("basic movement",playerSceneData,currentDirection);
@@ -3535,11 +3525,12 @@ function updateAdventure(timeStamp){
                             if(n.dir === "e"){
                                 changeArea(n.levelIid);
                                 playerSceneData.location[0]=-32;
+                                break;
                             }
                         }
                     }
-                } else if(currentDirection === "up" && upPressed){
-                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"up");
+                } else if(currentDirection === "Up" && upPressed){
+                    let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],"Up");
                     if(collision===null){
                         playerSceneData.location[1]-=32;
                         initializeAnimation("basic movement",playerSceneData,currentDirection);
@@ -3549,6 +3540,7 @@ function updateAdventure(timeStamp){
                             if(n.dir === "n"){
                                 changeArea(n.levelIid);
                                 playerSceneData.location[1]=18*32;
+                                break;
                             }
                         }
                     }
@@ -3597,7 +3589,7 @@ function updateAdventure(timeStamp){
             // Handle dialogue update on z press
             if(scene.dialogue !== null){
                 advanceDialogueState();
-            } else if(scene.combat !== null && scene.combat.currentEnemyAction !== null || scene.combat.currentPlayerAction !== null){
+            } else if(scene.combat !== null && (scene.combat.currentEnemyAction !== null || scene.combat.currentPlayerAction !== null)){
                 // While an action is undergoing do not allow interaction
                 /*scene.combat.currentPlayerAction = {
                     actionInfo: "basic attack",
@@ -3607,19 +3599,6 @@ function updateAdventure(timeStamp){
             } else { // If no dialogue, check for object interaction via collision
                 let collision = isCollidingOnTile(playerSceneData.location[0],playerSceneData.location[1],currentDirection);
                 if(collision !== null && typeof collision === "object"){
-                    /*note = `Talking with ${collision.id}!`;
-                    if(currentDirection === "down"){
-                        collision.src[1] = spritesheetOrientationPosition.up * 32;
-                    } else if (currentDirection === "right"){
-                        collision.src[1] = spritesheetOrientationPosition.left * 32;
-                    } else if (currentDirection === "left"){
-                        collision.src[1] = spritesheetOrientationPosition.right * 32;
-                    } else {
-                        collision.src[1] = spritesheetOrientationPosition.down * 32;
-                    }
-                    if(collision.type==="character"){
-                        initializeDialogue(collision.id.toLowerCase(),"initial",timeStamp);
-                    }*/
                     let entity = lev.entities[collision.index];
                     if(entity.id === "Fruit_Tree" && (entity.hasBottomFruit || entity.hasLeftFruit || entity.hasRightFruit)){
                         if(scene.player.statisticData.finishedFruitScene){
@@ -3629,19 +3608,26 @@ function updateAdventure(timeStamp){
                             scene.player.statisticData.finishedFruitScene = true;
                             scene.player.statisticData.totalSceneDysymboliaExperienced++;
                         }
-                    }
-                    if (entity.type === "character"/*dialogueFileData.hasOwnProperty(entity.id.toLowerCase())*/){
-                        if(currentDirection === "down"){
-                            entity.src[1] = spritesheetOrientationPosition.up * 32;
-                        } else if (currentDirection === "right"){
-                            entity.src[1] = spritesheetOrientationPosition.left * 32;
-                        } else if (currentDirection === "left"){
-                            entity.src[1] = spritesheetOrientationPosition.right * 32;
+                    } else if (entity.id === "Stairs") {
+                        if(entity.connectionId === "first" && !scene.player.statisticData.finishedDungeonScene){
+                            initializeDialogue("scenes","tutorial dungeon scene",timeStamp);
                         } else {
-                            entity.src[1] = spritesheetOrientationPosition.down * 32;
+                            if(!scene.combat || !scene.combat.currentEnemyAction){
+                                changeArea(entity.areaDestination,entity.connectionId);
+                            }
+                        }
+                    } else if(entity.type === "character"){
+                        if(currentDirection === "Down"){
+                            entity.src[1] = spritesheetOrientationPosition.Up * 32;
+                        } else if (currentDirection === "Right"){
+                            entity.src[1] = spritesheetOrientationPosition.Left * 32;
+                        } else if (currentDirection === "Left"){
+                            entity.src[1] = spritesheetOrientationPosition.Right * 32;
+                        } else {
+                            entity.src[1] = spritesheetOrientationPosition.Down * 32;
                         }
                         initializeDialogue(entity.id.toLowerCase(),"initial",timeStamp,collision.index);
-                    } else if (entity.type === "enemy") {
+                    } else if(entity.type === "enemy") {
                         scene.combat.currentPlayerAction = {
                             actionInfo: "basic attack",
                             startTime: timeStamp,
@@ -3657,14 +3643,6 @@ function updateAdventure(timeStamp){
                         scene.player.statisticData.finishedWaterScene = true;
                         scene.player.statisticData.totalSceneDysymboliaExperienced++;
                     }
-                } else if(collision === 3){
-                    if(scene.player.statisticData.finishedFruitScene){
-                        initializeDialogue("world","fruit_tree",timeStamp);
-                    } else {
-                        initializeDialogue("scenes","tutorial fruit scene",timeStamp);
-                        scene.player.statisticData.finishedFruitScene = true;
-                        scene.player.statisticData.totalSceneDysymboliaExperienced++;
-                    }
                 } else if(collision === 7){
                     if(scene.player.statisticData.finishedCloudScene){
                         initializeDialogue("world","clouds",timeStamp);
@@ -3675,16 +3653,6 @@ function updateAdventure(timeStamp){
                     }
                 } else if(collision === 8){
                     initializeDialogue("world","sunflower",timeStamp);
-                } else if(collision === 9){
-                    console.log(lev.stairDestination);
-                    //changeArea(lev.stairDestination,true);
-                    if(lev.stairDestination === "Floating_Island_Dungeon_0" && !scene.player.statisticData.finishedDungeonScene){
-                        initializeDialogue("scenes","tutorial dungeon scene",timeStamp)
-                    } else {
-                        if(!scene.combat || !scene.combat.currentEnemyAction){
-                            changeArea(lev.stairDestination,true);
-                        }
-                    }
                 } else if(collision !== null){
                     console.warn("unknown collision type");
                 }
@@ -3937,6 +3905,8 @@ function drawAdventure(timeStamp){
                 cameraCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0]*scene.sizeMod,e.graphicLocation[1],camX,camY);
             } else if(e.type === "location"){
                 // do nothing
+            } else if(e.id === "Stairs"){
+                cameraTile(e.tilesetIndex, e.src, e.location[0], e.location[1],camX,camY);
             } else if(e.id === "Fruit_Tree"){
                 deferredTiles.push(...drawFruitTree(e,0,e.graphicLocation[0],e.graphicLocation[1]));
             } else if(e.type === "enemy"){

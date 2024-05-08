@@ -11,7 +11,7 @@
 	"iid": "cb2aa240-1460-11ee-ba8d-351ab09cf8e1",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 98,
+	"nextUid": 101,
 	"identifierStyle": "Capitalize",
 	"toc": [],
 	"worldLayout": "Free",
@@ -490,10 +490,8 @@
 			"intGridValues": [
 				{ "value": 1, "identifier": "water", "color": "#000000", "tile": null, "groupUid": 0 },
 				{ "value": 2, "identifier": "hill", "color": "#BE4A2F", "tile": null, "groupUid": 0 },
-				{ "value": 4, "identifier": "tree", "color": "#EAD4AA", "tile": null, "groupUid": 0 },
 				{ "value": 7, "identifier": "cloud", "color": "#3E2731", "tile": null, "groupUid": 0 },
 				{ "value": 8, "identifier": "sunflower", "color": "#E4A672", "tile": null, "groupUid": 0 },
-				{ "value": 9, "identifier": "stairs", "color": "#733E39", "tile": null, "groupUid": 0 },
 				{ "value": 10, "identifier": "wall", "color": "#FEAE34", "tile": null, "groupUid": 0 },
 				{ "value": 11, "identifier": "bridge", "color": "#FEE761", "tile": null, "groupUid": 0 }
 			],
@@ -796,7 +794,7 @@
 			"pivotY": 0,
 			"fieldDefs": [
 				{
-					"identifier": "FacingDirection",
+					"identifier": "facingDirection",
 					"doc": null,
 					"__type": "LocalEnum.FacingDirection",
 					"uid": 91,
@@ -986,16 +984,53 @@
 					"tilesetUid": null
 				},
 				{
-					"identifier": "exitLocation",
+					"identifier": "connectionId",
 					"doc": null,
-					"__type": "Point",
-					"uid": 97,
-					"type": "F_Point",
+					"__type": "String",
+					"uid": 99,
+					"type": "F_String",
 					"isArray": false,
 					"canBeNull": true,
 					"arrayMinLength": null,
 					"arrayMaxLength": null,
-					"editorDisplayMode": "PointPath",
+					"editorDisplayMode": "Hidden",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "StraightArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorShowInWorld": true,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "OnlySame",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				},
+				{
+					"identifier": "exitDirection",
+					"doc": null,
+					"__type": "LocalEnum.FacingDirection",
+					"uid": 100,
+					"type": "F_Enum(90)",
+					"isArray": false,
+					"canBeNull": false,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "Hidden",
 					"editorDisplayScale": 1,
 					"editorDisplayPos": "Above",
 					"editorLinkStyle": "StraightArrow",
@@ -1619,7 +1654,14 @@
 									"id": "V_String",
 									"params": ["Floating_Island_Dungeon_0"]
 								}] },
-								{ "__identifier": "exitLocation", "__type": "Point", "__value": null, "__tile": null, "defUid": 97, "realEditorValues": [null] }
+								{ "__identifier": "connectionId", "__type": "String", "__value": "first", "__tile": null, "defUid": 99, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["first"]
+								}] },
+								{ "__identifier": "exitDirection", "__type": "LocalEnum.FacingDirection", "__value": "Left", "__tile": null, "defUid": 100, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Left"]
+								}] }
 							],
 							"__worldX": 1376,
 							"__worldY": 864
@@ -5363,20 +5405,20 @@
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,7,7,7,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,7,7,7,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						0,0,0,0,0,0,0,0,0,0,0,7,7,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,7,7,
+						0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,7,7,7,7,7,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,
+						1,1,1,1,1,0,0,0,0,0,0,0,0,0,7,7,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,7,7,
 						7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,
-						0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,7,7,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,
 						0,7,7,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,7,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,7,7,7,7,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
 						0,0,0,0,0,7,7,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-						1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,7,7,0,0,0,0,0,0,
+						1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,7,7,7,7,7,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,7,7,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,7,7,0,0,0,
@@ -5391,7 +5433,7 @@
 						0,0,0,0,0,0,2,0,0,0,0,0,0,0,2,0,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,2,2,0,
 						2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,9,0,0,0,
+						0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,7,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,
 						0,0,0,0,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,7,7,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,0,0,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,
@@ -5517,7 +5559,7 @@
 							"defUid": 79,
 							"px": [256,288],
 							"fieldInstances": [
-								{ "__identifier": "FacingDirection", "__type": "LocalEnum.FacingDirection", "__value": "Up", "__tile": null, "defUid": 91, "realEditorValues": [{
+								{ "__identifier": "facingDirection", "__type": "LocalEnum.FacingDirection", "__value": "Up", "__tile": null, "defUid": 91, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Up"]
 								}] },
@@ -5525,6 +5567,39 @@
 							],
 							"__worldX": 2112,
 							"__worldY": 288
+						},
+						{
+							"__identifier": "Stairs",
+							"__grid": [8,7],
+							"__pivot": [0,0],
+							"__tags": ["environment_object"],
+							"__tile": { "tilesetUid": 55, "x": 96, "y": 128, "w": 32, "h": 32 },
+							"__smartColor": "#733E39",
+							"iid": "5a7d8c10-fec0-11ee-af04-6feec9d0831e",
+							"width": 32,
+							"height": 32,
+							"defUid": 93,
+							"px": [256,224],
+							"fieldInstances": [
+								{ "__identifier": "tile", "__type": "Tile", "__value": { "tilesetUid": 55, "x": 96, "y": 128, "w": 32, "h": 32 }, "__tile": { "tilesetUid": 55, "x": 96, "y": 128, "w": 32, "h": 32 }, "defUid": 96, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["96,128,32,32"]
+								}] },
+								{ "__identifier": "areaDestination", "__type": "String", "__value": "Floating_Island_0", "__tile": null, "defUid": 95, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Floating_Island_0"]
+								}] },
+								{ "__identifier": "connectionId", "__type": "String", "__value": "first", "__tile": null, "defUid": 99, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["first"]
+								}] },
+								{ "__identifier": "exitDirection", "__type": "LocalEnum.FacingDirection", "__value": "Down", "__tile": null, "defUid": 100, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Down"]
+								}] }
+							],
+							"__worldX": 2112,
+							"__worldY": 224
 						}
 					]
 				},
@@ -5575,7 +5650,7 @@
 					"autoLayerTiles": [],
 					"seed": 8613651,
 					"overrideTilesetUid": null,
-					"gridTiles": [{ "px": [256,224], "src": [96,128], "f": 0, "t": 83, "d": [134], "a": 1 }],
+					"gridTiles": [],
 					"entityInstances": []
 				},
 				{
@@ -5883,7 +5958,7 @@
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,10,10,10,10,10,10,10,0,0,0,0,0,0,0,0,0,0,0,10,10,10,10,10,10,10,10,10,10,10,0,0,0,0,
-						0,0,0,10,10,0,0,0,10,10,10,10,10,10,0,0,0,0,0,0,0,10,10,0,0,0,10,10,10,9,10,10,0,0,0,
+						0,0,0,10,10,0,0,0,10,10,10,10,10,10,0,0,0,0,0,0,0,10,10,0,0,0,10,10,10,0,10,10,0,0,0,
 						0,0,0,0,10,10,0,0,0,10,10,10,0,10,10,0,0,0,0,0,0,0,10,10,0,0,0,10,10,10,0,10,10,0,0,
 						0,0,0,0,0,10,10,0,0,0,0,0,0,0,10,10,0,0,0,0,0,0,0,10,10,10,10,10,10,10,10,10,10,10,0,
 						0,0,0,0,0,0,10,10,10,10,10,10,10,10,10,10,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

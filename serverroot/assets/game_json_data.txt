@@ -116,6 +116,7 @@
                         "face": "player",
                         "faceNum": 9,
                         "areaChange": "Floating_Island_Dungeon_0",
+                        "connectionId": "first",
                         "takeEnemyTurn": 1
                     },
                     {}
