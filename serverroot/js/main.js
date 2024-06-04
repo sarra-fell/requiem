@@ -339,20 +339,20 @@ function processLevelData(data) {
                     entityData[field.__identifier] = field.__value;
                 }
             }
-            levels[i].entities.push(entityData);
             if(e.__identifier === "Witch"){
                 levels[i].defaultLocation = e.px;
             }
             if(e.__identifier === "Stairs"){
                 connections.push(
                     {
-                        connectionId: e.connectionId,
-                        exitLocation: e.exitLocation,
-                        exitDirection: e.exitDirection,
+                        connectionId: entityData.connectionId,
+                        exitLocation: e.px,
+                        exitDirection: entityData.exitDirection,
                         area: levelData.iid,
                     }
                 );
             }
+            levels[i].entities.push(entityData);
         }
         /*if(levels[i].water.length < 2){
             throw "You have no water and no hot boyfriend";
@@ -531,22 +531,36 @@ sensouCardClient.onload = handleSensouCardData;
 sensouCardClient.open("GET", "assets/xavier game/card_data.txt");
 sensouCardClient.send();
 
-// Now the item information that we hardcode because why not
+// Now the item information that we hardcode for now, will be moved to the file soon tm ---- TODO
 // Has information for all the items in the game
 // Not to be modified
 let itemInfo = [
     {
         name: "Love Fruit",
-        desc: "A mysterious fruit shaped like a heart. Like everything else on this floating island, it looks too good to be true. Heals $healAmount$ HP when consumed, and like any other food, cures hunger. (Double click to use items!).",
+        desc: "A mysterious fruit shaped like a heart. Like everything else on this floating island, it looks too good to be true. Heals $healAmount$ HP when consumed and fills you up somewhat. (Double click to use items!).",
         type: "Consumable",
         color: "red",
         subtypes: ["food"],
         stack: true,
-        imageLocationInfo: ["tile",0,[32,64]],
+        imageInfo: ["tile",0,[32,64],1.6],
+        effectList: ["heal","satiate"],
+        effects: {
+            healAmount: 15,
+            satiation: "normal",
+        }
+    },
+    {
+        name: "Love Berries",
+        desc: "Some berries you found on the floating island. They don't look like much but they are the best berries you have ever tasted. Heals $healAmount$ HP when consumed and fills you up a little.",
+        type: "Consumable",
+        color: "red",
+        subtypes: ["food"],
+        stack: true,
+        imageInfo: ["tile",0,[128,96],0.9],
         effectList: ["heal","satiate"],
         effects: {
             healAmount: 10,
-            satiation: "normal",
+            satiation: "small",
         }
     }
 ]
@@ -1112,7 +1126,7 @@ const wrapText = function(ctx, text, y, maxWidth, lineHeight, japanese = false) 
 // Draws the current tooltip
 function drawTooltip() {
     let draw = function(titleColor,titleText,bodyText,jp = false,titleShadow=0,shadowColor = "hsl(0, 15%, 0%, 70%)"){
-        let wrappedText = wrapText(context, bodyText, mouseY+74, 360, 16, jp);
+        let wrappedText = wrapText(context, bodyText, mouseY+74, 350, 16, jp);
 
         const boxX = mouseX+12;
         const boxY = mouseY+12;
@@ -1141,7 +1155,6 @@ function drawTooltip() {
         context.shadowBlur = titleShadow;
         context.fillText(titleText, boxX+offsetX+125, boxY+offsetY+32);
         context.restore();
-        //context.font = '20px Arial';
         context.font = '13px Arial';
         context.textAlign = 'start';
         context.fillStyle = 'black';
@@ -1556,10 +1569,10 @@ function initializeScene(sceneName){
             inventoryData: {
                 maxInventorySpace: 20,
                 currencyOne: 0, currencyTwo: 0,
-                inventory: [0,"none","none","none","none", // First 5 items are the hotbar
-                            "none",0,"none","none","none",
-                            "none","none",0,"none","none",
-                            0,"none","none","none",0
+                inventory: ["none","none","none","none","none", // First 5 items are the hotbar
+                            "none","none","none","none","none",
+                            "none","none","none","none","none",
+                            "none","none","none","none","none"
                 ],
             },
             abilityData: {
@@ -1649,6 +1662,8 @@ function initializeScene(sceneName){
         scene.dialogue = null;
         scene.combat = null;
         scene.roomEnemies = [];
+
+        scene.ingameLog = [];
 
         // Game time is paused during dialogue, dysymbolia, and when menu is opened.
         // THis allows time to be updated appropriately when we have the timestamp and ingame time of the last pause
@@ -2375,6 +2390,19 @@ function updatePlayerAbilityList(){
     playerAbilityData.list = newAbilityList;
 }
 
+// take Up, Down, Left, or Right, and return a new direction
+function moveInDirection(location,degree,direction){
+    if(direction === "Down"){
+        return [location[0],location[1]+degree];
+    } else if (direction === "Up"){
+        return [location[0],location[1]-degree];
+    } else if (direction === "Right"){
+        return [location[0]+degree,location[1]];
+    } else if (direction === "Left"){
+        return [location[0]-degree,location[1]];
+    }
+}
+
 // Update tooltips that need to be updated upon certain menu state changes
 function initializeMenuTab(){
     for(let i = scene.tooltipBoxes.length-1;i>=0;i--){
@@ -2394,7 +2422,61 @@ function initializeMenuTab(){
         }
     }
 
-    if(scene.menuScene === "Kanji List"){
+    if(scene.menuScene === "Inventory"){
+        updateInventory();
+
+        scene.handleDraggingObject = function(action){
+            if(action==="mousedown"){
+                for(let i=0;i<Math.ceil(scene.player.inventoryData.inventory.length/5);i++){
+                    for(let j=0;j<5;j++){
+                        let box = {
+                            x: scene.worldY+285+105+67*j,
+                            y: scene.worldY+160 + 67*i,
+                            width: 60,
+                            height: 60
+                        };
+                        if (mouseX >= box.x && mouseX <= box.x + box.width && mouseY >= box.y && mouseY <= box.y + box.height) {
+                            if(scene.player.inventoryData.inventory[j + i*5] !== "none"){
+                                scene.draggingObject = [box.x,box.y,mouseX,mouseY,scene.player.inventoryData.inventory[j + i*5],j + i*5];
+                                scene.player.inventoryData.inventory[j + i*5] = "none";
+                            }
+                            break;
+                        }
+                    }
+                }
+
+            } else if(action==="mousemove"){
+                //scene.draggingObject[2] = mouseX;
+                //scene.draggingObject[3] = mouseY;
+            } else if(action==="mouseup"){
+                let boxFound = false;
+                for(let i=0;i<Math.ceil(scene.player.inventoryData.inventory.length/5);i++){
+                    for(let j=0;j<5;j++){
+                        let box = {
+                            x: scene.worldY+285+105+67*j,
+                            y: scene.worldY+160 + 67*i,
+                            width: 60,
+                            height: 60
+                        };
+                        if (mouseX >= box.x && mouseX <= box.x + box.width && mouseY >= box.y && mouseY <= box.y + box.height) {
+                            boxFound = true;
+                            scene.player.inventoryData.inventory[scene.draggingObject[5]] = scene.player.inventoryData.inventory[j + i*5];
+                            scene.player.inventoryData.inventory[j + i*5] = scene.draggingObject[4];
+                            break;
+                        }
+                    }
+                }
+                if(!boxFound){
+                    scene.player.inventoryData.inventory[scene.draggingObject[5]] = scene.draggingObject[4];
+                }
+                scene.draggingObject = null;
+            }
+        }
+
+        if(scene.draggingObject === undefined){
+            scene.draggingObject = null
+        }
+    } else if(scene.menuScene === "Kanji List"){
         let rowAmount = 12;
         for(let i=0;i<Math.ceil(adventureKanjiFileData.length/rowAmount);i++){
             for(let j=0; j<Math.min(rowAmount,adventureKanjiFileData.length-i*rowAmount);j++){
@@ -2572,6 +2654,7 @@ function initializeMenuTab(){
                 scene.draggingObject = null;
             }
         }
+
         if(scene.draggingObject === undefined){
             scene.draggingObject = null
         }
@@ -2826,8 +2909,8 @@ function removeFruit(tree){
 function drawItemIcon(itemId,x,y){
     let info = itemInfo[itemId];
 
-    if(info.imageLocationInfo[0] === "tile"){
-        drawTile(info.imageLocationInfo[1],info.imageLocationInfo[2],x,y,32,1.4);
+    if(info.imageInfo[0] === "tile"){
+        drawTile(info.imageInfo[1],info.imageInfo[2],x-(info.imageInfo[3]-1)*16 + info.imageInfo[3]*2 + 4,y-(info.imageInfo[3]-1)*16 + info.imageInfo[3]*2 + 4,32,info.imageInfo[3]);
     }
 }
 
@@ -2881,6 +2964,17 @@ function isCollidingOnTile(x, y, checkAdjacent = false){
         }
     }
     return null;
+}
+
+function addIngameLogLine(lineText,h,s,l,durationMultiplier,timeStamp){
+    scene.ingameLog.push(
+        {
+            text: lineText,
+            h: h, s: s, l: l,
+            durationMultiplier: 2,
+            timeAdded: timeStamp,
+        }
+    );
 }
 
 function updateAdventure(timeStamp){
@@ -2959,10 +3053,10 @@ function updateAdventure(timeStamp){
             if(connectionId){
                 // Changes the player's location to the exit location of the connected location
                 for(let i=0;i<connections.length;i++){
-                    if(connections[i].connectionId === connectionId && connections[i].area === iid){
-                        let exitLocation = connections[i].exitLocation;
-                        scene.player.sceneData.location = [exitLocation[0]*scene.tileSize,exitLocation[1]*scene.tileSize];
-                        scene.player.sceneData.graphicLocation = [exitLocation[0]*scene.tileSize,exitLocation[1]*scene.tileSize];
+                    if(connections[i].connectionId === connectionId && connections[i].area === lev.iid){
+                        let exitLocation = moveInDirection(connections[i].exitLocation,scene.tileSize,connections[i].exitDirection);
+                        scene.player.sceneData.location = [exitLocation[0],exitLocation[1]];
+                        scene.player.sceneData.graphicLocation = [exitLocation[0],exitLocation[1]];
                         scene.player.sceneData.src = [32,spritesheetOrientationPosition[connections[i].exitDirection]*32];
                         break;
                     }
@@ -3248,10 +3342,12 @@ function updateAdventure(timeStamp){
                 // Apply effects that are on the new line
                 if(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem !== undefined){
                     updateInventory(scene.dialogue.lineInfo[scene.dialogue.currentLine].addItem);
+                    addIngameLogLine("Mari added an item to her inventory!",104,100,42,2,timeStamp);
                 }
                 if(scene.dialogue.lineInfo[scene.dialogue.currentLine].takeFruit !== undefined){
                     updateInventory(0);
                     removeFruit(lev.entities[scene.dialogue.entityIndex]);
+                    addIngameLogLine("Mari took a fruit from the tree.",104,100,42,2,timeStamp);
                 }
                 if(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange !== undefined){
                     changeArea(scene.dialogue.lineInfo[scene.dialogue.currentLine].areaChange,scene.dialogue.lineInfo[scene.dialogue.currentLine].connectionId);
@@ -3892,6 +3988,15 @@ function drawAdventure(timeStamp){
             }
             return deferredTiles;
         }
+        // Requires the tileset "Grassy_Biome_Things" and draws a berry bush given the data stored in the entity about it's berries
+        function drawBerryBush(bush,tilesetNum,x,y){
+            let bitrate = 32;
+            if(bush.hasBerries){
+                cameraTile(tilesetNum,[0,bitrate*3],x,y,camX,camY);
+            } else {
+                cameraTile(tilesetNum,[bitrate,bitrate*3],x,y,camX,camY);
+            }
+        }
 
         if(scene.combat && scene.combat.currentPlayerAction){
 
@@ -3909,6 +4014,8 @@ function drawAdventure(timeStamp){
                 cameraTile(e.tilesetIndex, e.src, e.location[0], e.location[1],camX,camY);
             } else if(e.id === "Fruit_Tree"){
                 deferredTiles.push(...drawFruitTree(e,0,e.graphicLocation[0],e.graphicLocation[1]));
+            } else if(e.id === "Berry_Bush"){
+                drawBerryBush(e,0,e.graphicLocation[0],e.graphicLocation[1]);
             } else if(e.type === "enemy"){
                 cameraCharacter(e.id.toLowerCase(),e.src,e.graphicLocation[0],e.graphicLocation[1],48,camX,camY);
             }
@@ -3973,7 +4080,7 @@ function drawAdventure(timeStamp){
             const faceNum = scene.dialogue.lineInfo[scene.dialogue.currentLine].faceNum;
 
             context.fillStyle = textColor;
-            let dialogueFontSize = Math.floor(16*scene.sizeMod)
+            let dialogueFontSize = Math.floor(16*scene.sizeMod);
             context.font = `${dialogueFontSize}px zenMaruRegular`;
 
             if(scene.dialogue.cinematic !== null){
@@ -4245,6 +4352,16 @@ function drawAdventure(timeStamp){
                         context.restore();
                     }
                 }
+            }
+
+            if(scene.draggingObject){
+                let offsetX = mouseX - scene.draggingObject[2], offsetY = mouseY - scene.draggingObject[3];
+
+                context.save();
+                context.translate(scene.draggingObject[0]+offsetX,scene.draggingObject[1]+offsetY);
+                context.scale(1.4,1.4);
+                drawItemIcon(scene.draggingObject[4],-1,-1);
+                context.restore();
             }
         } // Draw inventory screen function ends here
 
@@ -4679,8 +4796,36 @@ function drawAdventure(timeStamp){
         context.restore();
     }
 
+    // Draw the log
+    for(let i=scene.ingameLog.length-1;i>=0;i--){
+        let logItem = scene.ingameLog[i];
+        let timeElapsed = timeStamp - logItem.timeAdded;
+        let alpha = Math.min(200 - timeElapsed*logItem.durationMultiplier/30,100);
+        if(alpha>0){
+            context.save();
+            //context.fillStyle = `hsla(${logItem.h}, ${logItem.s}%, ${logItem.l}%, ${alpha}%)`;
+            context.fillStyle = `hsla(0, 0%, 100%, ${alpha}%)`;
+            context.textAlign = 'center';
+
+            context.shadowColor = "hsla(0, 30%, 0%, 25%)";
+            context.shadowBlur = 6;
+
+            let fontSize = Math.floor(18*scene.sizeMod);
+            context.font = `${fontSize}px zenMaruRegular`;
+
+            context.fillText(logItem.text,scene.worldX+w*scene.sizeMod/2,scene.worldY+h*scene.sizeMod-120*scene.sizeMod-19*i);
+
+            context.restore();
+        } else {
+            break;
+        }
+        if(i>4){
+            break;
+        }
+    }
+
+    // Draw the right part of the screen
     if(isToDrawStatusBar){
-        // Draw the right part of the screen
         context.fillStyle = 'hsl(0, 0%, 10%, 55%)';
         context.save();
         context.shadowColor = "hsl(0, 30%, 0%)";
